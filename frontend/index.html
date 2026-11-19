@@ -30,18 +30,8 @@
 
     <main class="main-content">
       <div class="toolbar" role="toolbar" aria-label="Viewer controls">
-        <div class="toolbar-group scene-group">
-          <label class="toolbar-label" for="sample-select">SCENE</label>
-          <select id="sample-select" aria-label="Sample geometry">
-            <option value="" disabled>NX Part Loaded</option>
-            <option value="assembly">Mechanical Assembly</option>
-            <option value="box">Precision Block</option>
-            <option value="sphere">Sphere</option>
-            <option value="cylinder">Cylinder</option>
-          </select>
-        </div>
         <div class="toolbar-group">
-          <button type="button" id="open-nx-button" class="tool-button open-nx-button" title="Open a Siemens NX .prt file on this computer">OPEN NX .PRT</button>
+          <button type="button" id="open-nx-button" class="tool-button open-nx-button" title="Open a Siemens NX file (.prt) on this computer">OPEN NX FILES</button>
         </div>
         <div class="toolbar-divider" aria-hidden="true"></div>
         <div class="toolbar-group view-group" aria-label="Camera views">
@@ -61,7 +51,7 @@
         </div>
       </div>
 
-      <section class="workspace" aria-label="3D viewing area">
+      <section class="workspace" aria-label="3D viewing area" id="viewer-workspace">
         <canvas id="viewer-canvas" aria-label="Interactive 3D model viewer" tabindex="0"></canvas>
         <div class="workspace-glow" aria-hidden="true"></div>
         <div class="workspace-topline" aria-hidden="true">
@@ -72,13 +62,13 @@
             <span class="panel-eyebrow">CURRENT SCENE</span>
             <span class="panel-icon" aria-hidden="true">◈</span>
           </div>
-          <h2 id="scene-title">Mechanical Assembly</h2>
-          <p id="scene-description">A geometric sample for exploring the viewer controls.</p>
+          <h2 id="scene-title">No model loaded</h2>
+          <p id="scene-description">Open an NX file to visualize its geometry.</p>
           <div class="panel-divider"></div>
           <div class="scene-stat-row"><span>Objects</span><strong id="scene-objects">—</strong></div>
           <div class="scene-stat-row"><span>Triangles</span><strong id="scene-triangles">—</strong></div>
           <div class="scene-stat-row"><span>Rendering</span><strong id="scene-render-mode">Solid</strong></div>
-          <div class="panel-footnote" id="scene-source">Sample geometry · No CAD file loaded</div>
+          <div class="panel-footnote" id="scene-source">No NX file selected</div>
         </aside>
         <div class="viewport-compass" aria-hidden="true">
           <div class="compass-y">Y</div>
@@ -86,7 +76,20 @@
           <div class="compass-z">Z</div>
           <div class="compass-cross"></div>
         </div>
-        <div class="import-progress" id="import-progress" role="status" aria-live="polite" hidden>Opening Siemens NX part and preparing geometry…</div>
+        <div class="empty-state" id="empty-state">
+          <div class="empty-state-mark">NX</div>
+          <h2>Ready to view</h2>
+          <p>Select <strong>OPEN NX FILES</strong> to display a Siemens NX part.</p>
+        </div>
+        <div class="loading-overlay" id="loading-overlay" role="status" aria-live="polite" aria-atomic="true" hidden>
+          <div class="loading-panel">
+            <div class="loading-emblem" aria-hidden="true"><span class="loading-spinner"></span><span>NX</span></div>
+            <h2 id="loading-title">Opening NX file</h2>
+            <p id="loading-detail">Select a part file on the server computer.</p>
+            <div class="loading-track" aria-hidden="true"><span class="loading-track-fill"></span></div>
+            <span class="loading-footnote">Preparing 3D visualization</span>
+          </div>
+        </div>
         <div class="import-message" id="import-message" role="alert" hidden></div>
         <div class="viewer-error" id="viewer-error" role="alert" hidden>
           <h2>3D rendering unavailable</h2>

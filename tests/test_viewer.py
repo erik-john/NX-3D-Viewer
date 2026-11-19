@@ -27,7 +27,7 @@ class ViewerTests(unittest.TestCase):
         self.assertNotIn('cdn.jsdelivr', html + renderer)
         self.assertNotIn('http://', html + renderer)
         self.assertNotIn('https://', html + renderer)
-        for element in ['viewer-canvas', 'sample-select', 'fit-button', 'grid-button',
+        for element in ['viewer-canvas', 'empty-state', 'loading-overlay', 'loading-title', 'loading-detail', 'fit-button', 'grid-button',
                         'axes-button', 'wire-button', 'scene-title', 'viewer-error', 'open-nx-button']:
             with self.subTest(element=element):
                 self.assertIn(f'id="{element}"', html)
@@ -42,7 +42,7 @@ class ViewerTests(unittest.TestCase):
                 ('/css/style.css', b'.workspace'),
                 ('/js/app.js', b'updateConnectionStatus'),
                 ('/js/viewer.js', b'export class Viewer'),
-                ('/js/geometry.js', b'export function createSample'),
+                ('/js/geometry.js', b'export function boundsFor'),
             ]:
                 with self.subTest(url=url), urlopen(f'http://127.0.0.1:{httpd.server_port}{url}', timeout=4) as response:
                     self.assertEqual(200, response.status)
@@ -65,6 +65,24 @@ class ViewerTests(unittest.TestCase):
         self.assertNotIn('development branch', readme)
         self.assertNotIn('v7.', (FRONT / 'index.html').read_text(encoding='utf-8').lower())
         self.assertNotIn('milestone 2', (FRONT / 'index.html').read_text(encoding='utf-8').lower())
+
+    def test_no_sample_ui_and_loading_contract(self):
+        html = (FRONT / 'index.html').read_text(encoding='utf-8')
+        app = (FRONT / 'js/app.js').read_text(encoding='utf-8')
+        styles = (FRONT / 'css/style.css').read_text(encoding='utf-8')
+        geometry = (FRONT / 'js/geometry.js').read_text(encoding='utf-8')
+        self.assertIn('OPEN NX FILES', html)
+        self.assertNotIn('OPEN NX .PRT', html)
+        self.assertNotIn('sample-select', html + app + styles)
+        self.assertNotIn('createSample', app + geometry)
+        self.assertNotIn('Mechanical Assembly', html)
+        self.assertIn('viewer.setScene([])', app)
+        self.assertIn('clearScene();', app)
+        self.assertIn('showLoading(', app)
+        self.assertIn('finishLoading();', app)
+        self.assertIn('.loading-overlay[hidden]', styles)
+        self.assertIn('No model loaded', html)
+        self.assertNotIn('sample', (ROOT / 'README.md').read_text(encoding='utf-8').lower())
 
 
 if __name__ == '__main__':

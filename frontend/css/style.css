@@ -48,10 +48,6 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .toolbar-group { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .toolbar-label { font-size: 9px; font-weight: 750; color: #6d829b; letter-spacing: .14em; margin-right: 6px; }
 .toolbar-divider { width: 1px; height: 25px; background: #314056; flex: none; margin: 0 2px; }
-#sample-select {
-  height: 35px; min-width: 175px; padding: 0 36px 0 12px; border: 1px solid #34475c;
-  border-radius: 7px; color: #dbe8f5; background: #1a293a; outline-offset: 2px;
-}
 .tool-button {
   height: 34px; min-width: 47px; border-radius: 6px; border: 1px solid #2b3a4c;
   background: #152334; color: #9db1c7; padding: 0 10px; font-size: 10px;
@@ -146,10 +142,52 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .open-nx-button { min-width: 123px; border-color: #367e74; background: #174e48; color: #a4f6e9; }
 .open-nx-button:hover { border-color: #62d6bf; background: #1c675c; color: #fff; }
 .open-nx-button:disabled { opacity: 0.55; cursor: progress; }
-.import-progress, .import-message {
+/* File-opening feedback */
+.empty-state, .loading-overlay {
+  position: absolute; inset: 0; display: grid; place-content: center;
+  text-align: center; pointer-events: none;
+}
+.empty-state { z-index: 3; padding: 25px; }
+.empty-state[hidden], .loading-overlay[hidden] { display: none; }
+.empty-state-mark {
+  width: 74px; height: 74px; margin: 0 auto 22px; display: grid; place-items: center;
+  color: #77cbbd; font-size: 24px; letter-spacing: -.08em; font-weight: 800;
+  border-radius: 22px; border: 1px solid #37625e; background: #162f36c4;
+  box-shadow: 0 0 45px #1d79683b;
+}
+.empty-state h2 { margin: 0 0 9px; color: #b5d6dd; font-size: 21px; font-weight: 700; }
+.empty-state p { margin: 0; color: #879db2; font-size: 12px; line-height: 1.6; }
+.empty-state strong { color: #a2ebd8; }
+.loading-overlay {
+  z-index: 8; padding: 25px;
+  background: linear-gradient(150deg, #091421f2, #10283beb 55%, #091622f5);
+  backdrop-filter: blur(12px);
+}
+.loading-panel {
+  width: min(400px, calc(100vw - 60px)); padding: 34px 32px 30px;
+  border-radius: 18px; border: 1px solid #36615f;
+  background: #142937; box-shadow: 0 26px 80px #000a, inset 0 1px #ffffff11;
+}
+.loading-emblem { width: 76px; height: 76px; margin: 0 auto 24px; position: relative;
+  display: grid; place-items: center; color: #b4f8e9; font-size: 22px; font-weight: 800; }
+.loading-spinner { position: absolute; inset: 0; border: 3px solid #386059;
+  border-top-color: #70f0d3; border-right-color: #70f0d38c;
+  border-radius: 50%; animation: loading-turn 1s linear infinite; }
+.loading-panel h2 { font-size: 20px; font-weight: 720; margin: 0 0 10px; color: #e5f4f1; }
+.loading-panel p { font-size: 12px; color: #9db9c8; margin: 0 0 24px;
+  line-height: 1.6; overflow-wrap: anywhere; }
+.loading-track { height: 5px; border-radius: 99px; background: #2a4a52; overflow: hidden; }
+.loading-track-fill { display: block; height: 100%; width: 35%; border-radius: inherit;
+  background: linear-gradient(90deg, #399e97, #79f5d1); animation: loading-slide 1.55s ease-in-out infinite; }
+.loading-footnote { display: block; margin-top: 16px; color: #6d9fa4; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+@keyframes loading-turn { to { transform: rotate(360deg); } }
+@keyframes loading-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner, .loading-track-fill { animation: none; }
+}
+.import-message {
   position: absolute; z-index: 7; top: 68px; left: 50%; transform: translateX(-50%);
   max-width: min(580px, 92%); border-radius: 9px; padding: 13px 18px;
   font-size: 12px; line-height: 1.5; box-shadow: 0 10px 36px #0008;
+  border: 1px solid #a75c59; background: #46202a; color: #ffe2df;
 }
-.import-progress { border: 1px solid #39786e; background: #16392f; color: #d3f5e8; }
-.import-message { border: 1px solid #a75c59; background: #46202a; color: #ffe2df; }
