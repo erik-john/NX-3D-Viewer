@@ -1,0 +1,58 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-synthesis: none;
+  background: #0b1220;
+  color: #e8edf7;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+.app-shell { display: flex; flex-direction: column; min-height: 100vh; }
+.app-header {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 28px;
+  border-bottom: 1px solid #253248;
+  background: #111c2d;
+}
+.app-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: 1px solid #4c749d;
+  border-radius: 11px;
+  color: #d9ecff;
+  background: #234263;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+.app-title { flex: 1; min-width: 0; }
+.app-title h1 { margin: 0; font-size: 17px; font-weight: 700; }
+.app-title p { margin: 5px 0 0; color: #9eafc6; font-size: 12px; }
+.connection { display: flex; align-items: center; gap: 8px; color: #9eafc6; font-size: 12px; }
+.connection-dot { width: 8px; height: 8px; background: #dcb56a; border-radius: 50%; }
+.connection-dot.online { background: #65d0a2; }
+.connection-dot.offline { background: #f28585; }
+.workspace {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at 50% 38%, #1a2940 0, #0b1220 63%);
+}
+.workspace-content { text-align: center; max-width: 440px; }
+.workspace-icon { font-size: 50px; line-height: 1; color: #7ea5ca; }
+.workspace-content h2 { font-size: 23px; font-weight: 650; margin: 14px 0 8px; }
+.workspace-content p { margin: 0; color: #98a9bf; font-size: 14px; line-height: 1.6; }
+@media (max-width: 540px) {
+  .app-header { padding: 12px 16px; }
+  .app-mark { width: 36px; height: 36px; }
+  .app-title h1 { font-size: 15px; }
+  .connection { font-size: 11px; }
+}
