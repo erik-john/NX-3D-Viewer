@@ -21,32 +21,11 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 
 Actual `.prt` conversion requires NX Open and its `run_journal.exe` program. An NX installation may also need the proper assembly component files and licensing available on the same computer.
 
-## Project structure
+## Viewer screenshot
 
-```text
-NX-3D-Viewer/
-├── backend/
-│   ├── server.py
-│   └── nx_service.py
-├── frontend/
-│   ├── index.html
-│   ├── assets/
-│   │   └── nx-cube-logo.png
-│   ├── css/
-│   │   └── style.css
-│   └── js/
-│       ├── app.js
-│       ├── geometry.js
-│       ├── item_tree.js
-│       ├── stl.js
-│       └── viewer.js
-├── nx/
-│   └── export_stl.py
-├── Run.bat
-├── .gitignore
-├── README.md
-└── VERSION.txt
-```
+![NX 3D Viewer workspace with Item Structure, NX toolbar and reference grid](screenshot.png)
+
+*Illustrative preview of the empty viewer workspace with the reference grid enabled.*
 
 ## Start
 
