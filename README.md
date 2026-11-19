@@ -98,3 +98,9 @@ All dimensions and mesh statistics describe the tessellated visualization; they 
 The NX-to-browser workflow displays **tessellated surfaces**, not editable CAD solids or exact NX B-rep geometry. Both standalone parts and assembly occurrences are considered by the exporter, but a model that contains missing or unloaded component geometry will report an error rather than silently show incorrectly positioned components. The item hierarchy comes from NX Open; it is not inferred from a combined STL. Per-body visibility requires separate body exports. Model-tree selection does not yet highlight faces in the viewport.
 
 The browser currently accepts up to **1,000,000 STL triangles** or **256 MB** of STL data. The **OPEN NX FILES** command currently accepts `.prt` files only. Siemens NX `.jt` and `.chr` files are not supported.
+
+## Troubleshooting
+
+For older NX parts that trigger an Iray+ rendering conversion notice, the viewer launches NX with `NX_RTS_IRAY=0` unless overridden by your environment. You can also open the part in NX and select **Don't display this message again**. The viewer never saves or changes the original part.
+
+If conversion fails, the error reports an NX exit code or journal stage and the path to a diagnostic log in `%TEMP%\NX_3D_Viewer\logs`. Check that NX is correctly installed and licensed and that all required part components are available.

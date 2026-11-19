@@ -187,5 +187,37 @@ class JournalTests(unittest.TestCase):
             self.assertTrue(Path(dest).is_file())
 
 
+    def test_journal_progress_for_legacy_part(self):
+        body = Body(42)
+        part = types.SimpleNamespace(Bodies=[body], Name='Legacy Part', ComponentAssembly=None)
+        class Creator:
+            def __init__(self):
+                self.ExportSelectionBlock = types.SimpleNamespace(Add=lambda body: None)
+            def Commit(self):
+                Path(self.OutputFile).write_bytes(b'X' * 134)
+            def Destroy(self):
+                pass
+        session = types.SimpleNamespace(
+            Parts=types.SimpleNamespace(OpenBaseDisplay=lambda _: part),
+            DexManager=types.SimpleNamespace(CreateStlCreator=Creator),
+        )
+        fake_nx = types.SimpleNamespace(
+            Session=types.SimpleNamespace(GetSession=lambda: session),
+            STLCreator=types.SimpleNamespace(OutputTypeEnum=types.SimpleNamespace(Binary='binary')),
+        )
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(sys.modules, {'NXOpen': fake_nx}):
+            directory = Path(tmp)
+            output = directory / 'model.stl'
+            manifest = directory / 'model.json'
+            progress = directory / 'model.stage.log'
+            journal.export('legacy.prt', str(output), str(manifest), str(progress))
+            stages = progress.read_text()
+            self.assertIn('opening NX part', stages)
+            self.assertIn('exporting combined STL geometry', stages)
+            self.assertIn('completed NX export', stages)
+            self.assertTrue(output.exists())
+
+
+
 if __name__ == '__main__':
     unittest.main()
