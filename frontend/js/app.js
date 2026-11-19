@@ -1,4 +1,3 @@
-import { createSample } from './geometry.js';
 import { Viewer } from './viewer.js';
 import { parseSTL } from './stl.js';
 
@@ -30,7 +29,6 @@ function setup() {
     $('status-message').textContent = 'Unable to start 3D renderer';
     return;
   }
-  const sampleSelect = $('sample-select');
   let selectedView = 'iso';
 
   function setCameraView(view) {
@@ -53,12 +51,27 @@ function setup() {
     setCameraView('iso');
   }
 
-  function loadSample(key) {
-    if (!key) return;
-    const sample = createSample(key);
-    updateScene(sample.title, sample.description, sample.meshes, 'Sample geometry · No CAD file loaded');
-    $('import-message').hidden = true;
-    $('status-message').textContent = `${sample.title} ready · Drag to rotate · Scroll to zoom`;
+  function clearScene() {
+    viewer.setScene([]);
+    $('scene-title').textContent = 'No model loaded';
+    $('scene-description').textContent = 'Open an NX file to visualize its geometry.';
+    $('scene-objects').textContent = '0';
+    $('scene-triangles').textContent = '0';
+    $('scene-source').textContent = 'No NX file selected';
+    setCameraView('iso');
+    $('empty-state').hidden = false;
+  }
+
+  function showLoading(title, detail) {
+    $('loading-title').textContent = title;
+    $('loading-detail').textContent = detail;
+    $('loading-overlay').hidden = false;
+    $('viewer-workspace').setAttribute('aria-busy', 'true');
+  }
+
+  function finishLoading() {
+    $('loading-overlay').hidden = true;
+    $('viewer-workspace').removeAttribute('aria-busy');
   }
 
   async function openNXPart() {
@@ -66,30 +79,36 @@ function setup() {
     if (button.disabled) return;
     button.disabled = true;
     $('import-message').hidden = true;
-    $('import-progress').hidden = false;
+    clearScene();
+    $('empty-state').hidden = true;
+    showLoading('Opening NX file', 'Select a part file on the server computer; NX will prepare the geometry.');
     $('status-message').textContent = 'Choose an NX part file on this computer…';
     try {
       const result = await fetch('/api/open', { method: 'POST', cache: 'no-store' });
       const info = await result.json();
       if (info.cancelled) {
-        $('status-message').textContent = 'NX file selection cancelled';
+        $('empty-state').hidden = false;
+        $('status-message').textContent = 'NX file selection cancelled · No model loaded';
         return;
       }
       if (!result.ok || !info.ok) throw new Error(info.error || 'NX could not open this file.');
+      showLoading('Retrieving 3D geometry', `Downloading the converted geometry for ${info.name}…`);
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
       const data = await fetch(info.modelUrl, { cache: 'no-store' });
       if (!data.ok) throw new Error('NX geometry download failed.');
+      showLoading('Loading 3D model', `Building the viewer geometry for ${info.name}…`);
       const meshes = parseSTL(await data.arrayBuffer());
       updateScene(info.name, 'NX part geometry displayed as tessellated surfaces.', meshes,
         'NX geometry · STL visualization');
-      sampleSelect.value = '';
+      $('empty-state').hidden = true;
       $('status-message').textContent = `${info.name} loaded · Drag to rotate · Scroll to zoom`;
     } catch (error) {
+      clearScene();
       $('import-message').textContent = error.message;
       $('import-message').hidden = false;
       $('status-message').textContent = 'Unable to open NX part';
     } finally {
-      $('import-progress').hidden = true;
+      finishLoading();
       button.disabled = false;
       updateConnectionStatus();
     }
@@ -104,7 +123,6 @@ function setup() {
     viewer.requestRender();
   }
 
-  sampleSelect.addEventListener('change', () => loadSample(sampleSelect.value));
   $('open-nx-button').addEventListener('click', openNXPart);
   for (const button of document.querySelectorAll('[data-view]')) {
     button.addEventListener('click', () => setCameraView(button.dataset.view));
@@ -123,7 +141,8 @@ function setup() {
     else if (event.key.toLowerCase() === 'g') toggle('grid-button', 'showGrid');
     else if (event.key.toLowerCase() === 'w') toggle('wire-button', 'wireframe');
   });
-  loadSample(sampleSelect.value);
+  clearScene();
+  $('status-message').textContent = 'Ready · Open an NX file to begin';
   window.__nxViewerReady = true;
 }
 

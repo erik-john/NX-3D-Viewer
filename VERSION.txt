@@ -1,6 +1,6 @@
 NX 3D Viewer
 
-Milestone: 3 — Siemens NX File Loading & Visualization
+Milestone: 4 — NX File Loading UI & Progress Screen
 Status: Implementation delivered; NX 1855 workstation verification required
 Port: 8888 (fixed)
 Launcher: Run.bat
@@ -10,18 +10,21 @@ Production changes:
 - backend/server.py: /api/open and registered /api/models/*.stl endpoints, fixed-port local server
 - nx/export_stl.py: NX Open part/assembly occurrence body collection and STL export
 - frontend/js/stl.js: binary and ASCII STL parsing with bounded mesh chunking and NX-to-viewer coordinate conversion
-- frontend/js/app.js: opening workflow, status and error feedback, sample-scene fallback
-- frontend/index.html: OPEN NX .PRT button and import status elements
-- frontend/css/style.css: import button and status styles
-- README.md: public operating instructions and scope
+- frontend/js/app.js: empty startup scene, clear on new load, splash lifecycle, status and error feedback
+- frontend/index.html: OPEN NX FILES button, no sample menu, empty state and splash overlay
+- frontend/css/style.css: import button, empty-state UI, centered animated loading overlay
+- frontend/js/geometry.js: retain boundsFor only; remove sample generation code
+- README.md: operating instructions and supported file types
 
 Known boundaries:
 - NX 1855 could not be executed in this build environment; real journal behavior and assembly export must be verified on the licensed Windows NX machine.
 - Exporter fails on unresolved/unloaded assembly components rather than silently drawing misplaced prototypes.
 - STL output is a single tessellated combined display mesh; no NX assembly tree, selection or CAD editing.
 - 256 MB or 1,000,000 triangle STL limit; mesh split into <=18,000 triangles per WebGL mesh.
-- No auto-refresh on source changes; this remains a separate milestone.
+- Source changes still need a browser refresh or server restart; live reload is not included.
 - The file picker executes on the same Windows computer that runs the Python server.
+- Opening a new file immediately discards the previous displayed model; cancelling or failing leaves an empty viewer.
+- The splash is indeterminate: no numeric progress percentage is available from the NX conversion API.
 - No version/build information in the page. Always use port 8888.
 
 Branch policy:
@@ -35,10 +38,11 @@ Branch policy:
 Validation:
 - Run: py -3 -m unittest discover -s tests -v
 - STL parser: node tests/check_stl.mjs
-- Browser smoke: py -3 dev/browser_smoke.py (requires Playwright and Chromium)
+- Frontend controller: node tests/check_loading.mjs (Node.js)
+- Browser smoke: py -3 dev/browser_smoke.py (requires Playwright and Chromium; browser access may be restricted in isolated environments)
 - Actual NX .prt load needs a licensed Siemens NX 1855 installation and available component references.
 - Confirm that the converted part is oriented correctly; compare complex assemblies against NX.
 
 Suggested Git commit messages:
-- dev: feat(nx): implement Siemens NX part loading and STL visualization
-- main: feat(nx): promote validated NX part visualization
+- dev: feat(viewer): simplify NX opening and add loading splash
+- main: feat(viewer): release NX loading splash and empty state

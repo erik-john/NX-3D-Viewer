@@ -8,7 +8,6 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Render NX geometry as tessellated STL surfaces; original NX files are not changed.
 - Rotate, pan, zoom, fit to view, and switch between isometric, front, top, and right views.
 - Toggle the reference grid, coordinate axes, and wireframe display.
-- Explore built-in mechanical sample geometry without opening NX.
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
 
 ## Requirements
@@ -17,7 +16,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Python 3.10 or newer.
 - A browser with WebGL support.
 
-The sample scenes work without Siemens NX. Actual `.prt` conversion requires NX Open and its `run_journal.exe` program. An NX installation may also need the proper assembly component files and licensing available on the same computer.
+Actual `.prt` conversion requires NX Open and its `run_journal.exe` program. An NX installation may also need the proper assembly component files and licensing available on the same computer.
 
 ## Project structure
 
@@ -54,12 +53,12 @@ The server listens only on the local computer. Port **8888** is fixed.
 
 ## Open an NX file
 
-1. Click **OPEN NX .PRT** in the toolbar.
+1. Click **OPEN NX FILES** in the toolbar.
 2. Choose a `.prt` file using the file selection dialog on the **computer running the Python server**.
 3. The viewer asks Siemens NX to open the part and create a temporary STL representation.
-4. The converted geometry appears in the browser when the operation completes.
+4. The current geometry is cleared and a loading screen is shown while the new file is prepared. The converted geometry appears when the operation completes.
 
-You can select a built-in scene from the **SCENE** menu at any time. Exported STL files are stored temporarily and removed when the server exits. No conversion overwrites or saves the original `.prt` file.
+The viewer starts without any model. If the operation is cancelled or fails, the workspace remains empty and an error or cancellation message is shown. Exported STL files are stored temporarily and removed when the server exits. No conversion overwrites or saves the original `.prt` file.
 
 If NX cannot be found, set the `NX_RUN_JOURNAL` environment variable to the complete path of `run_journal.exe` and restart the server. For example, in PowerShell:
 
@@ -89,4 +88,4 @@ The display is Y-up; imported NX geometry is rotated from NX's Z-up coordinate c
 
 The NX-to-browser workflow displays **tessellated surfaces**, not editable CAD solids or exact NX B-rep geometry. Both standalone parts and assembly occurrences are considered by the exporter, but a model that contains missing or unloaded component geometry will report an error rather than silently show incorrectly positioned components. Individual assembly tree controls are not available yet.
 
-The browser currently accepts up to **1,000,000 STL triangles** or **256 MB** of STL data. Siemens NX `.jt` and `.chr` files are not supported in this release.
+The browser currently accepts up to **1,000,000 STL triangles** or **256 MB** of STL data. The **OPEN NX FILES** command currently accepts `.prt` files only. Siemens NX `.jt` and `.chr` files are not supported.
