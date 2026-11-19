@@ -79,22 +79,33 @@ attribute vec3 aPosition;
 attribute vec3 aNormal;
 uniform mat4 uViewProjection;
 varying vec3 vNormal;
+varying vec3 vPosition;
 void main() {
   vNormal = aNormal;
+  vPosition = aPosition;
   gl_Position = uViewProjection * vec4(aPosition, 1.0);
 }`;
 const SOLID_FRAGMENT = `
 precision mediump float;
 uniform vec3 uColor;
+uniform vec3 uEye;
 uniform float uWire;
 varying vec3 vNormal;
+varying vec3 vPosition;
 void main() {
   vec3 normal = normalize(vNormal);
-  float key = max(dot(normal, normalize(vec3(0.50, 0.92, 0.66))), 0.0);
-  float fill = max(dot(normal, normalize(vec3(-0.77, 0.22, -0.48))), 0.0);
-  float light = 0.34 + key * 0.65 + fill * 0.20;
-  vec3 shaded = mix(uColor * light, vec3(0.71, 0.96, 0.96), uWire);
-  gl_FragColor = vec4(shaded, 1.0);
+  vec3 eyeDir = normalize(uEye - vPosition);
+  if (!gl_FrontFacing) normal = -normal;
+  vec3 keyDir = normalize(vec3(-0.48, 0.84, 0.32));
+  vec3 fillDir = normalize(vec3(0.75, 0.15, -0.62));
+  float key = max(dot(normal, keyDir), 0.0);
+  float fill = max(dot(normal, fillDir), 0.0);
+  float diffuse = 0.43 + 0.44 * key + 0.16 * fill;
+  float specular = pow(max(dot(reflect(-keyDir, normal), eyeDir), 0.0), 32.0) * 0.42;
+  specular += pow(max(dot(reflect(-fillDir, normal), eyeDir), 0.0), 22.0) * 0.11;
+  float rim = pow(1.0 - max(dot(normal, eyeDir), 0.0), 3.0) * 0.08;
+  vec3 silver = uColor * diffuse + vec3(specular + rim);
+  gl_FragColor = vec4(mix(silver, vec3(0.36, 0.41, 0.47), uWire), 1.0);
 }`;
 const LINE_VERTEX = `
 attribute vec3 aPosition;
@@ -150,13 +161,54 @@ function makeGrid(bounds, empty = false) {
     line([-extent, y, v], [extent, y, v], shade);
     line([v, y, -extent], [v, y, extent], shade);
   }
-  const axisLen = Math.min(3, Math.max(1.4, xy * 0.7));
+  return { positions, colors, extent };
+}
+
+// NX-style datum references are centered on the part coordinate origin.
+// The three datum planes remain independent from the optional floor grid.
+// STL transforms NX (X,Y,Z) into WebGL (X,Z,-Y); reference geometry must match.
+// Three compact positive-quadrant datum planes only: NX XY, YZ and XZ.
+const NX_AXIS_DIRECTIONS = [[1, 0, 0], [0, 0, -1], [0, 1, 0]];
+function makeDatum(bounds, empty = false) {
+  const largest = Math.max(...bounds.size);
+  const length = empty ? 1.35 : Math.max(0.22, largest * 0.105);
+  const extent = length * 0.50;
   const axesPositions = [], axesColors = [];
-  function axis(a, b, color) { axesPositions.push(...a, ...b); axesColors.push(...color, ...color); }
-  axis([0, y + 0.008, 0], [axisLen, y + 0.008, 0], [0.92, 0.40, 0.36, 0.9]);
-  axis([0, y + 0.008, 0], [0, y + axisLen, 0], [0.35, 0.84, 0.55, 0.9]);
-  axis([0, y + 0.008, 0], [0, y + 0.008, axisLen], [0.39, 0.64, 0.95, 0.9]);
-  return { positions, colors, axesPositions, axesColors, extent };
+  const planePositions = [], planeColors = [];
+  const outlinePositions = [], outlineColors = [];
+  const axisColors = [
+    [0.64, 0.28, 0.27, 0.95], // NX X
+    [0.27, 0.53, 0.39, 0.95], // NX Y (browser -Z)
+    [0.29, 0.40, 0.66, 0.95], // NX Z (browser +Y)
+  ];
+  const axisTip = NX_AXIS_DIRECTIONS.map(axis => axis.map(v => v * length));
+  function line(a, b, color, positions, colors) {
+    positions.push(...a, ...b);
+    colors.push(...color, ...color);
+  }
+  for (let i = 0; i < 3; i += 1) {
+    line([0, 0, 0], axisTip[i], axisColors[i], axesPositions, axesColors);
+  }
+  const planes = [
+    // Each plane occupies one NX-positive quadrant, avoiding duplicate faces.
+    { axes: [0, 1], fill: [0.75, 0.47, 0.43, 0.09], edge: [0.62, 0.37, 0.34, 0.73] }, // NX XY
+    { axes: [1, 2], fill: [0.43, 0.69, 0.58, 0.09], edge: [0.31, 0.56, 0.42, 0.73] }, // NX YZ
+    { axes: [0, 2], fill: [0.53, 0.63, 0.79, 0.09], edge: [0.39, 0.50, 0.67, 0.73] }, // NX XZ
+  ];
+  for (const plane of planes) {
+    const a = NX_AXIS_DIRECTIONS[plane.axes[0]].map(v => v * extent);
+    const b = NX_AXIS_DIRECTIONS[plane.axes[1]].map(v => v * extent);
+    const corners = [[0, 0, 0], a, a.map((v, i) => v + b[i]), b];
+    for (const index of [0, 1, 2, 0, 2, 3]) {
+      planePositions.push(...corners[index]);
+      planeColors.push(...plane.fill);
+    }
+    for (let i = 0; i < 4; i += 1) {
+      line(corners[i], corners[(i + 1) % 4], plane.edge, outlinePositions, outlineColors);
+    }
+  }
+  return { axesPositions, axesColors, planePositions, planeColors, outlinePositions,
+    outlineColors, labels: axisTip, planeCount: planes.length };
 }
 
 export class Viewer {
@@ -174,6 +226,7 @@ export class Viewer {
       matrix: gl.getUniformLocation(this.solid, 'uViewProjection'),
       color: gl.getUniformLocation(this.solid, 'uColor'),
       wire: gl.getUniformLocation(this.solid, 'uWire'),
+      eye: gl.getUniformLocation(this.solid, 'uEye'),
     };
     this.lineLoc = {
       position: gl.getAttribLocation(this.lines, 'aPosition'),
@@ -182,11 +235,15 @@ export class Viewer {
     };
     this.geometry = [];
     this.gridBuffers = null;
+    this.axisLabels = ['x', 'y', 'z'].map(axis =>
+      document.getElementById(`axis-label-${axis}`));
+    this.compassAxes = ['x', 'y', 'z'].map(axis => document.getElementById(`compass-axis-${axis}`));
+    this.compassLabels = ['x', 'y', 'z'].map(axis => document.getElementById(`compass-label-${axis}`));
     this.target = [0, 0, 0];
     this.yaw = PI / 4;
     this.pitch = 0.44;
     this.distance = EMPTY_VIEW_DISTANCE;
-    this.showGrid = true;
+    this.showGrid = false;
     this.showAxes = true;
     this.wireframe = false;
     this.pendingRender = false;
@@ -240,14 +297,22 @@ export class Viewer {
       }
     }
     const lines = makeGrid(this.bounds, this.geometry.length === 0);
+    const datum = makeDatum(this.bounds, this.geometry.length === 0);
     this.gridSize = 2 * lines.extent;
+    this.datumLabels = datum.labels;
     this.gridBuffers = {
       position: createBuffer(gl, new Float32Array(lines.positions)),
       color: createBuffer(gl, new Float32Array(lines.colors)),
       count: lines.positions.length / 3,
-      axesPosition: createBuffer(gl, new Float32Array(lines.axesPositions)),
-      axesColor: createBuffer(gl, new Float32Array(lines.axesColors)),
-      axesCount: lines.axesPositions.length / 3,
+      axesPosition: createBuffer(gl, new Float32Array(datum.axesPositions)),
+      axesColor: createBuffer(gl, new Float32Array(datum.axesColors)),
+      axesCount: datum.axesPositions.length / 3,
+      planePosition: createBuffer(gl, new Float32Array(datum.planePositions)),
+      planeColor: createBuffer(gl, new Float32Array(datum.planeColors)),
+      planeCount: datum.planePositions.length / 3,
+      outlinePosition: createBuffer(gl, new Float32Array(datum.outlinePositions)),
+      outlineColor: createBuffer(gl, new Float32Array(datum.outlineColors)),
+      outlineCount: datum.outlinePositions.length / 3,
     };
   }
 
@@ -373,9 +438,12 @@ export class Viewer {
       lookAt(eye, this.target),
     );
     if (this.showGrid) this.renderLines(this.gridBuffers.position, this.gridBuffers.color, this.gridBuffers.count, matrix);
+    if (this.showAxes) this.renderLines(this.gridBuffers.planePosition,
+      this.gridBuffers.planeColor, this.gridBuffers.planeCount, matrix, gl.TRIANGLES);
     gl.useProgram(this.solid);
     gl.uniformMatrix4fv(this.solidLoc.matrix, false, matrix);
     gl.uniform1f(this.solidLoc.wire, this.wireframe ? 1 : 0);
+    gl.uniform3fv(this.solidLoc.eye, eye);
     for (const part of this.geometry) {
       if (!part.visible) continue;
       gl.bindBuffer(gl.ARRAY_BUFFER, part.position);
@@ -389,10 +457,62 @@ export class Viewer {
       gl.drawElements(this.wireframe ? gl.LINES : gl.TRIANGLES,
         this.wireframe ? part.edgeCount : part.triangleCount, gl.UNSIGNED_SHORT, 0);
     }
-    if (this.showAxes) this.renderLines(this.gridBuffers.axesPosition, this.gridBuffers.axesColor, this.gridBuffers.axesCount, matrix);
+    if (this.showAxes) {
+      this.renderLines(this.gridBuffers.outlinePosition,
+        this.gridBuffers.outlineColor, this.gridBuffers.outlineCount, matrix);
+      this.renderLines(this.gridBuffers.axesPosition,
+        this.gridBuffers.axesColor, this.gridBuffers.axesCount, matrix);
+    }
+    this.renderAxisLabels(matrix, bounds);
+    this.renderCompass();
   }
 
-  renderLines(position, color, count, matrix) {
+  renderAxisLabels(matrix, bounds) {
+    if (!this.axisLabels || !this.datumLabels) return;
+    for (let i = 0; i < this.axisLabels.length; i += 1) {
+      const label = this.axisLabels[i];
+      if (!label) continue;
+      const p = this.datumLabels[i];
+      const w = matrix[3]*p[0] + matrix[7]*p[1] + matrix[11]*p[2] + matrix[15];
+      const x = (matrix[0]*p[0] + matrix[4]*p[1] + matrix[8]*p[2] + matrix[12]) / w;
+      const y = (matrix[1]*p[0] + matrix[5]*p[1] + matrix[9]*p[2] + matrix[13]) / w;
+      const visible = this.showAxes && w > 0 && Math.abs(x) < 0.98 && Math.abs(y) < 0.98;
+      label.hidden = !visible;
+      if (visible) {
+        label.style.left = `${(x * 0.5 + 0.5) * bounds.width}px`;
+        label.style.top = `${(0.5 - y * 0.5) * bounds.height}px`;
+      }
+    }
+  }
+
+  renderCompass() {
+    // Project the NX axis directions into the camera's screen basis.
+    const outward = normalize([
+      Math.cos(this.pitch) * Math.sin(this.yaw),
+      Math.sin(this.pitch),
+      Math.cos(this.pitch) * Math.cos(this.yaw),
+    ]);
+    const right = normalize(cross([0, 1, 0], outward));
+    const up = cross(outward, right);
+    for (let i = 0; i < NX_AXIS_DIRECTIONS.length; i += 1) {
+      const axis = NX_AXIS_DIRECTIONS[i];
+      const x = dot(axis, right), y = -dot(axis, up);
+      const magnitude = Math.hypot(x, y);
+      const size = Math.max(4, magnitude * 19);
+      const line = this.compassAxes?.[i];
+      const label = this.compassLabels?.[i];
+      if (line) {
+        line.style.width = `${size}px`;
+        line.style.transform = `translateY(-50%) rotate(${Math.atan2(y, x)}rad)`;
+      }
+      if (label) {
+        label.style.left = `${32 + x * 25}px`;
+        label.style.top = `${32 + y * 25}px`;
+      }
+    }
+  }
+
+  renderLines(position, color, count, matrix, primitive = this.gl.LINES) {
     const gl = this.gl;
     gl.useProgram(this.lines);
     gl.uniformMatrix4fv(this.lineLoc.matrix, false, matrix);
@@ -405,7 +525,7 @@ export class Viewer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.depthMask(false);
-    gl.drawArrays(gl.LINES, 0, count);
+    gl.drawArrays(primitive, 0, count);
     gl.depthMask(true);
     gl.disable(gl.BLEND);
   }

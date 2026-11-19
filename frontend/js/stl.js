@@ -37,7 +37,7 @@ function buildMeshes(triangleCount, readFace) {
     }
     meshes.push({
       name: `NX Surface ${meshes.length + 1}`,
-      color: '#5ac9b7', positions, normals, indices,
+      color: '#d3dade', positions, normals, indices,
     });
   }
   return meshes;
