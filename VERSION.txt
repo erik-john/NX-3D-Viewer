@@ -1,3 +1,38 @@
+Milestone: 18 — Remove Mouse Hint Controls
+
+Changes
+- Remove the Rotate / Pan / Zoom mouse icon dock entirely from the bottom-right of the viewport.
+- Remove the associated HTML markup and unused CSS, including narrow-screen layout rules.
+- Leave native mouse gestures unchanged: left drag rotates, right drag pans, mouse wheel zooms.
+- Preserve the upper-right camera View icons, NX loading, Item Structure, Part Inspector, and steel material.
+- Keep port 8888, Run.bat and Windows CRLF source formatting unchanged.
+
+Validation
+- Confirm no mouse help dock or text bar is visible in the workspace.
+- Confirm existing view toolbar and mouse gesture handlers remain in place.
+
+Suggested commits
+- dev: refactor(ui): remove viewport mouse help controls
+- main: refactor(ui): remove unused viewport mouse controls
+
+Milestone: 17 — Viewport Mouse Icons
+
+Changes
+- Replace the bottom text instruction bar for Rotate / Pan / Zoom with compact icon buttons.
+- Match the icon styling to the existing VIEW controls and place the mouse controls at the lower-right of the 3D viewport.
+- Keep OPEN NX FILES in the header and preserve the existing camera view icon group.
+- Preserve the current slightly darker steel material, NX item structure, Part Inspector, and port 8888.
+- Keep Windows CRLF line endings and existing branch-specific .gitignore handling unchanged.
+
+Checks
+- Verify the new mouse-control dock appears inside the viewport and does not overlap the model excessively.
+- Verify tooltips show Rotate, Pan, and Zoom guidance.
+- Run Python and JavaScript suites in the dev branch before promoting production files.
+
+Commit suggestions
+- dev: feat(ui): replace bottom mouse help text with viewport icons
+- main: feat(ui): release viewport mouse control icons
+
 MS16 — Subtle Steel Tone Adjustment
 
 Changes

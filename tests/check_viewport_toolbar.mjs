@@ -19,7 +19,8 @@ for(const view of ['iso','front','top','right']) {
 }
 assert.ok(viewport.includes('id="fit-button"'));
 assert.match(viewport, /class="viewport-view-tools" role="group" aria-label="Camera views"/);
-assert.equal((viewport.match(/<svg /g)||[]).length,5);
+assert.equal((viewport.match(/class=\"viewport-view-button/g)||[]).length,5);
+assert.ok(!viewport.includes('viewport-mouse-'));
 for(const label of ['Isometric view','Front view','Top view','Right view','Fit model to view']){
   assert.ok(viewport.includes(`aria-label="${label}"`),label);
 }
@@ -37,4 +38,5 @@ assert.match(css, /\.inspector-row dt[^}]*color: #3e5260/);
 assert.match(css, /\.inspector-row\s*\{[^}]*font-size: 13px/s);
 assert.match(css, /\.viewport-view-button\.active/);
 assert.match(css, /\.viewport-view-tools \{[^}]*position: absolute/s);
-console.log('MS12 viewport camera toolbar, font, color and default-rendering checks passed.');
+assert.ok(!css.includes('viewport-mouse-'));
+console.log('MS18 view toolbar intact; mouse help dock absent.');
