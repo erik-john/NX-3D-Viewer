@@ -51,25 +51,28 @@
         </div>
       </div>
 
-      <section class="workspace" aria-label="3D viewing area" id="viewer-workspace">
+      <section class="workspace" aria-label="Model workspace" id="viewer-workspace">
+        <aside class="tree-panel" id="tree-panel" aria-label="NX item structure">
+          <div class="tree-heading">
+            <div class="tree-heading-copy">
+              <span class="tree-eyebrow">NX MODEL</span>
+              <h2>Item Structure</h2>
+            </div>
+            <button type="button" class="tree-collapse" id="tree-toggle" aria-label="Collapse item structure panel" title="Collapse panel" aria-expanded="true">‹</button>
+          </div>
+          <div class="tree-content" id="tree-content">
+            <p class="tree-summary" id="tree-summary">No NX file loaded</p>
+            <div class="tree-entries" id="model-tree" role="tree" aria-label="NX component hierarchy"></div>
+            <p class="tree-note" id="tree-note" hidden></p>
+          </div>
+        </aside>
+        <div class="tree-resizer" id="tree-resizer" role="separator" aria-label="Resize item structure panel" aria-orientation="vertical" tabindex="0"></div>
+        <div class="viewport" id="viewer-viewport">
         <canvas id="viewer-canvas" aria-label="Interactive 3D model viewer" tabindex="0"></canvas>
         <div class="workspace-glow" aria-hidden="true"></div>
         <div class="workspace-topline" aria-hidden="true">
           <span class="workspace-topline-dot"></span> 3D SPACE <span class="workspace-topline-index">/</span> XYZ
         </div>
-        <aside class="scene-panel" aria-label="Scene information">
-          <div class="panel-topline">
-            <span class="panel-eyebrow">CURRENT SCENE</span>
-            <span class="panel-icon" aria-hidden="true">◈</span>
-          </div>
-          <h2 id="scene-title">No model loaded</h2>
-          <p id="scene-description">Open an NX file to visualize its geometry.</p>
-          <div class="panel-divider"></div>
-          <div class="scene-stat-row"><span>Objects</span><strong id="scene-objects">—</strong></div>
-          <div class="scene-stat-row"><span>Triangles</span><strong id="scene-triangles">—</strong></div>
-          <div class="scene-stat-row"><span>Rendering</span><strong id="scene-render-mode">Solid</strong></div>
-          <div class="panel-footnote" id="scene-source">No NX file selected</div>
-        </aside>
         <div class="viewport-compass" aria-hidden="true">
           <div class="compass-y">Y</div>
           <div class="compass-x">X</div>
@@ -99,6 +102,7 @@
           <span><span class="control-glyph">↻</span> Left drag <b>Rotate</b></span>
           <span><span class="control-glyph">✣</span> Right drag <b>Pan</b></span>
           <span><span class="control-glyph">↕</span> Scroll <b>Zoom</b></span>
+        </div>
         </div>
       </section>
     </main>

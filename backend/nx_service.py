@@ -81,7 +81,8 @@ def convert_prt(input_path, output_dir, journal_exe=None):
     token = uuid.uuid4().hex
     output_path = destination / (token + ".stl")
     error_path = destination / (token + ".error.txt")
-    command = [str(journal_exe), str(JOURNAL), "-args", str(source), str(output_path)]
+    manifest_path = destination / (token + ".json")
+    command = [str(journal_exe), str(JOURNAL), "-args", str(source), str(output_path), str(manifest_path)]
 
     try:
         result = subprocess.run(

@@ -14,7 +14,7 @@ from backend import server as server
 
 class ViewerTests(unittest.TestCase):
     def test_locally_bundled_source_files(self):
-        for name in ['index.html', 'css/style.css', 'js/app.js', 'js/viewer.js', 'js/geometry.js', 'js/stl.js']:
+        for name in ['index.html', 'css/style.css', 'js/app.js', 'js/viewer.js', 'js/geometry.js', 'js/stl.js', 'js/item_tree.js']:
             with self.subTest(name=name):
                 self.assertTrue((FRONT / name).is_file())
 
@@ -28,7 +28,7 @@ class ViewerTests(unittest.TestCase):
         self.assertNotIn('http://', html + renderer)
         self.assertNotIn('https://', html + renderer)
         for element in ['viewer-canvas', 'empty-state', 'loading-overlay', 'loading-title', 'loading-detail', 'fit-button', 'grid-button',
-                        'axes-button', 'wire-button', 'scene-title', 'viewer-error', 'open-nx-button']:
+                        'axes-button', 'wire-button', 'tree-panel', 'tree-toggle', 'model-tree', 'tree-resizer', 'viewer-error', 'open-nx-button']:
             with self.subTest(element=element):
                 self.assertIn(f'id="{element}"', html)
 
@@ -43,6 +43,7 @@ class ViewerTests(unittest.TestCase):
                 ('/js/app.js', b'updateConnectionStatus'),
                 ('/js/viewer.js', b'export class Viewer'),
                 ('/js/geometry.js', b'export function boundsFor'),
+                ('/js/item_tree.js', b'export class ItemTree'),
             ]:
                 with self.subTest(url=url), urlopen(f'http://127.0.0.1:{httpd.server_port}{url}', timeout=4) as response:
                     self.assertEqual(200, response.status)
@@ -81,7 +82,10 @@ class ViewerTests(unittest.TestCase):
         self.assertIn('showLoading(', app)
         self.assertIn('finishLoading();', app)
         self.assertIn('.loading-overlay[hidden]', styles)
-        self.assertIn('No model loaded', html)
+        self.assertIn('No NX file loaded', html)
+        self.assertNotIn('CURRENT SCENE', html)
+        self.assertNotIn('scene-title', html + app)
+        self.assertIn('new ItemTree(', app)
         self.assertNotIn('sample', (ROOT / 'README.md').read_text(encoding='utf-8').lower())
 
 

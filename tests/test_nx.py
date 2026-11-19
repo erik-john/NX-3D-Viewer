@@ -95,6 +95,46 @@ class NXAPITests(unittest.TestCase):
             self.assertEqual(triangle_stl(), reply.read())
             self.assertEqual('model/stl', reply.headers['Content-Type'])
 
+    def test_open_file_returns_real_hierarchy_and_body_meshes(self):
+        token = 'a' * 32
+        manifest_root = {
+            'id': 'root', 'name': 'assembly.prt', 'type': 'part', 'children': [
+                {'id': 'root_c1', 'name': 'Bolt A', 'type': 'component', 'children': [
+                    {'id': 'root_c1_b1', 'name': 'Body 1', 'type': 'body',
+                     'meshId': 'root_c1_b1', 'children': []}]},
+                {'id': 'root_c2', 'name': 'Bolt B', 'type': 'component', 'children': [
+                    {'id': 'root_c2_b1', 'name': 'Body 1', 'type': 'body',
+                     'meshId': 'root_c2_b1', 'children': []}]},
+            ],
+        }
+        def convert(*args):
+            base = server.ViewerHandler.export_directory
+            output = base / (token + '.stl')
+            output.write_bytes(triangle_stl())
+            entries = []
+            for index, node_id in enumerate(('root_c1_b1', 'root_c2_b1'), 1):
+                filename = f'{token}_body_{index:05d}.stl'
+                (base / filename).write_bytes(triangle_stl())
+                entries.append({'id': node_id, 'file': filename})
+            output.with_suffix('.json').write_text(json.dumps({
+                'root': manifest_root, 'geometryMode': 'separate', 'meshes': entries,
+            }), encoding='utf-8')
+            return output
+        with patch.object(server, 'find_nx_journal', return_value=Path('run_journal.exe')), \
+             patch.object(server, 'choose_prt_file', return_value='C:/models/assembly.prt'), \
+             patch.object(server, 'convert_prt', side_effect=convert):
+            request = Request(self.base + '/api/open', data=b'', method='POST',
+                              headers={'Origin': self.base})
+            with urlopen(request, timeout=4) as reply:
+                response = json.load(reply)
+        self.assertEqual('separate', response['geometryMode'])
+        self.assertEqual(2, len(response['tree']['children']))
+        self.assertEqual(['Bolt A', 'Bolt B'], [n['name'] for n in response['tree']['children']])
+        self.assertEqual(2, len(response['meshes']))
+        for mesh in response['meshes']:
+            with urlopen(self.base + mesh['url'], timeout=4) as reply:
+                self.assertEqual(triangle_stl(), reply.read())
+
     def test_external_origin_is_rejected(self):
         with self.assertRaises(HTTPError) as caught:
             urlopen(Request(self.base + '/api/open', data=b'', method='POST',

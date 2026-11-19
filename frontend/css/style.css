@@ -68,22 +68,6 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .workspace-topline-dot { display: inline-block; width: 6px; height: 6px; border: 1px solid #5bbaad;
   border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 .workspace-topline-index { color: #365064; margin: 0 7px; }
-.scene-panel {
-  position: absolute; top: 22px; right: 24px; z-index: 4;
-  width: 242px; padding: 17px 18px 15px; border: 1px solid #30445b;
-  border-radius: 11px; background: #101f30e8; box-shadow: 0 12px 38px #03081158;
-  backdrop-filter: blur(12px); pointer-events: none;
-}
-.panel-topline { display: flex; align-items: center; justify-content: space-between; }
-.panel-eyebrow { font-size: 9px; font-weight: 750; letter-spacing: .16em; color: #69b7b2; }
-.panel-icon { font-size: 23px; color: #61b8b5; line-height: 14px; }
-.scene-panel h2 { margin: 13px 0 6px; font-size: 17px; letter-spacing: -.02em; }
-.scene-panel p { color: #8ea2b7; font-size: 11px; line-height: 1.55; margin: 0; }
-.panel-divider { height: 1px; background: #2a3b4c; margin: 17px 0 12px; }
-.scene-stat-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; padding: 5px 0; }
-.scene-stat-row span { color: #8095aa; }
-.scene-stat-row strong { color: #d2e3ee; font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.panel-footnote { font-size: 10px; color: #5a7991; margin-top: 13px; padding-top: 11px; border-top: 1px solid #26384b; }
 .viewport-compass { width: 65px; height: 65px; position: absolute; z-index: 4; left: 23px; bottom: 57px;
   border: 1px solid #304159; border-radius: 50%; background: #101e2cb5; pointer-events: none; }
 .compass-cross { width: 6px; height: 6px; position: absolute; left: 29px; top: 29px; background: #aec2d0; border-radius: 50%; }
@@ -113,7 +97,6 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 @media (max-width: 1050px) {
   .toolbar { padding: 10px 14px; gap: 9px; }
   .toolbar-label { margin-right: 3px; }
-  .scene-panel { width: 205px; top: 15px; right: 15px; }
   .viewport-controls { gap: 10px; }
 }
 @media (max-width: 640px) {
@@ -123,9 +106,6 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   .header-hint { display: none; }
   .toolbar { min-height: 58px; }
   .toolbar-label { display: none; }
-  .scene-panel { width: 178px; padding: 13px; top: 15px; right: 12px; }
-  .scene-panel h2 { font-size: 14px; }
-  .scene-panel p, .panel-footnote { font-size: 10px; }
   .workspace-topline { top: 18px; left: 15px; }
   .viewport-controls { left: 12px; right: 12px; bottom: 11px; transform: none;
     justify-content: space-around; gap: 8px; padding: 9px; font-size: 9px; }
@@ -190,4 +170,70 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   max-width: min(580px, 92%); border-radius: 9px; padding: 13px 18px;
   font-size: 12px; line-height: 1.5; box-shadow: 0 10px 36px #0008;
   border: 1px solid #a75c59; background: #46202a; color: #ffe2df;
+}
+
+/* Component hierarchy */
+.workspace { display: flex; }
+.viewport { position: relative; min-width: 0; min-height: 0; flex: 1; overflow: hidden; }
+.tree-panel {
+  --tree-width: 285px;
+  width: var(--tree-width); flex: 0 0 var(--tree-width); min-width: 0;
+  display: flex; flex-direction: column; background: #101c2b;
+  border-right: 1px solid #25394c; z-index: 4;
+}
+.tree-heading { min-height: 78px; display: flex; gap: 6px; align-items: center;
+  justify-content: space-between; padding: 17px 12px 14px 18px;
+  border-bottom: 1px solid #2b3c4d; }
+.tree-eyebrow { display: block; font-size: 9px; color: #4fcbb9;
+  letter-spacing: .15em; font-weight: 800; }
+.tree-heading h2 { margin: 5px 0 0; font-size: 14px; font-weight: 650; white-space: nowrap; }
+.tree-collapse { flex: none; display: grid; place-items: center; width: 27px; height: 29px;
+  border: 1px solid #375064; border-radius: 6px; background: #182b3c;
+  color: #9ec7ca; font-size: 23px; line-height: 1; }
+.tree-collapse:hover { color: #fff; border-color: #60aca8; }
+.tree-content { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+.tree-summary { margin: 0; padding: 14px 17px; color: #8196ad; font-size: 11px;
+  border-bottom: 1px solid #243649; overflow-wrap: anywhere; }
+.tree-entries { flex: 1; overflow: auto; padding: 10px 8px 20px 10px; font-size: 12px;
+  scrollbar-color: #3b5368 transparent; scrollbar-width: thin; }
+.tree-entries ul { list-style: none; margin: 0; padding: 0 0 0 15px;
+  border-left: 1px solid #26394b; }
+.tree-entries > ul { padding-left: 0; border-left: none; }
+.tree-item { min-width: 0; }
+.tree-row { display: flex; align-items: center; gap: 4px; min-width: 0;
+  padding: 3px 4px; min-height: 32px; border: 1px solid transparent; border-radius: 6px;
+  color: #b1c5d7; }
+.tree-row:hover { background: #22374a; }
+.tree-row.is-selected { background: #20463e; border-color: #306d65; color: #e1fff8; }
+.tree-disclosure { width: 18px; height: 23px; padding: 0; flex: none; background: none;
+  border: 0; color: #80a1ad; font-size: 13px; }
+.tree-disclosure:hover { color: #a5ffe5; }
+.tree-disclosure.is-empty { visibility: hidden; }
+.tree-symbol { flex: none; font-size: 13px; color: #5fbeaf; }
+.tree-row[data-kind="body"] .tree-symbol { color: #81addb; }
+.tree-label { flex: 1; border: none; background: none; padding: 5px 1px; text-align: left;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; color: inherit; }
+.tree-visibility { flex: none; width: 15px; height: 15px; cursor: pointer;
+  accent-color: #55d3b9; margin: 0 2px 0 3px; }
+.tree-visibility:disabled { cursor: not-allowed; opacity: .25; }
+.tree-note { margin: 0; padding: 13px 15px; color: #b6a27f; background: #302b24;
+  border-top: 1px solid #55452c; font-size: 10px; line-height: 1.55; }
+.tree-note[hidden] { display: none; }
+.tree-panel.is-collapsed { width: 43px; flex-basis: 43px; }
+.tree-panel.is-collapsed .tree-heading { padding: 9px 7px; min-height: 50px; }
+.tree-panel.is-collapsed .tree-heading-copy, .tree-panel.is-collapsed .tree-content { display: none; }
+.tree-resizer { flex: none; width: 6px; background: #0a1522; z-index: 4;
+  border-right: 1px solid #263b4d; cursor: col-resize; touch-action: none; }
+.tree-resizer:hover, .tree-resizer.is-resizing { background: #285b58; }
+.tree-panel.is-collapsed + .tree-resizer { display: none; }
+@media (max-width: 700px) {
+  .tree-panel { --tree-width: 210px; }
+  .tree-heading { padding: 12px 8px 11px; min-height: 60px; }
+  .tree-heading h2 { font-size: 12px; }
+  .tree-summary { padding: 10px; }
+  .tree-entries { padding: 6px 2px; }
+  .tree-row { gap: 1px; }
+  .tree-entries ul { padding-left: 8px; }
+  .viewport-topline { left: 10px; }
 }
