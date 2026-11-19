@@ -18,10 +18,45 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .app-shell { display: flex; flex-direction: column; height: 100dvh; min-height: 400px; overflow: hidden; }
 .main-content { min-height: 0; flex: 1; display: flex; flex-direction: column; }
 .app-header.toolbar {
-  display: flex; align-items: center; gap: 20px; padding: 0 24px;
+  position: relative; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 0;
   height: 70px; min-height: 70px; flex: none;
-  background: #0e1825; border-bottom: 1px solid #263347;
-  overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+  background: linear-gradient(110deg, #0a1b29 0%, #102536 34%, #0e1825 72%);
+  border-bottom: 1px solid #264254; box-shadow: inset 0 1px 0 #52d8c311;
+  overflow: hidden;
+}
+.app-header.toolbar::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 1%, #24cbb455 15%, #45dbc5a0 35%, transparent 78%);
+  pointer-events: none;
+}
+.app-brand {
+  position: relative; height: 100%; flex: 0 0 293px; display: flex;
+  align-items: center; gap: 9px; padding: 0 12px 0 11px;
+  isolation: isolate; overflow: hidden; user-select: none;
+}
+.app-brand::before {
+  content: ""; position: absolute; z-index: -1; inset: 0;
+  background: linear-gradient(110deg, #0c2c38a8 0%, #103f477a 35%, #10283a55 74%, transparent);
+  clip-path: polygon(0 0, 100% 0, 94% 100%, 0 100%);
+}
+.app-brand::after {
+  content: ""; position: absolute; left: 10px; bottom: 0; right: 20px; height: 1px;
+  background: linear-gradient(90deg, transparent, #37c8b7a8 28%, #2d88926b 80%, transparent);
+}
+.brand-logo { display: block; flex: none; width: 56px; height: 56px; object-fit: contain; }
+.brand-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.brand-title {
+  display: block; color: #f3f8fd; font-size: 18px; font-weight: 800;
+  letter-spacing: -.035em; line-height: 1.15; white-space: nowrap;
+}
+.brand-subtitle {
+  display: block; color: #86afc5; font-size: 11px; font-weight: 450;
+  letter-spacing: -.01em; line-height: 1.3; white-space: nowrap;
+}
+.toolbar-scroll {
+  min-width: 0; height: 100%; flex: 1; display: flex; align-items: center;
+  gap: 20px; padding: 0 5px 0 5px; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: thin; scrollbar-color: #365569 transparent;
 }
 .toolbar-group { display: inline-flex; align-items: center; gap: 8px; flex: none; }
 .toolbar-label { font-size: 10px; font-weight: 750; color: #6d829b; letter-spacing: .14em; margin-right: 10px; white-space: nowrap; }
@@ -74,12 +109,18 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .viewer-error h2 { font-size: 21px; margin: 0 0 8px; }
 .viewer-error p { color: #a0b0c1; font-size: 13px; }
 @media (max-width: 800px) {
-  .app-header.toolbar { gap: 14px; padding: 0 14px; }
+  .app-header.toolbar { gap: 4px; padding-right: 5px; }
+  .toolbar-scroll { gap: 14px; }
   .toolbar-label { margin-right: 5px; }
   .viewport-controls { gap: 10px; }
 }
 @media (max-width: 640px) {
   .app-header.toolbar { min-height: 62px; height: 62px; }
+  .app-brand { flex-basis: 220px; gap: 5px; padding-left: 5px; padding-right: 3px; }
+  .brand-logo { width: 46px; height: 46px; }
+  .brand-title { font-size: 15px; }
+  .brand-subtitle { font-size: 9px; }
+  .toolbar-scroll { gap: 12px; padding-left: 3px; }
   .workspace-topline { top: 18px; left: 15px; }
   .viewport-controls { left: 12px; right: 12px; bottom: 11px; transform: none;
     justify-content: space-around; gap: 8px; padding: 9px; font-size: 9px; }
