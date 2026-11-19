@@ -100,14 +100,6 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .compass-label-x { color: #ab4b47; }
 .compass-label-y { color: #39845b; }
 .compass-label-z { color: #426aa5; }
-.viewport-controls {
-  position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 4;
-  display: flex; align-items: center; gap: 21px; padding: 10px 18px; white-space: nowrap;
-  border: 1px solid #9aabb2; border-radius: 8px; background: #fffffff0;
-  backdrop-filter: blur(9px); color: #465c68; font-size: 12px; pointer-events: none;
-}
-.viewport-controls b { color: #2f4552; margin-left: 4px; font-weight: 650; }
-.control-glyph { color: #318c80; font-size: 14px; margin-right: 4px; vertical-align: -1px; }
 .status-bar { height: 32px; padding: 0 23px; display: flex; flex: none; gap: 20px; align-items: center;
   justify-content: space-between; border-top: 1px solid #d7dfe5; background: #f8fafb;
   color: #485f6c; font-size: 12px; }
@@ -123,7 +115,6 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   .app-header.toolbar { gap: 4px; padding-right: 5px; }
   .toolbar-scroll { gap: 14px; }
   .toolbar-label { margin-right: 5px; }
-  .viewport-controls { gap: 10px; }
 }
 @media (max-width: 640px) {
   .app-header.toolbar { min-height: 62px; height: 62px; }
@@ -133,9 +124,6 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   .brand-subtitle { font-size: 11px; }
   .toolbar-scroll { gap: 12px; padding-left: 3px; }
   .workspace-topline { top: 18px; left: 15px; }
-  .viewport-controls { left: 12px; right: 12px; bottom: 11px; transform: none;
-    justify-content: space-around; gap: 8px; padding: 9px; font-size: 11px; }
-  .viewport-controls b { display: none; }
   .viewport-compass { bottom: 53px; left: 14px; }
   .status-bar { padding: 0 11px; }
   .status-right { display: none; }
