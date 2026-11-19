@@ -156,7 +156,7 @@ function makeGrid(bounds, empty = false) {
   axis([0, y + 0.008, 0], [axisLen, y + 0.008, 0], [0.92, 0.40, 0.36, 0.9]);
   axis([0, y + 0.008, 0], [0, y + axisLen, 0], [0.35, 0.84, 0.55, 0.9]);
   axis([0, y + 0.008, 0], [0, y + 0.008, axisLen], [0.39, 0.64, 0.95, 0.9]);
-  return { positions, colors, axesPositions, axesColors };
+  return { positions, colors, axesPositions, axesColors, extent };
 }
 
 export class Viewer {
@@ -240,6 +240,7 @@ export class Viewer {
       }
     }
     const lines = makeGrid(this.bounds, this.geometry.length === 0);
+    this.gridSize = 2 * lines.extent;
     this.gridBuffers = {
       position: createBuffer(gl, new Float32Array(lines.positions)),
       color: createBuffer(gl, new Float32Array(lines.colors)),

@@ -1,6 +1,7 @@
 """Serve the local NX 3D Viewer on port 8888."""
 
 import json
+from datetime import datetime
 import re
 import tempfile
 import threading
@@ -91,7 +92,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         default = {'id': 'root', 'name': display_name, 'type': 'part', 'children': [],
                    'meshId': 'root'}
         if not manifest_path.is_file():
-            return default, 'combined', None, ''
+            return default, 'combined', None, '', {}
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
         tree = manifest.get('root')
         if not isinstance(tree, dict) or not isinstance(tree.get('children'), list):
@@ -113,8 +114,8 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                     files.append({'id': mesh_id, 'url': '/api/models/' + name})
                     with self.asset_lock:
                         self.assets[name] = mesh_path
-                return tree, mode, files, manifest.get('warning', '')
-        return tree, 'combined', None, manifest.get('warning', '')
+                return tree, mode, files, manifest.get('warning', ''), manifest.get('partInfo', {})
+        return tree, 'combined', None, manifest.get('warning', ''), manifest.get('partInfo', {})
 
     def do_POST(self):
         if not self.valid_request_host():
@@ -135,7 +136,18 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             if self.export_directory is None:
                 raise RuntimeError("Model export directory unavailable.")
             output = convert_prt(selection, self.export_directory, nx_journal)
-            tree, geometry_mode, files, warning = self.prepare_structure(output, Path(selection).name)
+            tree, geometry_mode, files, warning, nx_info = self.prepare_structure(output, Path(selection).name)
+            source = Path(selection)
+            file_info = {'path': str(source)}
+            try:
+                stat = source.stat()
+                file_info['size'] = stat.st_size
+                file_info['modified'] = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+            except OSError:
+                pass
+            if not isinstance(nx_info, dict):
+                nx_info = {}
+            nx_info = {'units': nx_info.get('units'), 'attributes': nx_info.get('attributes', [])}
             with self.asset_lock:
                 self.assets[output.name] = output
             return self.send_json(200, {
@@ -143,6 +155,8 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                 "name": Path(selection).name,
                 "modelUrl": "/api/models/" + output.name,
                 "tree": tree,
+                "file": file_info,
+                "nx": nx_info,
                 "geometryMode": geometry_mode,
                 "meshes": files,
                 "warning": warning,
