@@ -1,0 +1,32 @@
+NX 3D Viewer
+
+Milestone: 1 — Project Structure
+Status: Structure complete; 3D rendering and NX file support not yet implemented.
+Port: 8888 (fixed)
+Launcher: Run.bat
+
+Production source:
+- backend/server.py: standard-library local HTTP server, static frontend, /api/health
+- frontend/index.html: application shell
+- frontend/css/style.css: layout and appearance
+- frontend/js/app.js: connection indicator
+- nx/: reserved Siemens NX integration folder
+
+Branch-specific files:
+- The archive deliberately does not include .gitignore. Keep the branch-specific root
+  .gitignore from the first commit (main ignores /tests/ and /dev/; dev allows them).
+- README.md is the same on both branches and contains production-facing information.
+- tests/test_structure.py and dev/.gitkeep are development-only and must not be
+  committed on main. They may be committed on dev.
+- Python caches, environments, exported assets, and logs remain ignored on both branches.
+
+Development validation:
+- Run: py -3 -m unittest discover -s tests -v
+- On main, `git add .` should stage only production source and documentation.
+- On dev, `git add .` may also stage tests/ and dev/.
+- Git ignores only untracked files. Branch switches or merges do not automatically
+  remove development files that were already committed to a branch.
+
+Implementation note:
+- No frontend auto-reload or Python file-watch restart is included in Milestone 1.
+  That capability can be introduced and verified as a separate milestone.
