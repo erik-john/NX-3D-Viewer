@@ -39,7 +39,7 @@ class StructureTests(unittest.TestCase):
             for path, expected in [
                 ("/", b"NX 3D Viewer"),
                 ("/css/style.css", b".workspace"),
-                ("/js/app.js", b"updateConnectionStatus"),
+                ("/js/app.js", b"function setup()"),
             ]:
                 with self.subTest(path=path), urlopen(base + path, timeout=4) as response:
                     self.assertEqual(200, response.status)

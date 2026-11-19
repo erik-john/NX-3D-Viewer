@@ -11,46 +11,29 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="app-header">
-      <div class="brand" aria-label="NX 3D Viewer">
-        <div class="app-mark" aria-hidden="true">NX</div>
-        <div class="brand-copy">
-          <h1>NX 3D Viewer</h1>
-          <p>3D Visualization Workspace</p>
-        </div>
+    <header class="app-header toolbar" role="toolbar" aria-label="Viewer controls">
+      <div class="toolbar-group">
+        <button type="button" id="open-nx-button" class="tool-button open-nx-button" title="Open a Siemens NX file (.prt) on this computer">OPEN NX FILES</button>
       </div>
-      <div class="header-meta">
-        <span class="header-hint"><span class="hint-dot"></span>LOCAL VIEWER</span>
-        <span class="connection" role="status" aria-live="polite">
-          <span class="connection-dot" id="connection-dot"></span>
-          <span id="connection-label">Connecting…</span>
-        </span>
+      <div class="toolbar-divider" aria-hidden="true"></div>
+      <div class="toolbar-group view-group" aria-label="Camera views">
+        <span class="toolbar-label">VIEW</span>
+        <button type="button" class="tool-button active" data-view="iso" title="Isometric view (1)" aria-pressed="true">ISO</button>
+        <button type="button" class="tool-button" data-view="front" title="Front view (2)" aria-pressed="false">FRONT</button>
+        <button type="button" class="tool-button" data-view="top" title="Top view (3)" aria-pressed="false">TOP</button>
+        <button type="button" class="tool-button" data-view="right" title="Right view (4)" aria-pressed="false">RIGHT</button>
+        <button type="button" class="tool-button icon-button" id="fit-button" title="Fit to view (F)" aria-label="Fit to view">⛶ <span>FIT</span></button>
+      </div>
+      <div class="toolbar-divider" aria-hidden="true"></div>
+      <div class="toolbar-group display-group" aria-label="Display options">
+        <span class="toolbar-label">DISPLAY</span>
+        <button type="button" class="tool-button toggle active" id="grid-button" aria-pressed="true" title="Show or hide grid (G)">GRID</button>
+        <button type="button" class="tool-button toggle active" id="axes-button" aria-pressed="true" title="Show or hide axes">AXES</button>
+        <button type="button" class="tool-button toggle" id="wire-button" aria-pressed="false" title="Toggle wireframe (W)">WIRE</button>
       </div>
     </header>
 
     <main class="main-content">
-      <div class="toolbar" role="toolbar" aria-label="Viewer controls">
-        <div class="toolbar-group">
-          <button type="button" id="open-nx-button" class="tool-button open-nx-button" title="Open a Siemens NX file (.prt) on this computer">OPEN NX FILES</button>
-        </div>
-        <div class="toolbar-divider" aria-hidden="true"></div>
-        <div class="toolbar-group view-group" aria-label="Camera views">
-          <span class="toolbar-label">VIEW</span>
-          <button type="button" class="tool-button active" data-view="iso" title="Isometric view (1)" aria-pressed="true">ISO</button>
-          <button type="button" class="tool-button" data-view="front" title="Front view (2)" aria-pressed="false">FRONT</button>
-          <button type="button" class="tool-button" data-view="top" title="Top view (3)" aria-pressed="false">TOP</button>
-          <button type="button" class="tool-button" data-view="right" title="Right view (4)" aria-pressed="false">RIGHT</button>
-          <button type="button" class="tool-button icon-button" id="fit-button" title="Fit to view (F)" aria-label="Fit to view">⛶ <span>FIT</span></button>
-        </div>
-        <div class="toolbar-divider" aria-hidden="true"></div>
-        <div class="toolbar-group display-group" aria-label="Display options">
-          <span class="toolbar-label">DISPLAY</span>
-          <button type="button" class="tool-button toggle active" id="grid-button" aria-pressed="true" title="Show or hide grid (G)">GRID</button>
-          <button type="button" class="tool-button toggle active" id="axes-button" aria-pressed="true" title="Show or hide axes">AXES</button>
-          <button type="button" class="tool-button toggle" id="wire-button" aria-pressed="false" title="Toggle wireframe (W)">WIRE</button>
-        </div>
-      </div>
-
       <section class="workspace" aria-label="Model workspace" id="viewer-workspace">
         <aside class="tree-panel" id="tree-panel" aria-label="NX item structure">
           <div class="tree-heading">

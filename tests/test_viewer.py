@@ -40,7 +40,7 @@ class ViewerTests(unittest.TestCase):
             for url, excerpt in [
                 ('/', b'Interactive 3D model viewer'),
                 ('/css/style.css', b'.workspace'),
-                ('/js/app.js', b'updateConnectionStatus'),
+                ('/js/app.js', b'function setup()'),
                 ('/js/viewer.js', b'export class Viewer'),
                 ('/js/geometry.js', b'export function boundsFor'),
                 ('/js/item_tree.js', b'export class ItemTree'),
@@ -53,6 +53,49 @@ class ViewerTests(unittest.TestCase):
             httpd.shutdown()
             httpd.server_close()
             t.join(timeout=4)
+
+    def test_single_header_toolbar(self):
+        from html.parser import HTMLParser
+
+        class HeaderParser(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.in_header = 0
+                self.header_controls = []
+                self.all_controls = []
+                self.header_count = 0
+            def handle_starttag(self, tag, attributes):
+                attrs = dict(attributes)
+                if tag == 'header':
+                    self.header_count += 1
+                    self.in_header += 1
+                    self.header_role = attrs.get('role')
+                    self.header_classes = attrs.get('class', '')
+                if tag == 'button':
+                    self.all_controls.append(attrs.get('id') or attrs.get('data-view'))
+                    if self.in_header:
+                        self.header_controls.append(attrs.get('id') or attrs.get('data-view'))
+            def handle_endtag(self, tag):
+                if tag == 'header':
+                    self.in_header -= 1
+
+        html = (FRONT / 'index.html').read_text(encoding='utf-8')
+        app = (FRONT / 'js/app.js').read_text(encoding='utf-8')
+        parser = HeaderParser()
+        parser.feed(html)
+        self.assertEqual(parser.header_count, 1)
+        self.assertEqual(parser.header_role, 'toolbar')
+        self.assertIn('toolbar', parser.header_classes.split())
+        self.assertEqual(len(parser.header_controls), 9)
+        for control in ('open-nx-button', 'iso', 'front', 'top', 'right',
+                        'fit-button', 'grid-button', 'axes-button', 'wire-button'):
+            self.assertIn(control, parser.header_controls)
+            self.assertEqual(parser.all_controls.count(control), 1)
+        self.assertNotIn('header-meta', html)
+        self.assertNotIn('LOCAL VIEWER', html)
+        self.assertNotIn('connection-label', html + app)
+        self.assertNotIn('NX available', html + app)
+        self.assertNotIn('updateConnectionStatus', app)
 
     def test_fixed_port_and_launcher(self):
         self.assertEqual(8888, server.PORT)

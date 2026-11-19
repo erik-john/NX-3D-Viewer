@@ -25,7 +25,7 @@ function makeElement() {
 }
 
 const ids = [
-  'connection-label', 'connection-dot', 'viewer-canvas', 'viewer-error',
+  'viewer-canvas', 'viewer-error',
   'viewer-error-text', 'status-message', 'tree-panel', 'tree-toggle',
   'tree-resizer', 'model-tree', 'tree-summary', 'tree-note',
   'empty-state', 'loading-overlay', 'loading-title', 'loading-detail',
@@ -51,7 +51,6 @@ const deferred = () => { let resolve, reject; const promise = new Promise((yes, 
 const openResponses = [];
 const meshResponses = [];
 const fetch = (url) => {
-  if (url === '/api/health') return Promise.resolve({ ok: true, json: async () => ({ status: 'ok', nxAvailable: true }) });
   if (url === '/api/open') { assert.ok(openResponses.length, 'no API response set'); return openResponses.shift().promise; }
   if (url === '/api/models/example.stl') { assert.ok(meshResponses.length, 'no mesh response set'); return meshResponses.shift().promise; }
   throw new Error(`Unexpected URL: ${url}`);

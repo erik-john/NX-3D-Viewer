@@ -87,6 +87,16 @@ with sync_playwright() as p:
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.set_content(html_source(), wait_until='load')
     page.wait_for_function('window.__nxViewerReady === true', timeout=15000)
+    toolbar = page.get_by_role('toolbar', name='Viewer controls')
+    assert toolbar.count() == 1
+    for control in ('OPEN NX FILES', 'ISO', 'FRONT', 'TOP', 'RIGHT', 'GRID', 'AXES', 'WIRE'):
+        assert toolbar.get_by_role('button', name=re.compile(re.escape(control))).count() == 1, control
+    assert toolbar.locator('#fit-button').count() == 1
+    assert page.locator('header').count() == 1
+    assert page.locator('header').bounding_box()['height'] == 70
+    assert page.locator('.header-meta, .brand, #connection-label').count() == 0
+    assert page.locator('main .toolbar').count() == 0
+    assert page.locator('.workspace').bounding_box()['y'] == 70
     assert page.locator('#tree-summary').inner_text() == 'No NX file loaded'
     assert page.locator('.scene-panel').count() == 0
     assert page.locator('#viewer-error').is_hidden()
@@ -135,6 +145,12 @@ with sync_playwright() as p:
     assert page.locator('#grid-button').get_attribute('aria-pressed') == 'false'
     page.locator('#wire-button').click()
     assert page.locator('#wire-button').get_attribute('aria-pressed') == 'true'
+    page.set_viewport_size({'width': 420, 'height': 750})
+    assert page.locator('header.toolbar').bounding_box()['height'] == 62
+    assert page.locator('header.toolbar').evaluate('(el) => el.scrollWidth > el.clientWidth')
+    page.locator('#wire-button').scroll_into_view_if_needed()
+    assert page.locator('#wire-button').is_visible()
+    assert page.locator('.workspace').bounding_box()['y'] == 62
     assert not errors, f'Browser JavaScript errors: {errors}'
     browser.close()
 print('Browser smoke checks passed: hierarchy, visibility, collapse, resize, and loading.')
