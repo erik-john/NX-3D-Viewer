@@ -31,6 +31,8 @@ def html_source():
     markup = (FRONTEND / 'index.html').read_text(encoding='utf-8')
     markup = markup.replace('<link rel="stylesheet" href="/css/style.css">',
                             '<style>' + (FRONTEND / 'css/style.css').read_text(encoding='utf-8') + '</style>')
+    logo = base64.b64encode((FRONTEND / 'assets/nx-cube-logo.png').read_bytes()).decode('ascii')
+    markup = markup.replace('/assets/nx-cube-logo.png', 'data:image/png;base64,' + logo)
     root = {
         'id': 'root', 'name': 'fasteners.prt', 'type': 'part', 'children': [
             {'id': 'c1', 'name': 'Fastener A', 'type': 'component', 'children': [
@@ -94,9 +96,16 @@ with sync_playwright() as p:
     assert toolbar.locator('#fit-button').count() == 1
     assert page.locator('header').count() == 1
     assert page.locator('header').bounding_box()['height'] == 70
-    assert page.locator('.header-meta, .brand, #connection-label').count() == 0
+    assert page.locator('.app-brand').count() == 1
+    assert page.locator('.brand-title').inner_text() == 'NX 3D Viewer'
+    assert page.locator('.brand-subtitle').inner_text() == '3D Visualization Workspace'
+    assert page.locator('.brand-logo').evaluate('(el) => el.complete && el.naturalWidth >= 256')
+    assert page.locator('.header-meta, #connection-label').count() == 0
+    assert page.locator('.app-brand').bounding_box()['width'] > 275
     assert page.locator('main .toolbar').count() == 0
     assert page.locator('.workspace').bounding_box()['y'] == 70
+    if os.environ.get('NX_PREVIEW_PATH'):
+        page.screenshot(path=os.environ['NX_PREVIEW_PATH'])
     assert page.locator('#tree-summary').inner_text() == 'No NX file loaded'
     assert page.locator('.scene-panel').count() == 0
     assert page.locator('#viewer-error').is_hidden()
@@ -147,10 +156,12 @@ with sync_playwright() as p:
     assert page.locator('#wire-button').get_attribute('aria-pressed') == 'true'
     page.set_viewport_size({'width': 420, 'height': 750})
     assert page.locator('header.toolbar').bounding_box()['height'] == 62
-    assert page.locator('header.toolbar').evaluate('(el) => el.scrollWidth > el.clientWidth')
+    assert page.locator('.toolbar-scroll').evaluate('(el) => el.scrollWidth > el.clientWidth')
     page.locator('#wire-button').scroll_into_view_if_needed()
     assert page.locator('#wire-button').is_visible()
     assert page.locator('.workspace').bounding_box()['y'] == 62
-    assert not errors, f'Browser JavaScript errors: {errors}'
+    assert page.locator('.brand-title').is_visible()
+    assert page.locator('.brand-subtitle').is_visible()
+    assert not errors, f'Browser JavaScript errors: {errors}' 
     browser.close()
-print('Browser smoke checks passed: hierarchy, visibility, collapse, resize, and loading.')
+print('Browser smoke checks passed: branding, toolbar, hierarchy, visibility, resize, and loading.')

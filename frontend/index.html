@@ -12,6 +12,14 @@
 <body>
   <div class="app-shell">
     <header class="app-header toolbar" role="toolbar" aria-label="Viewer controls">
+      <div class="app-brand" aria-label="NX 3D Viewer — 3D Visualization Workspace">
+        <img class="brand-logo" src="/assets/nx-cube-logo.png" width="56" height="56" alt="">
+        <div class="brand-copy">
+          <span class="brand-title">NX 3D Viewer</span>
+          <span class="brand-subtitle">3D Visualization Workspace</span>
+        </div>
+      </div>
+      <div class="toolbar-scroll">
       <div class="toolbar-group">
         <button type="button" id="open-nx-button" class="tool-button open-nx-button" title="Open a Siemens NX file (.prt) on this computer">OPEN NX FILES</button>
       </div>
@@ -30,6 +38,7 @@
         <button type="button" class="tool-button toggle active" id="grid-button" aria-pressed="true" title="Show or hide grid (G)">GRID</button>
         <button type="button" class="tool-button toggle active" id="axes-button" aria-pressed="true" title="Show or hide axes">AXES</button>
         <button type="button" class="tool-button toggle" id="wire-button" aria-pressed="false" title="Toggle wireframe (W)">WIRE</button>
+      </div>
       </div>
     </header>
 

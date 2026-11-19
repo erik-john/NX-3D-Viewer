@@ -1,5 +1,45 @@
 NX 3D Viewer
 
+Milestone: 7 — Premium Branding Header
+Status: UI implementation prepared; NX 1855 workstation verification required
+Port: 8888 (fixed)
+Launcher: Run.bat
+
+Changes:
+- Reintroduced the NX 3D Viewer identity and exact subtitle "3D Visualization Workspace".
+- Integrated the chosen teal/cyan 3D NX cube logo from the approved artwork as a local image asset.
+- Implemented responsive, high-contrast, dark-navy header branding with thin teal accents.
+- Kept every MS6 toolbar action and shortcut. Controls scroll independently beside the fixed logo.
+- Preserved NX file conversion, item structure panel, hierarchy, splash screen and loading behavior.
+- No online fonts, libraries, image hosting or build tools required. No version text in UI.
+- Server remains on port 8888 and the launcher remains Run.bat.
+
+Known limits:
+- The supplied design is adapted into a compact application toolbar, not displayed as a full-size banner.
+- NX 1855 and real WebGL visualization still require Windows workstation verification.
+- Only .prt loading is supported; .jt and .chr are future additions.
+- NX file-picker appears on the machine running the local Python server.
+
+Branch policy:
+- One ZIP contains production files and dev/test files; no .gitignore is included.
+- Verify/commit on dev before promoting approved production paths to main.
+- Keep dev/ and tests/ out of main; do not merge the entire dev branch into main.
+
+Validation:
+- py -3 -m unittest discover -s tests -v
+- node tests/check_stl.mjs
+- node tests/check_loading.mjs
+- py -3 dev/browser_smoke.py (requires Playwright/Chromium)
+- Check header at desktop and compact widths, horizontal control scrolling,
+  NX .prt open, item tree, splash screen, and display controls on Windows.
+
+Suggested commits:
+- dev: feat(ui): restore NX branding with premium cube logo
+- main: feat(ui): release NX viewer branding header
+
+--- Previous milestone history ---
+NX 3D Viewer
+
 Milestone: 6 — Unified Top Toolbar
 Status: UI implementation prepared; NX 1855 workstation verification required
 Port: 8888 (fixed)

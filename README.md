@@ -6,7 +6,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 
 - Open Siemens NX **`.prt`** files from the server computer and visualize their geometry.
 - Render NX geometry as tessellated STL surfaces; original NX files are not changed.
-- Use the single top toolbar to open NX files, switch camera views, and control the display.
+- Use the NX 3D Viewer branded header and its adjacent toolbar to open NX files, switch camera views, and control the display.
 - Rotate, pan, zoom, fit to view, and switch between isometric, front, top, and right views.
 - Toggle the reference grid, coordinate axes, and wireframe display.
 - Browse the NX part and component hierarchy in a collapsible, resizable left panel.
@@ -30,6 +30,8 @@ NX-3D-Viewer/
 │   └── nx_service.py
 ├── frontend/
 │   ├── index.html
+│   ├── assets/
+│   │   └── nx-cube-logo.png
 │   ├── css/
 │   │   └── style.css
 │   └── js/
@@ -76,7 +78,7 @@ Adjust the path to your actual NX installation. The launcher also looks for NX u
 
 ## Viewer controls
 
-The top header contains all viewing commands. The NX item structure remains in the left panel.
+The top header displays the NX 3D Viewer logo, product name, and workspace subtitle. All viewing commands remain in a scrollable toolbar beside the branding, and the NX item structure remains in the left panel.
 
 | Action | Control |
 | --- | --- |
