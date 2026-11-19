@@ -1,0 +1,50 @@
+# Python caches and compiled files
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local Python environments
+.venv/
+venv/
+env/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.local
+
+# IDE and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Generated data, exports, and runtime files
+logs/
+*.log
+*.pid
+cache/
+temp/
+tmp/
+uploads/
+exports/
+output/
+dist/
+build/
+
+# Development-only content excluded from the main branch
+/tests/
+/dev/
+/tools/
+/playground/
+/.coverage
+/.coverage.*
+/htmlcov/
+/coverage.xml
+/tox.ini
+/pytest.ini
