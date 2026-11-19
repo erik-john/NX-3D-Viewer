@@ -37,14 +37,10 @@ output/
 dist/
 build/
 
-# Development-only content excluded from the main branch
-/tests/
-/dev/
-/tools/
-/playground/
-/.coverage
-/.coverage.*
-/htmlcov/
-/coverage.xml
-/tox.ini
-/pytest.ini
+# Keep source files under tests/, dev/, and tools/ eligible for commits.
+# Ignore only their generated reports and coverage artifacts.
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
