@@ -7,7 +7,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Open Siemens NX **`.prt`** files from the server computer and visualize their geometry.
 - Render NX geometry as tessellated STL surfaces; original NX files are not changed.
 - Use the NX 3D Viewer branded header and its adjacent toolbar to open NX files, switch camera views, and control the display.
-- Rotate, pan, zoom, fit to view, and switch between isometric, front, top, and right views.
+- Rotate, pan, zoom, and switch between isometric, front, top, and right views. Imported models are automatically centered and fitted in full, with a margin around their geometry.
 - Toggle the reference grid, coordinate axes, and wireframe display.
 - Browse the NX part and component hierarchy in a collapsible, resizable left panel.
 - Expand/collapse components, select items, and show/hide individual bodies when separate body geometry is available.
@@ -44,7 +44,7 @@ The server listens only on the local computer. Port **8888** is fixed.
 4. The current geometry and item structure are cleared, and a loading screen is shown while the new file is prepared.
 5. When the file is loaded, use **Item Structure** at the left to browse the NX part, components, and bodies.
 
-The viewer starts without any model. If the operation is cancelled or fails, the workspace remains empty and an error or cancellation message is shown. Exported STL files are stored temporarily and removed when the server exits. No conversion overwrites or saves the original `.prt` file.
+The empty viewer starts with a wider reference-grid view. When a model loads, the camera automatically adjusts to show the entire model. If the operation is cancelled or fails, the workspace remains empty and an error or cancellation message is shown. Exported STL files are stored temporarily and removed when the server exits. No conversion overwrites or saves the original `.prt` file.
 
 If NX cannot be found, set the `NX_RUN_JOURNAL` environment variable to the complete path of `run_journal.exe` and restart the server. For example, in PowerShell:
 
@@ -70,7 +70,7 @@ The top header displays the NX 3D Viewer logo, product name, and workspace subti
 | Axes | **AXES** |
 | Wireframe | **WIRE** or **W** |
 
-The display is Y-up; imported NX geometry is rotated from NX's Z-up coordinate convention.
+Use **FIT** (or **F**) after rotating or zooming to show the entire model again. The display is Y-up; imported NX geometry is rotated from NX's Z-up coordinate convention.
 
 ## Item Structure panel
 
