@@ -18,9 +18,13 @@ class BrandingTests(unittest.TestCase):
         self.assertIn('3D Visualization Workspace</span>', html)
         self.assertIn('src="/assets/nx-cube-logo.png"', html)
         self.assertIn('class="toolbar-scroll"', html)
-        for item in ['open-nx-button', 'fit-button', 'grid-button', 'axes-button', 'wire-button', 'tree-toggle']:
+        for item in ['open-nx-button', 'fit-button', 'tree-toggle']:
             self.assertIn('id="'+item+'"', html)
         self.assertIn('.toolbar-scroll', css)
+        self.assertIn('class="viewport-view-tools"', html)
+        self.assertNotIn('id="grid-button"', html)
+        self.assertNotIn('id="axes-button"', html)
+        self.assertNotIn('id="wire-button"', html)
         self.assertIn('overflow-x: auto', css)
         self.assertNotIn('LOCAL VIEWER', html)
         self.assertNotIn('NX available', html)

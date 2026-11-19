@@ -27,8 +27,7 @@ class ViewerTests(unittest.TestCase):
         self.assertNotIn('cdn.jsdelivr', html + renderer)
         self.assertNotIn('http://', html + renderer)
         self.assertNotIn('https://', html + renderer)
-        for element in ['viewer-canvas', 'empty-state', 'loading-overlay', 'loading-title', 'loading-detail', 'fit-button', 'grid-button',
-                        'axes-button', 'wire-button', 'tree-panel', 'tree-toggle', 'model-tree', 'tree-resizer', 'viewer-error', 'open-nx-button']:
+        for element in ['viewer-canvas', 'empty-state', 'loading-overlay', 'loading-title', 'loading-detail', 'fit-button', 'tree-panel', 'tree-toggle', 'model-tree', 'tree-resizer', 'viewer-error', 'open-nx-button']:
             with self.subTest(element=element):
                 self.assertIn(f'id="{element}"', html)
 
@@ -86,11 +85,14 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(parser.header_count, 1)
         self.assertEqual(parser.header_role, 'toolbar')
         self.assertIn('toolbar', parser.header_classes.split())
-        self.assertEqual(len(parser.header_controls), 9)
-        for control in ('open-nx-button', 'iso', 'front', 'top', 'right',
-                        'fit-button', 'grid-button', 'axes-button', 'wire-button'):
-            self.assertIn(control, parser.header_controls)
+        self.assertEqual(parser.header_controls, ['open-nx-button'])
+        for control in ('open-nx-button', 'iso', 'front', 'top', 'right', 'fit-button'):
+            self.assertIn(control, parser.all_controls)
             self.assertEqual(parser.all_controls.count(control), 1)
+        self.assertIn('class="viewport-view-tools"', html)
+        self.assertNotIn('id="grid-button"', html)
+        self.assertNotIn('id="axes-button"', html)
+        self.assertNotIn('id="wire-button"', html)
         self.assertNotIn('header-meta', html)
         self.assertNotIn('LOCAL VIEWER', html)
         self.assertNotIn('connection-label', html + app)

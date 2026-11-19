@@ -134,22 +134,11 @@ function setup() {
     }
   }
 
-  function toggle(id, prop) {
-    viewer[prop] = !viewer[prop];
-    const button = $(id);
-    button.classList.toggle('active', viewer[prop]);
-    button.setAttribute('aria-pressed', String(viewer[prop]));
-    viewer.requestRender();
-  }
-
   $('open-nx-button').addEventListener('click', openNXPart);
   for (const button of document.querySelectorAll('[data-view]')) {
     button.addEventListener('click', () => setCameraView(button.dataset.view));
   }
   $('fit-button').addEventListener('click', () => viewer.fit());
-  $('grid-button').addEventListener('click', () => toggle('grid-button', 'showGrid'));
-  $('axes-button').addEventListener('click', () => toggle('axes-button', 'showAxes'));
-  $('wire-button').addEventListener('click', () => toggle('wire-button', 'wireframe'));
   $('viewer-canvas').addEventListener('dblclick', () => viewer.fit());
   window.addEventListener('keydown', event => {
     if (event.altKey || event.ctrlKey || event.metaKey ||
@@ -157,8 +146,6 @@ function setup() {
     const views = { '1': 'iso', '2': 'front', '3': 'top', '4': 'right' };
     if (views[event.key]) setCameraView(views[event.key]);
     else if (event.key.toLowerCase() === 'f') viewer.fit();
-    else if (event.key.toLowerCase() === 'g') toggle('grid-button', 'showGrid');
-    else if (event.key.toLowerCase() === 'w') toggle('wire-button', 'wireframe');
   });
   clearScene();
   $('status-message').textContent = 'Ready · Open an NX file to begin';

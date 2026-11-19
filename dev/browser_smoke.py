@@ -93,9 +93,13 @@ with sync_playwright() as p:
     page.wait_for_function('window.__nxViewerReady === true', timeout=15000)
     toolbar = page.get_by_role('toolbar', name='Viewer controls')
     assert toolbar.count() == 1
-    for control in ('OPEN NX FILES', 'ISO', 'FRONT', 'TOP', 'RIGHT', 'GRID', 'AXES', 'WIRE'):
-        assert toolbar.get_by_role('button', name=re.compile(re.escape(control))).count() == 1, control
-    assert toolbar.locator('#fit-button').count() == 1
+    assert toolbar.get_by_role('button', name='OPEN NX FILES').count() == 1
+    assert toolbar.locator('[data-view]').count() == 0
+    assert page.locator('.viewport-view-tools [data-view]').count() == 4
+    for view in ('Isometric view', 'Front view', 'Top view', 'Right view'):
+        assert page.get_by_role('button', name=view, exact=True).count() == 1
+    assert page.locator('.viewport-view-tools #fit-button').count() == 1
+    assert page.locator('#grid-button,#axes-button,#wire-button').count() == 0
     assert page.locator('header').count() == 1
     assert page.locator('header').bounding_box()['height'] == 70
     assert page.locator('.app-brand').count() == 1
@@ -112,6 +116,11 @@ with sync_playwright() as p:
     assert page.locator('#inspector-content').inner_text().startswith('Open an NX file')
     assert page.locator('.scene-panel').count() == 0
     assert page.locator('#viewer-error').is_hidden()
+    assert page.locator('.viewport-view-tools').is_visible()
+    page.wait_for_function("document.querySelector('#axis-label-x').hidden === false")
+    assert page.locator('#axis-label-y').is_visible()
+    assert page.locator('#axis-label-z').is_visible()
+    assert 'linear-gradient' in page.locator('#viewer-viewport').evaluate('(el) => getComputedStyle(el).backgroundImage')
     assert page.locator('#empty-state').is_visible()
     assert page.locator('#loading-overlay').is_hidden()
     assert page.get_by_role('button', name='OPEN NX FILES').count() == 1
@@ -157,21 +166,19 @@ with sync_playwright() as p:
     assert page.locator('.tree-row').count() == 0
     page.wait_for_function("document.querySelector('#loading-overlay').hidden === true")
     assert page.locator('#empty-state').is_visible()
-    page.get_by_role('button', name='TOP').click()
-    assert page.get_by_role('button', name='TOP').get_attribute('aria-pressed') == 'true'
-    page.locator('#grid-button').click()
-    assert page.locator('#grid-button').get_attribute('aria-pressed') == 'false'
-    page.locator('#wire-button').click()
-    assert page.locator('#wire-button').get_attribute('aria-pressed') == 'true'
+    page.get_by_role('button', name='Top view', exact=True).click()
+    assert page.get_by_role('button', name='Top view', exact=True).get_attribute('aria-pressed') == 'true'
+    page.get_by_role('button', name='Fit model to view').click()
+    page.keyboard.press('1')
+    assert page.get_by_role('button', name='Isometric view', exact=True).get_attribute('aria-pressed') == 'true'
     page.locator('#inspector-toggle').click()
     assert 'is-collapsed' in page.locator('#inspector-panel').get_attribute('class')
     page.locator('#inspector-toggle').click()
     assert 'is-collapsed' not in page.locator('#inspector-panel').get_attribute('class')
     page.set_viewport_size({'width': 420, 'height': 750})
     assert page.locator('header.toolbar').bounding_box()['height'] == 62
-    assert page.locator('.toolbar-scroll').evaluate('(el) => el.scrollWidth > el.clientWidth')
-    page.locator('#wire-button').scroll_into_view_if_needed()
-    assert page.locator('#wire-button').is_visible()
+    assert page.locator('#open-nx-button').is_visible()
+    assert page.get_by_role('button', name='Isometric view', exact=True).is_visible()
     assert page.locator('.workspace').bounding_box()['y'] == 62
     assert page.locator('.brand-title').is_visible()
     assert page.locator('.brand-subtitle').is_visible()

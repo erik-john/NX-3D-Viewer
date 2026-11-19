@@ -30,7 +30,6 @@ const ids = [
   'tree-resizer', 'model-tree', 'tree-summary', 'tree-note',
   'empty-state', 'loading-overlay', 'loading-title', 'loading-detail',
   'viewer-workspace', 'open-nx-button', 'import-message', 'fit-button',
-  'grid-button', 'axes-button', 'wire-button',
   'inspector-panel', 'inspector-toggle', 'inspector-content',
 ];
 const elems = Object.fromEntries(ids.map(id => [id, makeElement()]));

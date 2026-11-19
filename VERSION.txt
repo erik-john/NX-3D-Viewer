@@ -1,3 +1,68 @@
+Milestone: 12 — Compact View Controls and Readable Light Workspace
+
+Changes
+- Keep the OPEN NX FILES action in the top header and reserve adjacent header space for future actions.
+- Move ISO, FRONT, TOP, RIGHT and FIT into a vertical camera-icon dock within the 3D viewport.
+- Retain mouse controls and keyboard shortcuts 1–4 and F; all icon buttons include titles and accessible labels.
+- Remove DISPLAY, GRID, AXES and WIRE buttons and their G/W shortcuts from the visible interface.
+- Keep the default rendering consistent: grid off, NX X/Y/Z reference axes and three datum planes visible, solid shading.
+- Increase type sizes in the header, status bar, workspace, Item Structure and Part Inspector.
+- Darken Inspector captions from #687b88 to #3e5260 and increase row label/value size.
+- Lighten the STL steel base color from #b9c0c8 to #d3dade, with more even ambient/key/fill lighting.
+- Keep the existing NX file-loading, body visibility, inspector metrics and auto-fit behavior unchanged.
+- Fixed local port remains 8888. No version text in the web interface.
+- Windows CRLF text source and .gitattributes retained. Preserve existing branch-specific .gitignore.
+
+Checks
+- Verify camera icon toolbar, active state, 1–4/F keyboard navigation and no DISPLAY group.
+- Verify tree panel, inspector, viewport overlays and NX file-loading interactions.
+- Run Python and JavaScript suites in the dev branch before promoting production files.
+- Siemens NX 1855 export and real hardware WebGL material rendering require workstation validation.
+
+Commit suggestions
+- dev: feat(ui): add viewport camera icons and improve light workspace readability
+- main: feat(ui): release streamlined viewport controls and lighter steel shading
+
+MS11 — NX-style Steel Visualization and Light Workspace
+
+Production changes
+- NX mesh default appearance is now brushed silver/steel with camera-aware highlights, not teal.
+- NX X/Y/Z origin axes and the camera compass now use the exact same NX-to-WebGL rotation as imported STL geometry.
+- Only three small positive-quadrant datum planes are constructed: NX XY, YZ, and XZ.
+- Item Structure, Part Inspector, and top toolbar use a white/light presentation.
+- Updated NX cube PNG logo for visibility on the light header; source filename is unchanged.
+- Default GRID remains off, AXES remains on, and automatic model fit is preserved.
+- Existing root screenshot.png is retained as an illustrative legacy dark theme reference.
+
+Development verification
+- Run: py -3 -m unittest discover -s tests -v
+- Run: node tests/check_stl.mjs && node tests/check_camera.mjs && node tests/check_reference.mjs
+- Run: node tests/check_inspector.mjs && node tests/check_loading.mjs && node tests/check_steel_theme.mjs
+- Real Siemens NX 1855 and GPU-accelerated WebGL must be verified on a Windows workstation.
+- All text source files supplied with Windows CRLF endings; .gitignore intentionally excluded.
+
+NX 3D Viewer — Milestone 10: NX-style Viewport and Datum References
+
+Changes:
+- Replaced the dark 3D canvas background with a pale gray-to-white NX-style gradient. Other workspace panels and branding remain unchanged.
+- Added three intersecting coordinate reference planes (XY, XZ, YZ), thin outlines and colored X/Y/Z axes at the actual part-coordinate origin.
+- Added camera-projected axis labels that follow orbit, pan, zoom and resize.
+- GRID is disabled by default and can still be toggled from the top toolbar or G shortcut.
+- AXES now toggles both XYZ axes and the three reference planes; all are enabled by default.
+- Kept model auto-fit, NX loading, item tree, Part Inspector, fixed port 8888, Run.bat, and root screenshot.
+- Kept Windows CRLF line endings for text files, preserved .gitattributes, and omitted .gitignore from release ZIP.
+
+Notes:
+- World origin is the converted NX origin (0,0,0); it may be outside the viewport for parts modeled far from origin.
+- The existing Y-up conversion for NX STL data is unchanged; reference axes are in the display's Y-up coordinate system.
+- The README screenshot is an earlier illustrative view with GRID switched on; the new default is GRID off.
+- Validation uses local WebGL checks and simulated NX data; licensed NX 1855 remains to be tested on the Windows workstation.
+
+Suggested Git commits:
+- dev: feat(viewer): add NX-style light viewport and coordinate datum planes
+- main: feat(viewer): release light viewport and coordinate references
+
+--- Previous milestones ---
 NX 3D Viewer — Milestone 9: Part Inspector
 
 Changes:

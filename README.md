@@ -6,11 +6,11 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 
 - Open Siemens NX **`.prt`** files from the server computer and visualize their geometry.
 - Render NX geometry as tessellated STL surfaces; original NX files are not changed.
-- Use the NX 3D Viewer branded header and its adjacent toolbar to open NX files, switch camera views, and control the display.
+- Use the light NX 3D Viewer header to open NX files, with compact icon-based camera controls inside the 3D workspace.
 - Rotate, pan, zoom, and switch between isometric, front, top, and right views. Imported models are automatically centered and fitted in full, with a margin around their geometry.
-- Toggle the reference grid, coordinate axes, and wireframe display.
-- Browse the NX part and component hierarchy in a collapsible, resizable left panel.
-- Inspect model dimensions, geometry counts, part details, NX units, and available NX attributes in the right Part Inspector panel.
+- Work in an NX-style light gray 3D environment with a light silver-steel model, NX X/Y/Z axes and exactly three small XY, YZ, and XZ coordinate reference planes. The grid is hidden by default while the coordinate references remain visible.
+- Browse the NX part and component hierarchy in a collapsible, resizable white left panel.
+- Inspect model dimensions, geometry counts, part details, NX units, and available NX attributes in the white right Part Inspector panel.
 - Expand/collapse components, select items, and show/hide individual bodies when separate body geometry is available.
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
 
@@ -24,9 +24,9 @@ Actual `.prt` conversion requires NX Open and its `run_journal.exe` program. An 
 
 ## Viewer screenshot
 
-![NX 3D Viewer workspace with Item Structure, NX toolbar and reference grid](screenshot.png)
+![NX 3D Viewer workspace with Item Structure, NX toolbar and reference grid enabled](screenshot.png)
 
-*Illustrative preview of the empty viewer workspace with the reference grid enabled.*
+*Illustrative screenshot from an earlier dark-interface layout, with the reference grid visible. The current application uses a light theme, no grid by default, and floating camera icons.*
 
 ## Start
 
@@ -45,7 +45,7 @@ The server listens only on the local computer. Port **8888** is fixed.
 4. The current geometry and item structure are cleared, and a loading screen is shown while the new file is prepared.
 5. When the file is loaded, use **Item Structure** at the left to browse the NX part, components, and bodies.
 
-The empty viewer starts with a wider reference-grid view. When a model loads, the camera automatically adjusts to show the entire model. If the operation is cancelled or fails, the workspace remains empty and an error or cancellation message is shown. Exported STL files are stored temporarily and removed when the server exits. No conversion overwrites or saves the original `.prt` file.
+The empty viewer starts with a neutral coordinate-reference view without a grid. When a model loads, the camera automatically adjusts to show the entire model. If the operation is cancelled or fails, the workspace remains empty and an error or cancellation message is shown. Exported STL files are stored temporarily and removed when the server exits. No conversion overwrites or saves the original `.prt` file.
 
 If NX cannot be found, set the `NX_RUN_JOURNAL` environment variable to the complete path of `run_journal.exe` and restart the server. For example, in PowerShell:
 
@@ -58,20 +58,17 @@ Adjust the path to your actual NX installation. The launcher also looks for NX u
 
 ## Viewer controls
 
-The top header displays the NX 3D Viewer logo, product name, and workspace subtitle. All viewing commands remain in a scrollable toolbar beside the branding, and the NX item structure remains in the left panel.
+The light header displays the NX 3D Viewer branding and **OPEN NX FILES** command, with room for future features. Camera controls are floating icon buttons at the upper-right corner of the 3D workspace; hover for a tooltip. The Item Structure panel remains on the left.
 
 | Action | Control |
 | --- | --- |
 | Rotate | Left mouse drag |
 | Pan | Right mouse drag, or Shift + left drag |
 | Zoom | Mouse wheel |
-| Fit | **FIT**, **F**, or double-click |
-| Camera views | **ISO / FRONT / TOP / RIGHT**, or keys **1–4** |
-| Grid | **GRID** or **G** |
-| Axes | **AXES** |
-| Wireframe | **WIRE** or **W** |
+| Fit | **Fit icon** in workspace, **F**, or double-click |
+| Camera views | **Isometric / Front / Top / Right icons** in workspace, or keys **1–4** |
 
-Use **FIT** (or **F**) after rotating or zooming to show the entire model again. The display is Y-up; imported NX geometry is rotated from NX's Z-up coordinate convention.
+Use the **Fit icon** (or **F**) after rotating or zooming to show the entire model again. The WebGL display is Y-up: NX (X, Y, Z) is mapped to viewport (X, Z, −Y). Axis labels, the rotating axis compass, and the Part Inspector dimensions retain NX X/Y/Z meaning.
 
 ## Item Structure panel
 
