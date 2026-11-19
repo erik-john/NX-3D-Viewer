@@ -2,6 +2,8 @@ import { boundsFor } from './geometry.js';
 
 const PI = Math.PI;
 const TAU = 2 * PI;
+const EMPTY_VIEW_DISTANCE = 11.5;
+const MODEL_FIT_MARGIN = 1.25;
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -129,8 +131,8 @@ function getEdges(indices) {
   return new Uint16Array(result);
 }
 
-function makeGrid(bounds) {
-  const xy = Math.max(bounds.size[0], bounds.size[2], 2);
+function makeGrid(bounds, empty = false) {
+  const xy = empty ? 9 : Math.max(bounds.size[0], bounds.size[2], 2);
   const full = Math.max(5, Math.ceil(xy * 1.5));
   const step = full > 35 ? Math.ceil(full / 22) : 1;
   const count = Math.ceil(full / step);
@@ -183,7 +185,7 @@ export class Viewer {
     this.target = [0, 0, 0];
     this.yaw = PI / 4;
     this.pitch = 0.44;
-    this.distance = 9;
+    this.distance = EMPTY_VIEW_DISTANCE;
     this.showGrid = true;
     this.showAxes = true;
     this.wireframe = false;
@@ -237,7 +239,7 @@ export class Viewer {
         if (buffer instanceof WebGLBuffer) gl.deleteBuffer(buffer);
       }
     }
-    const lines = makeGrid(this.bounds);
+    const lines = makeGrid(this.bounds, this.geometry.length === 0);
     this.gridBuffers = {
       position: createBuffer(gl, new Float32Array(lines.positions)),
       color: createBuffer(gl, new Float32Array(lines.colors)),
@@ -261,14 +263,43 @@ export class Viewer {
   }
 
   fit() {
-    const { center, size } = this.bounds;
+    if (this.geometry.length === 0) {
+      this.target = [0, 0, 0];
+      this.distance = EMPTY_VIEW_DISTANCE;
+      this.requestRender();
+      return;
+    }
+
+    const { min, max, center, size } = this.bounds;
     this.target = center.slice();
-    const radius = Math.max(0.5, Math.hypot(...size) / 2);
     const rect = this.canvas.getBoundingClientRect();
     const aspect = Math.max(0.3, rect.width / Math.max(1, rect.height));
-    const verticalFov = PI / 4;
-    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
-    this.distance = clamp(radius / Math.sin(Math.min(verticalFov, horizontalFov) / 2) * 1.20, 2, 50000);
+    const tangentVertical = Math.tan(PI / 8);
+    const tangentHorizontal = tangentVertical * aspect;
+    const outward = normalize([
+      Math.cos(this.pitch) * Math.sin(this.yaw),
+      Math.sin(this.pitch),
+      Math.cos(this.pitch) * Math.cos(this.yaw),
+    ]);
+    const right = normalize(cross([0, 1, 0], outward));
+    const up = cross(outward, right);
+    const clearance = Math.max(0.1, Math.hypot(...size) * 0.03);
+    let distance = 0;
+
+    // Account for all eight corners, not just the model's largest dimension.
+    // Every corner stays inside both the vertical and horizontal view angles.
+    for (const x of [min[0], max[0]]) {
+      for (const y of [min[1], max[1]]) {
+        for (const z of [min[2], max[2]]) {
+          const offset = [x - center[0], y - center[1], z - center[2]];
+          const sideways = Math.abs(dot(offset, right)) / tangentHorizontal;
+          const upward = Math.abs(dot(offset, up)) / tangentVertical;
+          distance = Math.max(distance, dot(offset, outward) +
+            Math.max(MODEL_FIT_MARGIN * sideways, MODEL_FIT_MARGIN * upward, clearance));
+        }
+      }
+    }
+    this.distance = clamp(distance, 0.5, 1e9);
     this.requestRender();
   }
 

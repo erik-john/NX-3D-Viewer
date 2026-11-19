@@ -1,5 +1,34 @@
 NX 3D Viewer
 
+Milestone: 8 — Empty Grid Zoom & Automatic Model Fit
+Status: Implementation prepared; NX 1855 workstation verification required
+Port: 8888 (fixed)
+Launcher: Run.bat
+
+Changes:
+- Set a wider, fixed camera distance for the empty workspace instead of fitting an empty model at the origin.
+- Expanded the empty reference grid so it remains useful and visible at the new zoom level.
+- Fit newly loaded geometry using all eight corners of the model bounding box, camera direction, vertical and horizontal field of view, and viewport aspect ratio.
+- Reserve a comfortable frame margin so complete parts and assemblies are visible after loading.
+- ISO, FRONT, TOP, RIGHT, FIT button, double-click, and F shortcut retain the same model-fit behavior.
+- No changes to NX export, server port, item hierarchy, branding, screenshot, or loading flow.
+- All distributed text files use Windows CRLF line endings.
+
+Verification:
+- py -3 -m unittest discover -s tests -v
+- node tests/check_stl.mjs
+- node tests/check_loading.mjs
+- node tests/check_camera.mjs
+- py -3 dev/browser_smoke.py (with Chromium + Playwright)
+- Visual verification with actual NX 1855 .prt assemblies remains necessary.
+
+Branch workflow:
+- Test first on dev and commit: fix(viewer): widen empty grid and fit loaded NX models
+- Promote approved production source paths to main (no tests/, dev/, or branch .gitignore).
+
+--- Previous milestone history ---
+NX 3D Viewer
+
 Milestone: 7 — Premium Branding Header
 Status: UI implementation prepared; NX 1855 workstation verification required
 Port: 8888 (fixed)
