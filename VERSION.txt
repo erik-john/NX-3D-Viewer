@@ -1,3 +1,24 @@
+Milestone: 25 — 3D Component Picking and Selection
+
+Changes
+- Add 1-pixel offscreen WebGL ID picking for visible NX mesh chunks, honoring depth and component visibility.
+- Click geometry to select its parent component occurrence in Item Structure; update Part Inspector and status.
+- Selecting an Item Structure node highlights its displayed geometry; picking an item automatically expands the tree path and scrolls it into view.
+- Add subtle teal hover highlight and stronger blue selected-component highlight, preserving steel surface lighting.
+- Preserve existing left-drag rotation, Shift+left/right-drag pan, wheel zoom, and camera views; avoid selection during drag.
+- Clicking the empty viewport clears selection; a new file load clears selection and hover state.
+- For combined STL fallback, picking selects the entire model only, not individual components.
+- Port remains 8888. Source uses Windows CRLF. No .gitignore or uploads files included.
+
+Verification
+- Run full Python + JavaScript tests, including picking ID encode/decode, 1-pixel picking matrix and tree synchronization.
+- Test on real NX assembly with repeated components, occlusion, hidden bodies and combined STL fallback.
+- WebGL GPU picking and real NX component selection require Windows workstation confirmation.
+
+Suggested commits
+- dev: feat(viewer): add 3D component picking and synchronized selection
+- main: feat(viewer): release assembly component selection
+
 Milestone: 24 — Workspace Modal Layout Refinement
 
 Changes

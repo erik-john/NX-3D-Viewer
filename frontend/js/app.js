@@ -27,9 +27,18 @@ function setup() {
     onVisibility: (meshId, visible) => viewer.setMeshVisible(meshId, visible),
     onSelect: node => {
       inspector.select(node);
-      $('status-message').textContent = `Selected: ${node.name}`;
+      viewer.setSelectedMeshIds(node ? tree.descendants(node) : []);
+      $('status-message').textContent = node ? `Selected: ${node.name}` : 'Selection cleared';
     },
   });
+  viewer.onHoverMesh = meshId => {
+    const node = meshId ? tree.nodeForMesh(meshId) : null;
+    viewer.setHoveredMeshIds(node ? tree.descendants(node) : []);
+  };
+  viewer.onSelectMesh = meshId => {
+    if (!meshId) tree.selectNode(null);
+    else if (!tree.selectMesh(meshId)) tree.selectNode(null);
+  };
   let selectedView = 'iso';
 
   function setCameraView(view) {

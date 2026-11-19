@@ -18,7 +18,7 @@ assert.match(html, /meta name="color-scheme" content="light"/);
 for (const id of ['compass-axis-x', 'compass-axis-y', 'compass-axis-z', 'compass-label-x', 'compass-label-y', 'compass-label-z']) {
   assert.ok(html.includes(`id="${id}"`), id);
 }
-const source = viewerSource.replace(/^import .+\r?\n/m, '').replace('export class Viewer', 'class Viewer') +
+const source = viewerSource.replace(/^import .+\r?\n/gm, '').replace('export class Viewer', 'class Viewer') +
   '\nthis.Viewer=Viewer; this.makeDatum=makeDatum;';
 const ctx = { Math, Float32Array, Uint16Array, Set };
 vm.runInNewContext(source, ctx);

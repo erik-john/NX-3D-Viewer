@@ -8,7 +8,7 @@ assert.match(shader, /baseLinear = pow\(clamp\(uColor/);
 assert.match(shader, /vec3 steel = pow\(clamp\(linearSteel, 0\.0, 1\.0\), vec3\(1\.0 \/ 2\.2\)\)/);
 assert.match(shader, /0\.06 \* silhouette/);
 assert.match(shader, /float softbox = pow/);
-assert.match(shader, /gl_FragColor = vec4\(mix\(steel.*1\.0\)/);
+assert.match(shader, /gl_FragColor = vec4\(surface, 1\.0\)/);
 assert.doesNotMatch(shader, /0\.27 \* silhouette/);
 const norm = v => { const m = Math.hypot(...v); return v.map(n=>n/m); };
 const dot = (a,b) => a.reduce((total,n,i)=>total+n*b[i],0);

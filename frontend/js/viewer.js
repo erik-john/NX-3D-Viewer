@@ -1,4 +1,5 @@
 import { boundsFor } from './geometry.js';
+import { encodePickId, decodePickColor, pickMatrix } from './picking.js';
 
 const PI = Math.PI;
 const TAU = 2 * PI;
@@ -94,6 +95,7 @@ precision mediump float;
 uniform vec3 uColor;
 uniform vec3 uEye;
 uniform float uWire;
+uniform float uHighlight;
 varying vec3 vNormal;
 varying vec3 vPosition;
 void main() {
@@ -126,8 +128,26 @@ void main() {
   vec3 linearSteel = baseLinear * diffuse * (1.0 - 0.06 * silhouette) + vec3(broad + tight + softbox);
   // Convert linear illumination to display sRGB. Without this, gray faces look charcoal.
   vec3 steel = pow(clamp(linearSteel, 0.0, 1.0), vec3(1.0 / 2.2)) * 0.96;
-  gl_FragColor = vec4(mix(steel, vec3(0.37, 0.41, 0.45), uWire), 1.0);
+  // A selected component remains visibly shaded, rather than turning into a flat color.
+  vec3 surface = mix(steel, vec3(0.37, 0.41, 0.45), uWire);
+  if (uHighlight > 1.5) surface = mix(surface, vec3(0.24, 0.61, 0.88), 0.46);
+  else if (uHighlight > 0.5) surface = mix(surface, vec3(0.23, 0.84, 0.74), 0.32);
+  gl_FragColor = vec4(surface, 1.0);
 }`;
+// Color ID pass shares the same mesh buffers and depth ordering as normal rendering.
+const PICK_VERTEX = `
+attribute vec3 aPosition;
+uniform mat4 uViewProjection;
+void main() { gl_Position = uViewProjection * vec4(aPosition, 1.0); }`;
+const PICK_FRAGMENT = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec3 uPickColor;
+void main() { gl_FragColor = vec4(uPickColor, 1.0); }`;
+
 const LINE_VERTEX = `
 attribute vec3 aPosition;
 attribute vec4 aColor;
@@ -251,12 +271,22 @@ export class Viewer {
     this.gl = gl;
     this.solid = program(gl, SOLID_VERTEX, SOLID_FRAGMENT);
     this.lines = program(gl, LINE_VERTEX, LINE_FRAGMENT);
+    this.pickProgram = program(gl, PICK_VERTEX, PICK_FRAGMENT);
+    this.pickLoc = { position: gl.getAttribLocation(this.pickProgram, 'aPosition'),
+      matrix: gl.getUniformLocation(this.pickProgram, 'uViewProjection'),
+      color: gl.getUniformLocation(this.pickProgram, 'uPickColor') };
+    this.pickBuffer = null;
+    this.onHoverMesh = null;
+    this.onSelectMesh = null;
+    this.hoveredMeshIds = new Set();
+    this.selectedMeshIds = new Set();
     this.solidLoc = {
       position: gl.getAttribLocation(this.solid, 'aPosition'),
       normal: gl.getAttribLocation(this.solid, 'aNormal'),
       matrix: gl.getUniformLocation(this.solid, 'uViewProjection'),
       color: gl.getUniformLocation(this.solid, 'uColor'),
       wire: gl.getUniformLocation(this.solid, 'uWire'),
+      highlight: gl.getUniformLocation(this.solid, 'uHighlight'),
       eye: gl.getUniformLocation(this.solid, 'uEye'),
     };
     this.lineLoc = {
@@ -295,7 +325,9 @@ export class Viewer {
       if (item.creasePosition) gl.deleteBuffer(item.creasePosition);
       if (item.creaseColor) gl.deleteBuffer(item.creaseColor);
     }
-    this.geometry = meshes.map(item => {
+    this.hoveredMeshIds.clear();
+    this.selectedMeshIds.clear();
+    this.geometry = meshes.map((item, index) => {
       if (item.positions.length / 3 > 65535) throw new Error('Mesh exceeds the current index limit');
       const edges = getEdges(item.indices);
       return {
@@ -310,6 +342,8 @@ export class Viewer {
         creaseCount: (item.creasePositions?.length || 0) / 3,
         color: colorFromHex(item.color),
         meshId: item.meshId || 'root',
+        pickId: index + 1,
+        pickColor: encodePickId(index + 1),
         visible: true,
       };
     });
@@ -323,6 +357,116 @@ export class Viewer {
       if (item.meshId === meshId) item.visible = visible;
     }
     this.requestRender();
+  }
+
+  setHoveredMeshIds(ids) {
+    this.updateHighlight('hoveredMeshIds', ids);
+  }
+
+  setSelectedMeshIds(ids) {
+    this.updateHighlight('selectedMeshIds', ids);
+  }
+
+  updateHighlight(field, ids) {
+    const next = new Set(ids || []);
+    const previous = this[field];
+    if (next.size === previous.size && [...next].every(id => previous.has(id))) return;
+    this[field] = next;
+    this.requestRender();
+  }
+
+  cameraMatrix(width, height) {
+    const eye = [
+      this.target[0] + this.distance * Math.cos(this.pitch) * Math.sin(this.yaw),
+      this.target[1] + this.distance * Math.sin(this.pitch),
+      this.target[2] + this.distance * Math.cos(this.pitch) * Math.cos(this.yaw),
+    ];
+    return { eye, matrix: multiply(
+      perspective(PI / 4, width / height, Math.max(0.01, this.distance / 2000), Math.max(200, this.distance * 75)),
+      lookAt(eye, this.target),
+    ) };
+  }
+
+  initializePicking() {
+    if (this.pickBuffer) return true;
+    const gl = this.gl;
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const depth = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, 1, 1);
+    const framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+    const ready = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    if (!ready) {
+      gl.deleteFramebuffer(framebuffer);
+      gl.deleteTexture(texture);
+      gl.deleteRenderbuffer(depth);
+      return false;
+    }
+    this.pickBuffer = { framebuffer, texture, depth };
+    return true;
+  }
+
+  // Return the nearest *visible* mesh, not whichever bounding box intersects first.
+  // A 1x1 offscreen render avoids CPU raycasting millions of STL triangles.
+  pickMesh(clientX, clientY) {
+    if (!this.geometry.length) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return null;
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top) / rect.height;
+    if (x < 0 || x >= 1 || y < 0 || y >= 1) return null;
+    if (!this.initializePicking()) return null;
+    const gl = this.gl;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    const { matrix } = this.cameraMatrix(width, height);
+    const pixelMatrix = pickMatrix(matrix, 2 * x - 1, 1 - 2 * y, width, height);
+    const pixel = new Uint8Array(4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.pickBuffer.framebuffer);
+    const ditherEnabled = gl.isEnabled(gl.DITHER);
+    try {
+      gl.viewport(0, 0, 1, 1);
+      gl.disable(gl.DITHER);
+      gl.disable(gl.BLEND);
+      gl.disable(gl.CULL_FACE);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthMask(true);
+      gl.depthFunc(gl.LEQUAL);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.useProgram(this.pickProgram);
+      gl.uniformMatrix4fv(this.pickLoc.matrix, false, pixelMatrix);
+      gl.enableVertexAttribArray(this.pickLoc.position);
+      for (const part of this.geometry) {
+        if (!part.visible) continue;
+        gl.bindBuffer(gl.ARRAY_BUFFER, part.position);
+        gl.vertexAttribPointer(this.pickLoc.position, 3, gl.FLOAT, false, 0, 0);
+        gl.uniform3fv(this.pickLoc.color, part.pickColor);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, part.triangles);
+        gl.drawElements(gl.TRIANGLES, part.triangleCount, gl.UNSIGNED_SHORT, 0);
+      }
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+    } finally {
+      if (ditherEnabled) gl.enable(gl.DITHER);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.canvas.width || width, this.canvas.height || height);
+    }
+    const id = decodePickColor(pixel);
+    return id && this.geometry[id - 1]?.visible ? this.geometry[id - 1].meshId : null;
   }
 
   updateGrid() {
@@ -408,15 +552,41 @@ export class Viewer {
   attachControls() {
     const canvas = this.canvas;
     let drag = null;
+    let pendingHover = null;
+    let hoverScheduled = false;
     canvas.addEventListener('contextmenu', event => event.preventDefault());
     canvas.addEventListener('pointerdown', event => {
       if (event.button !== 0 && event.button !== 2) return;
-      drag = { x: event.clientX, y: event.clientY, pan: event.button === 2 || event.shiftKey };
+      drag = { x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY,
+        moved: false, pan: event.button === 2 || event.shiftKey };
+      this.onHoverMesh?.(null);
       canvas.setPointerCapture(event.pointerId);
     });
     canvas.addEventListener('pointermove', event => {
-      if (!drag) return;
+      if (!drag) {
+        if (event.pointerType === 'touch') return;
+        pendingHover = [event.clientX, event.clientY];
+        if (!hoverScheduled) {
+          hoverScheduled = true;
+          const sampleHover = () => requestAnimationFrame(() => {
+            hoverScheduled = false;
+            if (!drag && pendingHover) {
+              this.lastHoverPickAt = Date.now();
+              const id = this.pickMesh(...pendingHover);
+              this.onHoverMesh?.(id);
+              this.canvas.style.cursor = id ? 'pointer' : 'grab';
+            }
+          });
+          // Picking redraws mesh vertices. Cap hover samples to ~12 Hz;
+          // click selection is immediate and always uses the current cursor.
+          const wait = Math.max(0, 80 - (Date.now() - (this.lastHoverPickAt || 0)));
+          if (wait) setTimeout(sampleHover, wait);
+          else sampleHover();
+        }
+        return;
+      }
       const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 5) drag.moved = true;
       drag.x = event.clientX;
       drag.y = event.clientY;
       if (drag.pan) {
@@ -431,9 +601,19 @@ export class Viewer {
       }
       this.requestRender();
     });
-    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    canvas.addEventListener('pointerup', event => {
+      const click = drag && event.button === 0 && !drag.pan && !drag.moved;
+      drag = null;
+      if (click) this.onSelectMesh?.(this.pickMesh(event.clientX, event.clientY));
+    });
+    for (const type of ['pointercancel', 'lostpointercapture']) {
       canvas.addEventListener(type, () => { drag = null; });
     }
+    canvas.addEventListener('pointerleave', () => {
+      pendingHover = null;
+      this.canvas.style.cursor = 'grab';
+      this.onHoverMesh?.(null);
+    });
     canvas.addEventListener('wheel', event => {
       event.preventDefault();
       this.distance = clamp(this.distance * Math.exp(event.deltaY * 0.00125), 0.3, 50000);
@@ -464,15 +644,7 @@ export class Viewer {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.CULL_FACE);
-    const eye = [
-      this.target[0] + this.distance * Math.cos(this.pitch) * Math.sin(this.yaw),
-      this.target[1] + this.distance * Math.sin(this.pitch),
-      this.target[2] + this.distance * Math.cos(this.pitch) * Math.cos(this.yaw),
-    ];
-    const matrix = multiply(
-      perspective(PI / 4, width / height, Math.max(0.01, this.distance / 2000), Math.max(200, this.distance * 75)),
-      lookAt(eye, this.target),
-    );
+    const { eye, matrix } = this.cameraMatrix(width, height);
     if (this.showGrid) this.renderLines(this.gridBuffers.position, this.gridBuffers.color, this.gridBuffers.count, matrix);
     if (this.showAxes) this.renderLines(this.gridBuffers.planePosition,
       this.gridBuffers.planeColor, this.gridBuffers.planeCount, matrix, gl.TRIANGLES);
@@ -491,6 +663,8 @@ export class Viewer {
       gl.enableVertexAttribArray(this.solidLoc.normal);
       gl.vertexAttribPointer(this.solidLoc.normal, 3, gl.FLOAT, false, 0, 0);
       gl.uniform3fv(this.solidLoc.color, part.color);
+      gl.uniform1f(this.solidLoc.highlight, this.selectedMeshIds.has(part.meshId) ? 2 :
+        this.hoveredMeshIds.has(part.meshId) ? 1 : 0);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.wireframe ? part.edges : part.triangles);
       gl.drawElements(this.wireframe ? gl.LINES : gl.TRIANGLES,
         this.wireframe ? part.edgeCount : part.triangleCount, gl.UNSIGNED_SHORT, 0);

@@ -31,6 +31,6 @@ assert.match(renderer, /gl\.enable\(gl\.POLYGON_OFFSET_FILL\)/);
 assert.match(renderer, /creaseCount/);
 assert.match(renderer, /float silhouette = pow/);
 assert.doesNotMatch(renderer, /fresnel\s*\*/i);
-assert.match(renderer, /gl_FragColor = vec4\(mix\(steel.*1\.0\)/);
+assert.match(renderer, /gl_FragColor = vec4\(surface, 1\.0\)/);
 
 console.log('Satin steel normals, 90-degree creases, opaque shading, and CAD silhouette passed.');

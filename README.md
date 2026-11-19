@@ -12,6 +12,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Work in an NX-style light gray 3D environment with a light silver-steel model, NX X/Y/Z axes and exactly three small XY, YZ, and XZ coordinate reference planes. The grid is hidden by default while the coordinate references remain visible.
 - Browse the NX part and component hierarchy in a collapsible, resizable white left panel.
 - Inspect model dimensions, geometry counts, part details, NX units, and available NX attributes in the white right Part Inspector panel.
+- Click a component directly in the 3D viewport to select it and synchronize Item Structure and Part Inspector. Hover over a visible component for a temporary teal highlight.
 - Expand/collapse components, select items, and show/hide individual bodies when separate body geometry is available.
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
 
@@ -79,6 +80,8 @@ The light header displays the NX 3D Viewer branding and **OPEN NX FILES** comman
 
 | Action | Control |
 | --- | --- |
+| Select component | Click a visible component in the 3D viewport; click empty space to clear selection |
+| Highlight component | Move the cursor over a visible component |
 | Rotate | Left mouse drag |
 | Pan | Right mouse drag, or Shift + left drag |
 | Zoom | Mouse wheel |
@@ -91,7 +94,7 @@ Use the **Fit icon** (or **F**) after rotating or zooming to show the entire mod
 
 - Click the arrow at the top of the panel to collapse or expand it.
 - Drag the panel divider horizontally to resize the tree; the divider can also be adjusted with the left/right arrow keys.
-- Click the disclosure arrows to browse nested NX components and bodies. Click an item name to select it in the tree.
+- Click the disclosure arrows to browse nested NX components and bodies. Click an item name to select it and highlight its geometry. Clicking a component in the viewport selects and reveals the corresponding Item Structure entry.
 - Use the checkboxes to show or hide whole components or individual bodies when separate NX body geometry is available.
 
 The panel shows the hierarchy reported by NX Open. If NX can only export a combined STL, the model still displays, but individual visibility controls are disabled rather than presenting an inaccurate result.
@@ -106,13 +109,13 @@ The **Part Inspector** opens at the right side of the 3D workspace and displays 
 - **File details:** `.prt` name, file location, size, and last modified time when accessible.
 - **NX attributes:** user attributes returned by NX Open, when available.
 
-Selecting a part, component, or body in the left **Item Structure** panel updates the **Selected Item** section. When body meshes are exported separately, the inspector also shows the selected item's mesh dimensions and triangle count. If only combined geometry is available, item-specific measurements are not provided. Click the arrow at the top of Part Inspector to collapse or expand the panel.
+Selecting a part, component, or body either in the left **Item Structure** panel or by clicking its visible geometry updates the **Selected Item** section. When body meshes are exported separately, the inspector also shows the selected item's mesh dimensions and triangle count. If only combined geometry is available, item-specific measurements are not provided. Click the arrow at the top of Part Inspector to collapse or expand the panel.
 
 All dimensions and mesh statistics describe the tessellated visualization; they are not precise CAD feature or mass-property measurements. Attributes and units not reported by NX are not invented.
 
 ## Supported scope
 
-The NX-to-browser workflow displays **tessellated surfaces**, not editable CAD solids or exact NX B-rep geometry. Both standalone parts and assembly occurrences are considered by the exporter, but a model that contains missing or unloaded component geometry will report an error rather than silently show incorrectly positioned components. The item hierarchy comes from NX Open; it is not inferred from a combined STL. Per-body visibility requires separate body exports. Model-tree selection does not yet highlight faces in the viewport.
+The NX-to-browser workflow displays **tessellated surfaces**, not editable CAD solids or exact NX B-rep geometry. Both standalone parts and assembly occurrences are considered by the exporter, but a model that contains missing or unloaded component geometry will report an error rather than silently show incorrectly positioned components. The item hierarchy comes from NX Open; it is not inferred from a combined STL. Per-body visibility requires separate body exports. When a file uses combined STL fallback, individual components cannot be picked reliably; clicking the model selects the whole part instead. Selection identifies the exported mesh body/component, not analytic NX faces or edges.
 
 The browser currently accepts up to **1,000,000 STL triangles** or **256 MB** of STL data. The **OPEN NX FILES** command currently accepts `.prt` files only. Siemens NX `.jt` and `.chr` files are not supported.
 

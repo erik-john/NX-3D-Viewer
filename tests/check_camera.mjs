@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import vm from 'node:vm';
 
 const source = readFileSync(resolve(import.meta.dirname, '../frontend/js/viewer.js'), 'utf8')
-  .replace(/^import .+\r?\n/m, '')
+  .replace(/^import .+\r?\n/gm, '')
   .replace('export class Viewer', 'class Viewer') +
   '\nthis.Viewer = Viewer; this.makeGrid = makeGrid; this.EMPTY_VIEW_DISTANCE = EMPTY_VIEW_DISTANCE;';
 const context = { Math, Float32Array, Uint16Array, Set };

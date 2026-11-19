@@ -13,6 +13,11 @@ export class ItemTree {
     this.checkboxes = new Map();
     this.rows = new Map();
     this.selectedId = null;
+    this.nodes = new Map();
+    this.parents = new Map();
+    this.meshNodes = new Map();
+    this.nestedLists = new Map();
+    this.disclosures = new Map();
     this.expanded = new Set();
     this.toggle.addEventListener('click', () => this.setCollapsed(!panel.classList.contains('is-collapsed')));
     this.resizer.addEventListener('pointerdown', event => {
@@ -56,6 +61,11 @@ export class ItemTree {
     this.root = null;
     this.checkboxes.clear();
     this.rows.clear();
+    this.nodes.clear();
+    this.parents.clear();
+    this.meshNodes.clear();
+    this.nestedLists.clear();
+    this.disclosures.clear();
     this.expanded.clear();
     this.selectedId = null;
     this.container.replaceChildren();
@@ -90,6 +100,49 @@ export class ItemTree {
     return (node.children || []).flatMap(child => this.descendants(child));
   }
 
+  // For a body hit, select its enclosing component occurrence where available.
+  nodeForMesh(meshId) {
+    if (!this.root) return null;
+    if (meshId === 'root' && !this.visibilityEnabled) return this.root;
+    let node = this.meshNodes.get(meshId);
+    if (!node) return null;
+    let candidate = node;
+    while (node) {
+      if (node.type === 'component') return node;
+      node = this.parents.get(node.id);
+    }
+    return candidate;
+  }
+
+  selectMesh(meshId) {
+    const node = this.nodeForMesh(meshId);
+    if (node) this.selectNode(node);
+    return node;
+  }
+
+  selectNode(node) {
+    if (this.selectedId) this.rows.get(this.selectedId)?.classList.remove('is-selected');
+    this.selectedId = node?.id || null;
+    if (node) {
+      let parent = this.parents.get(node.id);
+      while (parent) {
+        const list = this.nestedLists.get(parent.id);
+        if (list) {
+          list.hidden = false;
+          const item = list.parentElement;
+          item?.setAttribute('aria-expanded', 'true');
+          const disclosure = this.disclosures.get(parent.id);
+          if (disclosure) disclosure.textContent = '▾';
+        }
+        parent = this.parents.get(parent.id);
+      }
+      const row = this.rows.get(node.id);
+      row?.classList.add('is-selected');
+      row?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }
+    this.onSelect(node || null);
+  }
+
   updateAncestors() {
     if (!this.root) return;
     const walk = node => {
@@ -109,7 +162,10 @@ export class ItemTree {
     walk(this.root);
   }
 
-  createNode(node, depth) {
+  createNode(node, depth, parent = null) {
+    this.nodes.set(node.id, node);
+    if (parent) this.parents.set(node.id, parent);
+    if (node.type === 'body') this.meshNodes.set(node.meshId || node.id, node);
     const children = node.children || [];
     const li = document.createElement('li');
     li.className = 'tree-item';
@@ -136,12 +192,7 @@ export class ItemTree {
     label.className = 'tree-label';
     label.title = node.name;
     label.textContent = node.name;
-    label.addEventListener('click', () => {
-      if (this.selectedId) this.rows.get(this.selectedId)?.classList.remove('is-selected');
-      this.selectedId = node.id;
-      row.classList.add('is-selected');
-      this.onSelect(node);
-    });
+    label.addEventListener('click', () => this.selectNode(node));
     row.append(label);
     const leafIds = this.descendants(node);
     if (leafIds.length) {
@@ -173,7 +224,7 @@ export class ItemTree {
     if (children.length) {
       const nested = document.createElement('ul');
       nested.setAttribute('role', 'group');
-      for (const child of children) nested.append(this.createNode(child, depth + 1));
+      for (const child of children) nested.append(this.createNode(child, depth + 1, node));
       const open = depth === 0;
       nested.hidden = !open;
       li.setAttribute('aria-expanded', String(open));
@@ -183,6 +234,8 @@ export class ItemTree {
         li.setAttribute('aria-expanded', String(!nested.hidden));
         disclosure.textContent = nested.hidden ? '▸' : '▾';
       });
+      this.nestedLists.set(node.id, nested);
+      this.disclosures.set(node.id, disclosure);
       li.append(nested);
     }
     return li;

@@ -5,7 +5,7 @@ import vm from 'node:vm';
 
 const base = resolve(import.meta.dirname, '..');
 const source = readFileSync(resolve(base, 'frontend/js/viewer.js'), 'utf8')
-  .replace(/^import .+\r?\n/m, '')
+  .replace(/^import .+\r?\n/gm, '')
   .replace('export class Viewer', 'class Viewer') +
   '\nthis.Viewer = Viewer; this.makeDatum = makeDatum; this.makeGrid = makeGrid;';
 const ctx = { Math, Float32Array, Uint16Array, Set, window: {devicePixelRatio:1} };
