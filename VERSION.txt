@@ -1,42 +1,44 @@
 NX 3D Viewer
 
-Milestone: 2 — Standalone 3D Viewer
-Status: Complete — local sample geometry and interactive WebGL viewport
+Milestone: 3 — Siemens NX File Loading & Visualization
+Status: Implementation delivered; NX 1855 workstation verification required
 Port: 8888 (fixed)
 Launcher: Run.bat
 
-Production source changes:
-- frontend/index.html: viewer toolbar, WebGL canvas, scene panel, and status UI
-- frontend/css/style.css: responsive dark viewer layout and navigation controls
-- frontend/js/app.js: scene selection, toolbar commands, shortcuts, connectivity
-- frontend/js/geometry.js: sample solid meshes and bounds computation
-- frontend/js/viewer.js: browser-native WebGL rendering, camera, pan, rotate,
-  zoom, grid, axes, wireframe, and viewport resizing
-- backend/server.py: standard-library HTTP server retained from Milestone 1
-- nx/: reserved for NX integration in a future milestone
-- README.md: user-facing project and operating instructions
+Production changes:
+- backend/nx_service.py: discover NX journal, open local PRT picker, invoke NX and check conversion results
+- backend/server.py: /api/open and registered /api/models/*.stl endpoints, fixed-port local server
+- nx/export_stl.py: NX Open part/assembly occurrence body collection and STL export
+- frontend/js/stl.js: binary and ASCII STL parsing with bounded mesh chunking and NX-to-viewer coordinate conversion
+- frontend/js/app.js: opening workflow, status and error feedback, sample-scene fallback
+- frontend/index.html: OPEN NX .PRT button and import status elements
+- frontend/css/style.css: import button and status styles
+- README.md: public operating instructions and scope
 
-Implementation details:
-- No JavaScript CDN or dependency installation. Browser-native WebGL only.
-- The sample geometry is not NX/CAD data. NX import is excluded until Milestone 3.
-- Y-up coordinates; grid lies on the X/Z plane. The application uses 127.0.0.1.
-- The current mesh renderer uses 16-bit element indices (up to 65,535 vertices
-  per mesh). NX mesh streaming/partitioning is reserved for Milestone 3.
-- No application version number or build information is presented in the UI.
+Known boundaries:
+- NX 1855 could not be executed in this build environment; real journal behavior and assembly export must be verified on the licensed Windows NX machine.
+- Exporter fails on unresolved/unloaded assembly components rather than silently drawing misplaced prototypes.
+- STL output is a single tessellated combined display mesh; no NX assembly tree, selection or CAD editing.
+- 256 MB or 1,000,000 triangle STL limit; mesh split into <=18,000 triangles per WebGL mesh.
+- No auto-refresh on source changes; this remains a separate milestone.
+- The file picker executes on the same Windows computer that runs the Python server.
+- No version/build information in the page. Always use port 8888.
 
-Branch and staging policy:
-- The ZIP contains shared production files plus dev/ and tests/ content.
-- It intentionally contains no .gitignore. Keep the existing root .gitignore
-  from the checked-out branch.
-- main .gitignore excludes /dev/ and /tests/; dev .gitignore allows them.
-- A .gitignore rule cannot hide files already tracked in the branch or files
-  introduced through merges. Inspect git status before committing.
-- Use the same ZIP for either branch, with its contents placed at repository root.
+Branch policy:
+- ZIP contains shared production sources plus dev/ and tests/ folders.
+- ZIP does not contain .gitignore. Existing per-branch root .gitignore must remain unchanged.
+- dev branch: tests/ and dev/ files are allowed to be tracked.
+- main branch: tests/ and dev/ are ignored if untracked; never merge them from dev.
+- Promote production paths selectively using git restore --source=dev, not git merge dev.
+- The same ZIP is used once on the dev checkout, then validated production paths are promoted to main after review.
 
-Development and validation:
-- Tests: py -3 -m unittest discover -s tests -v
-- Browser smoke workflow: py -3 dev/browser_smoke.py (requires playwright)
-- Confirm local server routes, all four sample scenes, WebGL render availability,
-  camera changes, grid/axes/wireframe toggle state, and viewport resize.
-- Automatic reload on frontend edits or backend edits is not included in this
-  milestone; it will be implemented separately after the viewer baseline.
+Validation:
+- Run: py -3 -m unittest discover -s tests -v
+- STL parser: node tests/check_stl.mjs
+- Browser smoke: py -3 dev/browser_smoke.py (requires Playwright and Chromium)
+- Actual NX .prt load needs a licensed Siemens NX 1855 installation and available component references.
+- Confirm that the converted part is oriented correctly; compare complex assemblies against NX.
+
+Suggested Git commit messages:
+- dev: feat(nx): implement Siemens NX part loading and STL visualization
+- main: feat(nx): promote validated NX part visualization

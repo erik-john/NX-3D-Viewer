@@ -33,11 +33,15 @@
         <div class="toolbar-group scene-group">
           <label class="toolbar-label" for="sample-select">SCENE</label>
           <select id="sample-select" aria-label="Sample geometry">
+            <option value="" disabled>NX Part Loaded</option>
             <option value="assembly">Mechanical Assembly</option>
             <option value="box">Precision Block</option>
             <option value="sphere">Sphere</option>
             <option value="cylinder">Cylinder</option>
           </select>
+        </div>
+        <div class="toolbar-group">
+          <button type="button" id="open-nx-button" class="tool-button open-nx-button" title="Open a Siemens NX .prt file on this computer">OPEN NX .PRT</button>
         </div>
         <div class="toolbar-divider" aria-hidden="true"></div>
         <div class="toolbar-group view-group" aria-label="Camera views">
@@ -74,7 +78,7 @@
           <div class="scene-stat-row"><span>Objects</span><strong id="scene-objects">—</strong></div>
           <div class="scene-stat-row"><span>Triangles</span><strong id="scene-triangles">—</strong></div>
           <div class="scene-stat-row"><span>Rendering</span><strong id="scene-render-mode">Solid</strong></div>
-          <div class="panel-footnote">Sample geometry · No CAD file loaded</div>
+          <div class="panel-footnote" id="scene-source">Sample geometry · No CAD file loaded</div>
         </aside>
         <div class="viewport-compass" aria-hidden="true">
           <div class="compass-y">Y</div>
@@ -82,6 +86,8 @@
           <div class="compass-z">Z</div>
           <div class="compass-cross"></div>
         </div>
+        <div class="import-progress" id="import-progress" role="status" aria-live="polite" hidden>Opening Siemens NX part and preparing geometry…</div>
+        <div class="import-message" id="import-message" role="alert" hidden></div>
         <div class="viewer-error" id="viewer-error" role="alert" hidden>
           <h2>3D rendering unavailable</h2>
           <p id="viewer-error-text">This browser cannot initialize WebGL.</p>
