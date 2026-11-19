@@ -3,6 +3,7 @@ import { parseSTL } from './stl.js';
 import { ItemTree } from './item_tree.js';
 import { PartInspector } from './inspector.js';
 import { FileWorkspace } from './workspace.js';
+import { createExplodePlan, calculateExplodeOffsets, selectionGroupIds } from './assembly_explode.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
@@ -18,6 +19,27 @@ function setup() {
     $('status-message').textContent = 'Unable to start 3D renderer';
     return;
   }
+  let explodeGroups = [];
+  let explodeBounds = null;
+  let explodeLevel = 0;
+  const selectedOverrides = new Map();
+  const canExplode = () => explodeGroups.length >= 2;
+
+  function updateExplodeControls() {
+    tree.setExplodeState(explodeGroups, explodeLevel, selectedOverrides);
+  }
+  function applyExplosion() {
+    viewer.setExplodeOffsets(calculateExplodeOffsets(explodeGroups, explodeBounds, explodeLevel, selectedOverrides));
+    viewer.fit();
+    updateExplodeControls();
+  }
+  function initializeExplosion(info, meshes, perBody) {
+    explodeGroups = perBody ? createExplodePlan(info.tree, meshes) : [];
+    explodeBounds = viewer.bounds;
+    explodeLevel = 0;
+    selectedOverrides.clear();
+    updateExplodeControls();
+  }
   const inspector = new PartInspector({
     panel: $('inspector-panel'), toggle: $('inspector-toggle'), content: $('inspector-content'),
   });
@@ -25,6 +47,8 @@ function setup() {
     panel: $('tree-panel'), toggle: $('tree-toggle'), resizer: $('tree-resizer'),
     container: $('model-tree'), summary: $('tree-summary'), note: $('tree-note'),
     onVisibility: (meshId, visible) => viewer.setMeshVisible(meshId, visible),
+    onToggleExplode: (node, exploded) => changeNodeExplosion(node, exploded ? 75 : 0),
+    onToggleAll: exploded => exploded ? explodeAll() : collapseAll(),
     onSelect: node => {
       inspector.select(node);
       viewer.setSelectedMeshIds(node ? tree.descendants(node) : []);
@@ -53,7 +77,12 @@ function setup() {
 
   function clearScene() {
     viewer.setScene([]);
+    explodeGroups = [];
+    explodeBounds = null;
+    explodeLevel = 0;
+    selectedOverrides.clear();
     tree.clear();
+    updateExplodeControls();
     inspector.clear();
     setCameraView('iso');
     $('empty-state').hidden = false;
@@ -134,6 +163,7 @@ function setup() {
         visibilityEnabled: perBody, warning: info.warning || '',
       });
       setCameraView('iso');
+      initializeExplosion(info, meshes, perBody);
       inspector.show(info, meshes, { perBody, gridSize: viewer.gridSize });
       $('empty-state').hidden = true;
       $('status-message').textContent = `${info.name} loaded · Drag to rotate · Scroll to zoom`;
@@ -148,6 +178,25 @@ function setup() {
     }
   }
 
+  function explodeAll() {
+    if (!canExplode()) return;
+    explodeLevel = explodeLevel > 0 ? explodeLevel : 60;
+    selectedOverrides.clear();
+    applyExplosion();
+  }
+  function collapseAll() {
+    if (!canExplode()) return;
+    explodeLevel = 0;
+    selectedOverrides.clear();
+    applyExplosion();
+  }
+  function changeNodeExplosion(node, amount) {
+    if (!canExplode()) return;
+    const ids = selectionGroupIds(explodeGroups, node, target => tree.descendants(target));
+    if (!ids.length) return;
+    for (const id of ids) selectedOverrides.set(id, amount);
+    applyExplosion();
+  }
   $('open-nx-button').addEventListener('click', () => openNXPart());
   new FileWorkspace(path => openNXPart(path));
   for (const button of document.querySelectorAll('[data-view]')) {

@@ -96,8 +96,21 @@ Use the **Fit icon** (or **F**) after rotating or zooming to show the entire mod
 - Drag the panel divider horizontally to resize the tree; the divider can also be adjusted with the left/right arrow keys.
 - Click the disclosure arrows to browse nested NX components and bodies. Click an item name to select it and highlight its geometry. Clicking a component in the viewport selects and reveals the corresponding Item Structure entry.
 - Use the checkboxes to show or hide whole components or individual bodies when separate NX body geometry is available.
+- Click the single position toggle beside a component's visibility checkbox to **Explode** it; click the same highlighted toggle to **Reset** it. On the assembly row, the toggle explodes or resets **all** components. Hover over the icon to see the current action.
 
 The panel shows the hierarchy reported by NX Open. If NX can only export a combined STL, the model still displays, but individual visibility controls are disabled rather than presenting an inaccurate result.
+
+## Assembly explosion
+
+For an NX assembly exported with separate component meshes, use the **single position toggle** in Item Structure:
+
+- **Assembly row:** click once to explode all components; click again to return everything to its original position.
+- **Component row:** click once to explode that component; click again to reset only that component. The same behavior applies to groups with nested components.
+- **State:** a highlighted icon means that at least one component covered by that row is currently separated. The icon and tooltip change between Explode and Reset.
+- **Visibility:** the nearby Show/Hide checkbox remains independent of the explosion toggle.
+- **Camera:** the Fit command includes all displaced geometry in the view.
+
+Explosion is a visual transformation only; source CAD files are never edited. When the NX export contains only a combined STL, the explosion toggles are disabled because independent component geometry is unavailable.
 
 ## Part Inspector
 

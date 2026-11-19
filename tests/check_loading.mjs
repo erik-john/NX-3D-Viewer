@@ -40,11 +40,12 @@ const viewButtons = ['iso', 'front', 'top', 'right'].map(v => {
 });
 class FakeViewer {
   constructor() { this.meshes = []; this.showGrid = true; this.showAxes = true; this.wireframe = false; }
-  setScene(meshes) { this.meshes = meshes; }
+  setScene(meshes) { this.meshes = meshes; this.bounds={min:[0,0,0],max:[0,0,0],size:[0,0,0],center:[0,0,0]}; }
   setView(view) { this.view = view; }
   fit() {}
   requestRender() {}
   setMeshVisible(id, visible) { this.lastVisible = [id, visible]; }
+  setExplodeOffsets(offsets) { this.explodeOffsets=offsets; }
 }
 let viewer;
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -66,11 +67,15 @@ class FakeTree {
   constructor() { this.root = null; this.clears = 0; FakeTree.instance = this; }
   clear() { this.root = null; this.clears += 1; }
   show(root, options) { this.root = root; this.options = options; }
+  setExplodeState() {}
 }
 const context = {
   ItemTree: FakeTree,
   PartInspector: FakeInspector,
   FileWorkspace: class { constructor(onOpen) { this.onOpen = onOpen; } },
+  createExplodePlan: () => [],
+  calculateExplodeOffsets: () => new Map(),
+  selectionGroupIds: () => [],
   Viewer: class extends FakeViewer { constructor(...args) { super(...args); viewer = this; } },
   parseSTL: () => [fakeMesh],
   fetch,

@@ -1,6 +1,7 @@
 /** NX item hierarchy and geometry visibility controls. */
 export class ItemTree {
-  constructor({ panel, toggle, resizer, container, summary, note, onVisibility, onSelect }) {
+  constructor({ panel, toggle, resizer, container, summary, note, onVisibility, onSelect,
+    onToggleExplode = () => {}, onToggleAll = () => {} }) {
     this.panel = panel;
     this.toggle = toggle;
     this.resizer = resizer;
@@ -9,6 +10,9 @@ export class ItemTree {
     this.note = note;
     this.onVisibility = onVisibility;
     this.onSelect = onSelect;
+    this.onToggleExplode = onToggleExplode;
+    this.onToggleAll = onToggleAll;
+    this.explodeActions = new Map();
     this.root = null;
     this.checkboxes = new Map();
     this.rows = new Map();
@@ -59,7 +63,9 @@ export class ItemTree {
 
   clear() {
     this.root = null;
+    this.assemblyHasComponents = false;
     this.checkboxes.clear();
+    this.explodeActions.clear();
     this.rows.clear();
     this.nodes.clear();
     this.parents.clear();
@@ -85,6 +91,7 @@ export class ItemTree {
       for (const child of node.children || []) count(child);
     };
     count(root);
+    this.assemblyHasComponents = totals.components > 0;
     this.summary.textContent = `${totals.components} components · ${totals.bodies} bodies`;
     this.note.textContent = warning || (!visibilityEnabled && totals.bodies ?
       'The structure is available; individual visibility is unavailable for this file.' : '');
@@ -162,6 +169,67 @@ export class ItemTree {
     walk(this.root);
   }
 
+  // Each assembly/component row has one position toggle, independent of visibility.
+  // A partially exploded parent is active and clicking it resets its group.
+  setExplodeState(groups = [], level = 0, overrides = new Map()) {
+    const available = groups.length >= 2;
+    for (const [nodeId, button] of this.explodeActions) {
+      const node = this.nodes.get(nodeId);
+      const meshIds = new Set(node === this.root ? [] : this.descendants(node));
+      const relevant = node === this.root ? groups : groups.filter(group =>
+        group.meshIds.some(id => meshIds.has(id)));
+      const enabled = available && relevant.length > 0;
+      const moved = enabled && relevant.some(group => (overrides.get(group.id) ?? level) > 0);
+      const isRoot = node === this.root;
+      const action = moved ? 'Reset' : 'Explode';
+      const label = isRoot ? `${action} all components` : `${action} component ${node.name}`;
+      button.disabled = !enabled;
+      button.classList.toggle('is-active', moved);
+      button.setAttribute('aria-pressed', String(moved));
+      button.setAttribute('aria-label', label);
+      button.title = enabled ? label : 'Separate component geometry required';
+    }
+  }
+
+  createExplodeToggle(callback) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tree-explode-toggle';
+    button.disabled = true;
+    button.setAttribute('aria-pressed', 'false');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [state, paths] of Object.entries({
+      explode: ['M8 8 3 3', 'M3 7V3h4', 'm16 16 5 5', 'M17 21h4v-4',
+        'M13 11 21 3', 'M17 3h4v4', 'M11 13 3 21', 'M3 17v4h4'],
+      reset: ['M3 3h5v5', 'M3 3l7 7', 'M21 3h-5v5', 'M21 3l-7 7',
+        'M3 21h5v-5', 'm3 21 7-7', 'M21 21h-5v-5', 'm-3 21-7-7'],
+    })) {
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', `icon-${state}`);
+      for (const d of paths) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        group.append(path);
+      }
+      svg.append(group);
+    }
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', '17');
+    svg.setAttribute('height', '17');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.8');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    button.append(svg);
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      if (!button.disabled) callback(button.getAttribute('aria-pressed') !== 'true');
+    });
+    return button;
+  }
+
   createNode(node, depth, parent = null) {
     this.nodes.set(node.id, node);
     if (parent) this.parents.set(node.id, parent);
@@ -219,6 +287,18 @@ export class ItemTree {
       });
       this.checkboxes.set(node.id, check);
       row.append(check);
+    }
+    // Assembly-wide actions on the root, per-occurrence actions on components.
+    // Body rows retain their existing visibility checkbox only.
+    if ((depth === 0 && this.assemblyHasComponents) || node.type === 'component') {
+      const isRoot = depth === 0;
+      const positionToggle = this.createExplodeToggle(exploded =>
+        isRoot ? this.onToggleAll(exploded) : this.onToggleExplode(node, exploded));
+      positionToggle.setAttribute('aria-label', isRoot ?
+        'Explode all components' : `Explode component ${node.name}`);
+      positionToggle.title = 'Separate component geometry required';
+      this.explodeActions.set(node.id, positionToggle);
+      row.append(positionToggle);
     }
     li.append(row);
     if (children.length) {

@@ -1,3 +1,63 @@
+Milestone: 28 — Single Assembly Explode Toggles
+
+Changes
+- Remove the floating Assembly / Explode panel from the 3D viewport, including the separation slider and action buttons.
+- Replace each separate Explode and Reset icon with one stateful position toggle beside the visibility checkbox in Item Structure.
+- The assembly toggle explodes all or resets all; component toggles explode or restore only their own occurrence groups.
+- The icon, tooltip, and aria-pressed state reflect whether a row is exploded, including partly exploded parent groups.
+- Keep visibility checkboxes and selection independent from explosion; combined-STL fallback keeps toggles disabled.
+- Preserve the non-destructive geometry displacement, camera Fit, mesh picking, NX file loading, port 8888, and Windows CRLF.
+
+Checks
+- Test both states of assembly and component toggles, mixed/partially exploded assemblies, nested components, scene reload, and combined-STL fallback.
+- Run Python and JavaScript checks and Chromium interaction test in dev branch before promotion to main.
+
+Suggested commits
+- dev: refactor(assembly): replace explode controls with tree toggles
+- main: refactor(assembly): release single-toggle explode controls
+
+MS27 — Assembly Tree Explode Controls
+
+Changes
+- Add Explode and Reset icons immediately beside the visibility checkbox on each component row.
+- Add Explode All and Reset All icons on the assembly root row, beside its visibility checkbox.
+- Keep the existing Assembly / Explode viewport panel and separation slider unchanged.
+- Reuse MS26 component occurrence grouping, per-component overrides, and Collapse All restoration.
+- Direct row actions do not change the current selected item or the visibility checkbox.
+- Disable unavailable actions for a combined STL or any component without separate mesh geometry.
+- Update the action icon states after every explode, reset, and slider adjustment.
+- No geometry, NX converter, upload storage, or API changes. Port 8888 and Windows CRLF remain unchanged.
+
+Checks
+- Tree-row actions for root and components, nested assembly rows, no body-row action icons.
+- Visibility and selection remain independent; tree controls reflect viewport controls and reset state.
+- Combined STL fallback safely disables unsupported controls.
+- Run existing Python/JavaScript suites and browser interaction checks on the dev branch.
+
+Git commits
+- dev: feat(assembly): add explode and reset actions to item structure
+- main: feat(assembly): release inline tree explode controls
+
+Milestone: 26 — Non-destructive Assembly Explosion
+
+Changes
+- Added Explode All and Collapse All, a 0–100% separation slider, Explode Selected and Reset Selected.
+- Assembly grouping uses NX component occurrence IDs and separate body mesh IDs from the current assembly tree.
+- World-space offsets apply consistently to solid rendering, GPU picking and mechanical crease lines.
+- Fit camera uses the actual displaced geometry bounds, keeping exploded parts in view.
+- Preserve all original STL vertex buffers, assembly transforms, file data and visibility/selection controls.
+- Explode tools are disabled for combined STL fallback or assemblies without two component mesh groups.
+- No changes to backend APIs, NX conversion, port 8888 or Windows CRLF source policy.
+
+Checks
+- Verify explode/collapse returns the exact original mesh positions and does not modify source files.
+- Verify selected components, GPU picking, visibility and camera Fit while exploded.
+- Real NX assemblies and GPU WebGL must still be confirmed on the user's workstation.
+
+Suggested Git commits
+- dev: feat(assembly): add non-destructive explode and collapse controls
+- main: feat(assembly): release assembly explode controls
+
 Milestone: 25 — 3D Component Picking and Selection
 
 Changes

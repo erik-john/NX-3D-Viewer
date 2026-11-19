@@ -40,7 +40,8 @@ class FakeElement {
   addEventListener(name,cb) { this.events[name]=cb; }
   scrollIntoView() { this.scrolled=true; }
 }
-context.document = {createElement: tag=>new FakeElement(tag)};
+context.document = {createElement: tag=>new FakeElement(tag),
+  createElementNS: (_ns,tag)=>new FakeElement(tag)};
 context.window = {addEventListener(){},removeEventListener(){}};
 vm.runInNewContext(treeCode + '\nthis.Tree = ItemTree;', context);
 const tEls = Array.from({length:6},()=>new FakeElement('div'));
@@ -60,6 +61,27 @@ const data = {id:'assembly', name:'Assembly', type:'part', children:[
   ]},
 ]};
 tree.show(data, {visibilityEnabled:true});
+assert.equal(tree.explodeActions.size,4,'root and each component have actions, bodies do not');
+assert.equal(tree.explodeActions.get('assembly').disabled,true,'not enabled before mesh plan');
+tree.setExplodeState([
+  {id:'left',meshIds:['mesh-left']},
+  {id:'right',meshIds:['mesh-right']},
+],0,new Map());
+assert.equal(tree.explodeActions.get('assembly').disabled,false);
+assert.equal(tree.explodeActions.get('nested').disabled,false);
+assert.equal(tree.explodeActions.get('assembly').getAttribute('aria-pressed'), 'false');
+tree.setExplodeState([
+  {id:'left',meshIds:['mesh-left']},
+  {id:'right',meshIds:['mesh-right']},
+],60,new Map());
+assert.equal(tree.explodeActions.get('assembly').getAttribute('aria-pressed'), 'true');
+assert.equal(tree.explodeActions.get('right').getAttribute('aria-pressed'), 'true');
+tree.setExplodeState([
+  {id:'left',meshIds:['mesh-left']},{id:'right',meshIds:['mesh-right']},
+],0,new Map([['right',75]]));
+assert.equal(tree.explodeActions.get('assembly').getAttribute('aria-pressed'), 'true', 'partial explosion activates root');
+assert.equal(tree.explodeActions.get('nested').getAttribute('aria-pressed'), 'false');
+assert.equal(tree.explodeActions.get('right').getAttribute('aria-pressed'), 'true');
 assert.equal(tree.nodeForMesh('mesh-left').id, 'nested', 'choose nearest occurrence');
 assert.equal(tree.nodeForMesh('mesh-right').id,'right');
 assert.equal(tree.nodeForMesh('missing'),null);
@@ -74,6 +96,12 @@ assert.equal(tree.selectedId,null);
 assert.equal(selection,null);
 tree.show(data,{visibilityEnabled:false});
 assert.equal(tree.nodeForMesh('root').id,'assembly','combined STL selects entire part');
+tree.setExplodeState([],0,new Map());
+assert.equal(tree.explodeActions.get('assembly').disabled,true,'combined STL disables row actions');
+tree.show({id:'solo',name:'Single part',type:'part',children:[
+  {id:'solid',name:'Solid body',type:'body',meshId:'single'}
+]}, {visibilityEnabled:true});
+assert.equal(tree.explodeActions.size,0,'single parts must not show assembly-only actions');
 
 const renderer = readFileSync(resolve(root,'frontend/js/viewer.js'),'utf8');
 assert.match(renderer, /gl\.readPixels\(0, 0, 1, 1, gl\.RGBA, gl\.UNSIGNED_BYTE, pixel\)/);

@@ -79,12 +79,13 @@ const SOLID_VERTEX = `
 attribute vec3 aPosition;
 attribute vec3 aNormal;
 uniform mat4 uViewProjection;
+uniform vec3 uOffset;
 varying vec3 vNormal;
 varying vec3 vPosition;
 void main() {
   vNormal = aNormal;
-  vPosition = aPosition;
-  gl_Position = uViewProjection * vec4(aPosition, 1.0);
+  vPosition = aPosition + uOffset;
+  gl_Position = uViewProjection * vec4(aPosition + uOffset, 1.0);
 }`;
 const SOLID_FRAGMENT = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
@@ -138,7 +139,8 @@ void main() {
 const PICK_VERTEX = `
 attribute vec3 aPosition;
 uniform mat4 uViewProjection;
-void main() { gl_Position = uViewProjection * vec4(aPosition, 1.0); }`;
+uniform vec3 uOffset;
+void main() { gl_Position = uViewProjection * vec4(aPosition + uOffset, 1.0); }`;
 const PICK_FRAGMENT = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -152,10 +154,11 @@ const LINE_VERTEX = `
 attribute vec3 aPosition;
 attribute vec4 aColor;
 uniform mat4 uViewProjection;
+uniform vec3 uOffset;
 varying vec4 vColor;
 void main() {
   vColor = aColor;
-  gl_Position = uViewProjection * vec4(aPosition, 1.0);
+  gl_Position = uViewProjection * vec4(aPosition + uOffset, 1.0);
 }`;
 const LINE_FRAGMENT = `
 precision mediump float;
@@ -274,6 +277,7 @@ export class Viewer {
     this.pickProgram = program(gl, PICK_VERTEX, PICK_FRAGMENT);
     this.pickLoc = { position: gl.getAttribLocation(this.pickProgram, 'aPosition'),
       matrix: gl.getUniformLocation(this.pickProgram, 'uViewProjection'),
+      offset: gl.getUniformLocation(this.pickProgram, 'uOffset'),
       color: gl.getUniformLocation(this.pickProgram, 'uPickColor') };
     this.pickBuffer = null;
     this.onHoverMesh = null;
@@ -284,6 +288,7 @@ export class Viewer {
       position: gl.getAttribLocation(this.solid, 'aPosition'),
       normal: gl.getAttribLocation(this.solid, 'aNormal'),
       matrix: gl.getUniformLocation(this.solid, 'uViewProjection'),
+      offset: gl.getUniformLocation(this.solid, 'uOffset'),
       color: gl.getUniformLocation(this.solid, 'uColor'),
       wire: gl.getUniformLocation(this.solid, 'uWire'),
       highlight: gl.getUniformLocation(this.solid, 'uHighlight'),
@@ -293,8 +298,10 @@ export class Viewer {
       position: gl.getAttribLocation(this.lines, 'aPosition'),
       color: gl.getAttribLocation(this.lines, 'aColor'),
       matrix: gl.getUniformLocation(this.lines, 'uViewProjection'),
+      offset: gl.getUniformLocation(this.lines, 'uOffset'),
     };
     this.geometry = [];
+    this.explodeOffsets = new Map();
     this.gridBuffers = null;
     this.axisLabels = ['x', 'y', 'z'].map(axis =>
       document.getElementById(`axis-label-${axis}`));
@@ -327,6 +334,7 @@ export class Viewer {
     }
     this.hoveredMeshIds.clear();
     this.selectedMeshIds.clear();
+    this.explodeOffsets.clear();
     this.geometry = meshes.map((item, index) => {
       if (item.positions.length / 3 > 65535) throw new Error('Mesh exceeds the current index limit');
       const edges = getEdges(item.indices);
@@ -342,6 +350,8 @@ export class Viewer {
         creaseCount: (item.creasePositions?.length || 0) / 3,
         color: colorFromHex(item.color),
         meshId: item.meshId || 'root',
+        bounds: boundsFor([item]),
+        offset: [0, 0, 0],
         pickId: index + 1,
         pickColor: encodePickId(index + 1),
         visible: true,
@@ -350,6 +360,23 @@ export class Viewer {
     this.bounds = boundsFor(meshes);
     this.updateGrid();
     this.setView('iso');
+  }
+
+  setExplodeOffsets(offsets) {
+    this.explodeOffsets = new Map(offsets || []);
+    for (const part of this.geometry) part.offset = this.explodeOffsets.get(part.meshId)?.slice() || [0, 0, 0];
+    this.requestRender();
+  }
+
+  getVisibleBounds() {
+    const parts = this.geometry.filter(part => part.visible);
+    if (!parts.length) return this.bounds;
+    const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+    for (const part of parts) for (let i=0; i<3; i++) {
+      min[i] = Math.min(min[i], part.bounds.min[i] + part.offset[i]);
+      max[i] = Math.max(max[i], part.bounds.max[i] + part.offset[i]);
+    }
+    return { min, max, center: min.map((v,i)=>(v+max[i])/2), size: min.map((v,i)=>max[i]-v) };
   }
 
   setMeshVisible(meshId, visible) {
@@ -456,6 +483,7 @@ export class Viewer {
         gl.bindBuffer(gl.ARRAY_BUFFER, part.position);
         gl.vertexAttribPointer(this.pickLoc.position, 3, gl.FLOAT, false, 0, 0);
         gl.uniform3fv(this.pickLoc.color, part.pickColor);
+        gl.uniform3fv(this.pickLoc.offset, part.offset);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, part.triangles);
         gl.drawElements(gl.TRIANGLES, part.triangleCount, gl.UNSIGNED_SHORT, 0);
       }
@@ -516,7 +544,7 @@ export class Viewer {
       return;
     }
 
-    const { min, max, center, size } = this.bounds;
+    const { min, max, center, size } = this.getVisibleBounds();
     this.target = center.slice();
     const rect = this.canvas.getBoundingClientRect();
     const aspect = Math.max(0.3, rect.width / Math.max(1, rect.height));
@@ -663,6 +691,7 @@ export class Viewer {
       gl.enableVertexAttribArray(this.solidLoc.normal);
       gl.vertexAttribPointer(this.solidLoc.normal, 3, gl.FLOAT, false, 0, 0);
       gl.uniform3fv(this.solidLoc.color, part.color);
+      gl.uniform3fv(this.solidLoc.offset, part.offset);
       gl.uniform1f(this.solidLoc.highlight, this.selectedMeshIds.has(part.meshId) ? 2 :
         this.hoveredMeshIds.has(part.meshId) ? 1 : 0);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.wireframe ? part.edges : part.triangles);
@@ -673,7 +702,7 @@ export class Viewer {
     if (!this.wireframe) {
       for (const part of this.geometry) {
         if (part.visible && part.creaseCount) this.renderLines(
-          part.creasePosition, part.creaseColor, part.creaseCount, matrix);
+          part.creasePosition, part.creaseColor, part.creaseCount, matrix, gl.LINES, part.offset);
       }
     }
     if (this.showAxes) {
@@ -731,10 +760,11 @@ export class Viewer {
     }
   }
 
-  renderLines(position, color, count, matrix, primitive = this.gl.LINES) {
+  renderLines(position, color, count, matrix, primitive = this.gl.LINES, offset = [0, 0, 0]) {
     const gl = this.gl;
     gl.useProgram(this.lines);
     gl.uniformMatrix4fv(this.lineLoc.matrix, false, matrix);
+    gl.uniform3fv(this.lineLoc.offset, offset);
     gl.bindBuffer(gl.ARRAY_BUFFER, position);
     gl.enableVertexAttribArray(this.lineLoc.position);
     gl.vertexAttribPointer(this.lineLoc.position, 3, gl.FLOAT, false, 0, 0);
