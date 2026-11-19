@@ -35,7 +35,7 @@ exports/
 output/
 dist/
 build/
-uploads/
+/uploads/
 
 # Keep source files under tests/, dev/, and tools/ eligible for commits.
 # Ignore only their generated reports and coverage artifacts.
