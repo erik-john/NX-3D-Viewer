@@ -4,30 +4,99 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <meta name="description" content="Local 3D visualization workspace for Siemens NX integration.">
   <title>NX 3D Viewer</title>
   <link rel="stylesheet" href="/css/style.css">
-  <script src="/js/app.js" defer></script>
+  <script type="module" src="/js/app.js"></script>
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <div class="app-mark" aria-hidden="true">NX</div>
-      <div class="app-title">
-        <h1>NX 3D Viewer</h1>
-        <p>Local model visualization</p>
+      <div class="brand" aria-label="NX 3D Viewer">
+        <div class="app-mark" aria-hidden="true">NX</div>
+        <div class="brand-copy">
+          <h1>NX 3D Viewer</h1>
+          <p>3D Visualization Workspace</p>
+        </div>
       </div>
-      <div class="connection" role="status" aria-live="polite">
-        <span class="connection-dot" id="connection-dot"></span>
-        <span id="connection-label">Connecting…</span>
+      <div class="header-meta">
+        <span class="header-hint"><span class="hint-dot"></span>LOCAL VIEWER</span>
+        <span class="connection" role="status" aria-live="polite">
+          <span class="connection-dot" id="connection-dot"></span>
+          <span id="connection-label">Connecting…</span>
+        </span>
       </div>
     </header>
-    <main class="workspace" aria-label="3D workspace">
-      <div class="workspace-content">
-        <div class="workspace-icon" aria-hidden="true">◇</div>
-        <h2>3D workspace</h2>
-        <p>Model visualization will be available in the next milestone.</p>
+
+    <main class="main-content">
+      <div class="toolbar" role="toolbar" aria-label="Viewer controls">
+        <div class="toolbar-group scene-group">
+          <label class="toolbar-label" for="sample-select">SCENE</label>
+          <select id="sample-select" aria-label="Sample geometry">
+            <option value="assembly">Mechanical Assembly</option>
+            <option value="box">Precision Block</option>
+            <option value="sphere">Sphere</option>
+            <option value="cylinder">Cylinder</option>
+          </select>
+        </div>
+        <div class="toolbar-divider" aria-hidden="true"></div>
+        <div class="toolbar-group view-group" aria-label="Camera views">
+          <span class="toolbar-label">VIEW</span>
+          <button type="button" class="tool-button active" data-view="iso" title="Isometric view (1)" aria-pressed="true">ISO</button>
+          <button type="button" class="tool-button" data-view="front" title="Front view (2)" aria-pressed="false">FRONT</button>
+          <button type="button" class="tool-button" data-view="top" title="Top view (3)" aria-pressed="false">TOP</button>
+          <button type="button" class="tool-button" data-view="right" title="Right view (4)" aria-pressed="false">RIGHT</button>
+          <button type="button" class="tool-button icon-button" id="fit-button" title="Fit to view (F)" aria-label="Fit to view">⛶ <span>FIT</span></button>
+        </div>
+        <div class="toolbar-divider" aria-hidden="true"></div>
+        <div class="toolbar-group display-group" aria-label="Display options">
+          <span class="toolbar-label">DISPLAY</span>
+          <button type="button" class="tool-button toggle active" id="grid-button" aria-pressed="true" title="Show or hide grid (G)">GRID</button>
+          <button type="button" class="tool-button toggle active" id="axes-button" aria-pressed="true" title="Show or hide axes">AXES</button>
+          <button type="button" class="tool-button toggle" id="wire-button" aria-pressed="false" title="Toggle wireframe (W)">WIRE</button>
+        </div>
       </div>
+
+      <section class="workspace" aria-label="3D viewing area">
+        <canvas id="viewer-canvas" aria-label="Interactive 3D model viewer" tabindex="0"></canvas>
+        <div class="workspace-glow" aria-hidden="true"></div>
+        <div class="workspace-topline" aria-hidden="true">
+          <span class="workspace-topline-dot"></span> 3D SPACE <span class="workspace-topline-index">/</span> XYZ
+        </div>
+        <aside class="scene-panel" aria-label="Scene information">
+          <div class="panel-topline">
+            <span class="panel-eyebrow">CURRENT SCENE</span>
+            <span class="panel-icon" aria-hidden="true">◈</span>
+          </div>
+          <h2 id="scene-title">Mechanical Assembly</h2>
+          <p id="scene-description">A geometric sample for exploring the viewer controls.</p>
+          <div class="panel-divider"></div>
+          <div class="scene-stat-row"><span>Objects</span><strong id="scene-objects">—</strong></div>
+          <div class="scene-stat-row"><span>Triangles</span><strong id="scene-triangles">—</strong></div>
+          <div class="scene-stat-row"><span>Rendering</span><strong id="scene-render-mode">Solid</strong></div>
+          <div class="panel-footnote">Sample geometry · No CAD file loaded</div>
+        </aside>
+        <div class="viewport-compass" aria-hidden="true">
+          <div class="compass-y">Y</div>
+          <div class="compass-x">X</div>
+          <div class="compass-z">Z</div>
+          <div class="compass-cross"></div>
+        </div>
+        <div class="viewer-error" id="viewer-error" role="alert" hidden>
+          <h2>3D rendering unavailable</h2>
+          <p id="viewer-error-text">This browser cannot initialize WebGL.</p>
+        </div>
+        <div class="viewport-controls" aria-label="Mouse controls">
+          <span><span class="control-glyph">↻</span> Left drag <b>Rotate</b></span>
+          <span><span class="control-glyph">✣</span> Right drag <b>Pan</b></span>
+          <span><span class="control-glyph">↕</span> Scroll <b>Zoom</b></span>
+        </div>
+      </section>
     </main>
+    <footer class="status-bar">
+      <span id="status-message" role="status" aria-live="polite">Preparing 3D workspace…</span>
+      <span class="status-right"><span class="status-indicator"></span> WebGL Renderer <span class="status-separator">·</span> Y-up coordinates</span>
+    </footer>
   </div>
 </body>
 </html>

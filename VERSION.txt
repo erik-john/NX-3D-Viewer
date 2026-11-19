@@ -1,32 +1,42 @@
 NX 3D Viewer
 
-Milestone: 1 — Project Structure
-Status: Structure complete; 3D rendering and NX file support not yet implemented.
+Milestone: 2 — Standalone 3D Viewer
+Status: Complete — local sample geometry and interactive WebGL viewport
 Port: 8888 (fixed)
 Launcher: Run.bat
 
-Production source:
-- backend/server.py: standard-library local HTTP server, static frontend, /api/health
-- frontend/index.html: application shell
-- frontend/css/style.css: layout and appearance
-- frontend/js/app.js: connection indicator
-- nx/: reserved Siemens NX integration folder
+Production source changes:
+- frontend/index.html: viewer toolbar, WebGL canvas, scene panel, and status UI
+- frontend/css/style.css: responsive dark viewer layout and navigation controls
+- frontend/js/app.js: scene selection, toolbar commands, shortcuts, connectivity
+- frontend/js/geometry.js: sample solid meshes and bounds computation
+- frontend/js/viewer.js: browser-native WebGL rendering, camera, pan, rotate,
+  zoom, grid, axes, wireframe, and viewport resizing
+- backend/server.py: standard-library HTTP server retained from Milestone 1
+- nx/: reserved for NX integration in a future milestone
+- README.md: user-facing project and operating instructions
 
-Branch-specific files:
-- The archive deliberately does not include .gitignore. Keep the branch-specific root
-  .gitignore from the first commit (main ignores /tests/ and /dev/; dev allows them).
-- README.md is the same on both branches and contains production-facing information.
-- tests/test_structure.py and dev/.gitkeep are development-only and must not be
-  committed on main. They may be committed on dev.
-- Python caches, environments, exported assets, and logs remain ignored on both branches.
+Implementation details:
+- No JavaScript CDN or dependency installation. Browser-native WebGL only.
+- The sample geometry is not NX/CAD data. NX import is excluded until Milestone 3.
+- Y-up coordinates; grid lies on the X/Z plane. The application uses 127.0.0.1.
+- The current mesh renderer uses 16-bit element indices (up to 65,535 vertices
+  per mesh). NX mesh streaming/partitioning is reserved for Milestone 3.
+- No application version number or build information is presented in the UI.
 
-Development validation:
-- Run: py -3 -m unittest discover -s tests -v
-- On main, `git add .` should stage only production source and documentation.
-- On dev, `git add .` may also stage tests/ and dev/.
-- Git ignores only untracked files. Branch switches or merges do not automatically
-  remove development files that were already committed to a branch.
+Branch and staging policy:
+- The ZIP contains shared production files plus dev/ and tests/ content.
+- It intentionally contains no .gitignore. Keep the existing root .gitignore
+  from the checked-out branch.
+- main .gitignore excludes /dev/ and /tests/; dev .gitignore allows them.
+- A .gitignore rule cannot hide files already tracked in the branch or files
+  introduced through merges. Inspect git status before committing.
+- Use the same ZIP for either branch, with its contents placed at repository root.
 
-Implementation note:
-- No frontend auto-reload or Python file-watch restart is included in Milestone 1.
-  That capability can be introduced and verified as a separate milestone.
+Development and validation:
+- Tests: py -3 -m unittest discover -s tests -v
+- Browser smoke workflow: py -3 dev/browser_smoke.py (requires playwright)
+- Confirm local server routes, all four sample scenes, WebGL render availability,
+  camera changes, grid/axes/wireframe toggle state, and viewport resize.
+- Automatic reload on frontend edits or backend edits is not included in this
+  milestone; it will be implemented separately after the viewer baseline.

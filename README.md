@@ -1,15 +1,16 @@
 # NX 3D Viewer
 
-A local, browser-based 3D viewer for Siemens NX models. The application uses a Python backend and a web frontend, with NX integration planned for a later milestone.
+A local, browser-based 3D visualization application designed for Siemens NX integration. It uses a Python HTTP server and an interactive WebGL frontend. The viewer currently displays built-in sample geometry; Siemens NX file loading will be added in a later milestone.
 
-## Project scope
+## Features
 
-The project is built in small, independently usable milestones:
-
-1. Establish the project structure.
-2. Implement a standalone 3D viewer.
-3. Add Siemens NX file loading and visualization.
-4. Extend the viewer with assembly navigation and visualization tools.
+- Interactive 3D display with solid surfaces and wireframe rendering.
+- Mechanical assembly, block, sphere, and cylinder sample scenes.
+- Mouse rotation, panning, and zooming.
+- Isometric, front, top, and right camera views, plus fit-to-view.
+- Optional reference grid and X/Y/Z axes.
+- Scene information including object and triangle counts.
+- Runs on the local computer without a cloud service or JavaScript CDN.
 
 ## Project structure
 
@@ -22,7 +23,9 @@ NX-3D-Viewer/
 │   ├── css/
 │   │   └── style.css
 │   └── js/
-│       └── app.js
+│       ├── app.js
+│       ├── geometry.js
+│       └── viewer.js
 ├── nx/
 ├── Run.bat
 ├── .gitignore
@@ -30,25 +33,43 @@ NX-3D-Viewer/
 └── VERSION.txt
 ```
 
-The `backend/` folder serves the local application. The `frontend/` folder contains the browser interface. The `nx/` folder is reserved for Siemens NX integration.
+- `backend/server.py` serves the interface on the local machine.
+- `frontend/` contains the page, styling, geometry generators, and WebGL renderer.
+- `nx/` is reserved for the Siemens NX integration.
 
 ## Requirements
 
 - Windows 10/11 or Windows Server
 - Python 3.10 or newer
-- A modern web browser
+- A current browser with WebGL support and available graphics acceleration
 
-No additional Python packages are required for the current application skeleton.
+The current viewer requires no additional Python packages, Node.js installation, or internet access.
 
-## Running the application
+## Run
 
-1. Open the repository folder in Windows.
-2. Double-click `Run.bat`, or run `py -3 backend/server.py` in a terminal.
-3. Open **http://127.0.0.1:8888/** in a browser.
-4. Stop the server using **Ctrl+C** in its terminal.
+1. Open the repository folder.
+2. Double-click **`Run.bat`**. Alternatively, execute `py -3 backend/server.py` from the repository root.
+3. Visit **http://127.0.0.1:8888/** in a browser.
+4. Press **Ctrl+C** in the terminal to stop the server.
 
-The server listens on `127.0.0.1` and uses fixed port **8888**.
+The application listens on `127.0.0.1`, using fixed port **8888**. If another application is already using that port, stop the other application first.
 
-## Current status
+## Viewer controls
 
-The project structure and basic local web server are in place. The 3D rendering workspace and Siemens NX file loading will be implemented in later milestones.
+| Action | Control |
+| --- | --- |
+| Rotate | Drag with left mouse button |
+| Pan | Drag with right mouse button, or Shift + left drag |
+| Zoom | Scroll the mouse wheel |
+| Fit scene | **FIT** or **F** |
+| Camera direction | **ISO**, **FRONT**, **TOP**, **RIGHT** or keys **1–4** |
+| Reference grid | **GRID** or **G** |
+| Axis display | **AXES** |
+| Wireframe | **WIRE** or **W** |
+| Sample scene | Choose a scene from the **SCENE** menu |
+
+Coordinate convention: **Y is up**, and the grid lies in the X/Z plane.
+
+## Current scope
+
+The viewer uses procedurally generated sample geometry. It does not yet load Siemens NX `.prt` files, STL files, assemblies, or manufacturing data. A Siemens NX installation is not required for this milestone.
