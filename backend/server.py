@@ -1,6 +1,8 @@
 """Serve the local NX 3D Viewer on port 8888."""
 
 import json
+import zipfile
+from urllib.parse import parse_qs
 from datetime import datetime
 import re
 import tempfile
@@ -10,8 +12,10 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 try:
+    from . import workspace
     from .nx_service import choose_prt_file, convert_prt, find_nx_journal
 except ImportError:
+    import workspace
     from nx_service import choose_prt_file, convert_prt, find_nx_journal
 
 HOST = "127.0.0.1"
@@ -39,6 +43,33 @@ class ViewerHandler(SimpleHTTPRequestHandler):
     def send_error_json(self, code, message):
         self.send_json(code, {"ok": False, "error": message})
 
+    def valid_mutation_origin(self):
+        origin = self.headers.get("Origin")
+        if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}",
+                                     f"http://localhost:{self.server.server_port}"):
+            return False
+        return self.headers.get('Sec-Fetch-Site', 'same-origin') in ('same-origin', 'none')
+
+    def read_json(self):
+        if not self.headers.get('Content-Type', '').lower().startswith('application/json'):
+            raise workspace.WorkspaceError('A JSON request is required.')
+        length = int(self.headers.get('Content-Length', '0'))
+        if length <= 0 or length > 8192:
+            raise workspace.WorkspaceError('Invalid request size.')
+        payload = json.loads(self.rfile.read(length))
+        if not isinstance(payload, dict):
+            raise workspace.WorkspaceError('Invalid request body.')
+        return payload
+
+    def workspace_error(self, error):
+        if isinstance(error, FileExistsError):
+            return self.send_error_json(409, str(error))
+        if isinstance(error, FileNotFoundError):
+            return self.send_error_json(404, str(error))
+        if isinstance(error, (ValueError, json.JSONDecodeError, zipfile.BadZipFile)):
+            return self.send_error_json(400, str(error))
+        return self.send_error_json(500, 'Workspace operation failed: ' + str(error))
+
     def valid_request_host(self):
         host = self.headers.get("Host", "")
         return host in (f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}")
@@ -63,6 +94,11 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             except FileNotFoundError:
                 nx_available = False
             return self.send_json(200, {"status": "ok", "nxAvailable": nx_available})
+        if path == '/api/workspace':
+            try:
+                return self.send_json(200, workspace.listing())
+            except (OSError, ValueError) as error:
+                return self.workspace_error(error)
         if path.startswith("/api/models/"):
             name = path[len("/api/models/"):]
             if not name or "/" in name or "\\" in name or not name.endswith(".stl"):
@@ -117,54 +153,102 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                 return tree, mode, files, manifest.get('warning', ''), manifest.get('partInfo', {})
         return tree, 'combined', None, manifest.get('warning', ''), manifest.get('partInfo', {})
 
+    def convert_and_respond(self, selection):
+        if self.export_directory is None:
+            raise RuntimeError("Model export directory unavailable.")
+        nx_journal = find_nx_journal()
+        output = convert_prt(selection, self.export_directory, nx_journal)
+        tree, geometry_mode, files, warning, nx_info = self.prepare_structure(output, Path(selection).name)
+        source = Path(selection)
+        file_info = {'path': str(source)}
+        try:
+            stat = source.stat()
+            file_info['size'] = stat.st_size
+            file_info['modified'] = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+        except OSError:
+            pass
+        if not isinstance(nx_info, dict):
+            nx_info = {}
+        nx_info = {'units': nx_info.get('units'), 'attributes': nx_info.get('attributes', [])}
+        with self.asset_lock:
+            self.assets[output.name] = output
+        return self.send_json(200, {
+            "ok": True, "name": source.name,
+            "modelUrl": "/api/models/" + output.name,
+            "tree": tree, "file": file_info, "nx": nx_info,
+            "geometryMode": geometry_mode, "meshes": files, "warning": warning,
+        })
+
     def do_POST(self):
         if not self.valid_request_host():
             return self.send_error_json(403, "Local viewer requests only.")
-        if urlsplit(self.path).path != "/api/open":
-            return self.send_error_json(404, "Unknown endpoint.")
-        origin = self.headers.get("Origin")
-        if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}",
-                                     f"http://localhost:{self.server.server_port}"):
-            return self.send_error_json(403, "Open files from the local viewer only.")
-        if not EXPORT_LOCK.acquire(blocking=False):
-            return self.send_error_json(409, "Another NX file is being opened.")
-        try:
-            nx_journal = find_nx_journal()
-            selection = choose_prt_file()
-            if not selection:
-                return self.send_json(200, {"ok": False, "cancelled": True})
-            if self.export_directory is None:
-                raise RuntimeError("Model export directory unavailable.")
-            output = convert_prt(selection, self.export_directory, nx_journal)
-            tree, geometry_mode, files, warning, nx_info = self.prepare_structure(output, Path(selection).name)
-            source = Path(selection)
-            file_info = {'path': str(source)}
+        if not self.valid_mutation_origin():
+            return self.send_error_json(403, "Workspace requests must originate from this viewer.")
+        parsed = urlsplit(self.path)
+        path = parsed.path
+        if path == '/api/open':
+            if not EXPORT_LOCK.acquire(blocking=False):
+                return self.send_error_json(409, 'Another NX file is being opened.')
             try:
-                stat = source.stat()
-                file_info['size'] = stat.st_size
-                file_info['modified'] = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
-            except OSError:
-                pass
-            if not isinstance(nx_info, dict):
-                nx_info = {}
-            nx_info = {'units': nx_info.get('units'), 'attributes': nx_info.get('attributes', [])}
-            with self.asset_lock:
-                self.assets[output.name] = output
-            return self.send_json(200, {
-                "ok": True,
-                "name": Path(selection).name,
-                "modelUrl": "/api/models/" + output.name,
-                "tree": tree,
-                "file": file_info,
-                "nx": nx_info,
-                "geometryMode": geometry_mode,
-                "meshes": files,
-                "warning": warning,
-            })
-        except Exception as error:
-            return self.send_error_json(500, str(error))
-        finally:
-            EXPORT_LOCK.release()
+                find_nx_journal()
+                selection = choose_prt_file()
+                if not selection:
+                    return self.send_json(200, {'ok': False, 'cancelled': True})
+                return self.convert_and_respond(selection)
+            except Exception as error:
+                return self.send_error_json(500, str(error))
+            finally:
+                EXPORT_LOCK.release()
+        if path == '/api/workspace/open':
+            if not EXPORT_LOCK.acquire(blocking=False):
+                return self.send_error_json(409, 'Another NX file is being opened.')
+            try:
+                selection = workspace.file_for_open(self.read_json().get('path'))
+                return self.convert_and_respond(selection)
+            except (workspace.WorkspaceError, ValueError, json.JSONDecodeError) as error:
+                return self.workspace_error(error)
+            except Exception as error:
+                return self.send_error_json(500, str(error))
+            finally:
+                EXPORT_LOCK.release()
+        if path in ('/api/workspace/upload', '/api/workspace/folder', '/api/workspace/extract'):
+            if EXPORT_LOCK.locked():
+                return self.send_error_json(409, 'File changes are unavailable while NX is opening a model.')
+            try:
+                if path == '/api/workspace/upload':
+                    params = parse_qs(parsed.query, keep_blank_values=True)
+                    if (set(params) - {'path', 'replace'} or 'path' not in params or len(params['path']) != 1 or
+                            len(params.get('replace', [])) > 1 or
+                            any(value not in ('1',) for value in params.get('replace', []))):
+                        raise workspace.WorkspaceError('Specify one workspace file path.')
+                    if self.headers.get('Content-Type', '').lower() != 'application/octet-stream':
+                        raise workspace.WorkspaceError('Expected a binary file upload.')
+                    length = int(self.headers.get('Content-Length', '0'))
+                    return self.send_json(201, workspace.upload(params['path'][0], self.rfile, length,
+                        overwrite=params.get('replace') == ['1']))
+                data = self.read_json()
+                if path == '/api/workspace/folder':
+                    return self.send_json(201, workspace.directory(data.get('path')))
+                return self.send_json(201, workspace.extract(data.get('path')))
+            except (OSError, ValueError, zipfile.BadZipFile, EOFError) as error:
+                return self.workspace_error(error)
+        return self.send_error_json(404, 'Unknown endpoint.')
+
+    def do_DELETE(self):
+        if not self.valid_request_host() or not self.valid_mutation_origin():
+            return self.send_error_json(403, 'Local viewer requests only.')
+        parsed = urlsplit(self.path)
+        if parsed.path != '/api/workspace':
+            return self.send_error_json(404, 'Unknown endpoint.')
+        if EXPORT_LOCK.locked():
+            return self.send_error_json(409, 'File changes are unavailable while NX is opening a model.')
+        try:
+            params = parse_qs(parsed.query, keep_blank_values=True)
+            if list(params.keys()) != ['path'] or len(params['path']) != 1:
+                raise workspace.WorkspaceError('Specify one workspace file path.')
+            return self.send_json(200, workspace.delete(params['path'][0]))
+        except (OSError, ValueError) as error:
+            return self.workspace_error(error)
 
 
 def main():

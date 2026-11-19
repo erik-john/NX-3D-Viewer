@@ -85,7 +85,7 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(parser.header_count, 1)
         self.assertEqual(parser.header_role, 'toolbar')
         self.assertIn('toolbar', parser.header_classes.split())
-        self.assertEqual(parser.header_controls, ['open-nx-button'])
+        self.assertEqual(parser.header_controls, ['open-nx-button', 'workspace-button'])
         for control in ('open-nx-button', 'iso', 'front', 'top', 'right', 'fit-button'):
             self.assertIn(control, parser.all_controls)
             self.assertEqual(parser.all_controls.count(control), 1)

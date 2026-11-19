@@ -70,6 +70,7 @@ class FakeTree {
 const context = {
   ItemTree: FakeTree,
   PartInspector: FakeInspector,
+  FileWorkspace: class { constructor(onOpen) { this.onOpen = onOpen; } },
   Viewer: class extends FakeViewer { constructor(...args) { super(...args); viewer = this; } },
   parseSTL: () => [fakeMesh],
   fetch,

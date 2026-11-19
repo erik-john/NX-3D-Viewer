@@ -31,11 +31,11 @@ logs/
 cache/
 temp/
 tmp/
-uploads/
 exports/
 output/
 dist/
 build/
+uploads/
 
 # Keep source files under tests/, dev/, and tools/ eligible for commits.
 # Ignore only their generated reports and coverage artifacts.

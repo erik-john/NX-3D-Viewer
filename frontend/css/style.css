@@ -351,3 +351,97 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   .viewport-view-button svg { width: 20px; height: 20px; }
   .viewport-tools-caption { font-size: 10px; }
 }
+
+/* File Workspace */
+.workspace-header-button { min-width: 156px; border-color: #a7c8c5; color: #176a64; background: #f4fbf9; }
+.workspace-header-button:hover { border-color: #4ca49b; background: #e5f6f1; }
+.file-workspace {
+  width: min(910px, calc(100vw - 36px));
+  height: min(740px, calc(100vh - 36px)); max-height: calc(100vh - 36px);
+  box-sizing: border-box;
+  padding: 0; border: 1px solid #cbd8df; border-radius: 16px;
+  background: #ffffff; box-shadow: 0 35px 95px #1d394a48; color: #233f4a;
+  overflow: hidden;
+}
+.file-workspace::backdrop { background: #15283174; backdrop-filter: blur(3px); }
+.file-workspace[open] { display: flex; flex-direction: column; }
+.workspace-dialog-header { display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 20px; padding: 22px 25px 15px; background: linear-gradient(100deg, #f4fbf9, #fff);
+  border-bottom: 1px solid #d9e6e8; }
+.workspace-dialog-eyebrow { color: #13786e; font-size: 11px; font-weight: 800; letter-spacing: .14em; }
+.workspace-dialog-header h2 { margin: 3px 0 3px; font-size: 22px; font-weight: 740; }
+.workspace-dialog-header p { font-size: 13px; color: #526b79; margin: 0; }
+.workspace-close { width: 36px; height: 36px; border: 1px solid #d0dcdf; border-radius: 10px;
+  background: #fff; color: #55717e; font-size: 25px; line-height: 1; cursor: pointer; }
+.workspace-close:hover { color: #184851; border-color: #a6c6c5; }
+.workspace-dialog-actions { padding: 13px 24px; display: flex; align-items: center;
+  flex-wrap: wrap; gap: 8px; }
+.workspace-dialog-actions button { font-size: 13px; font-weight: 650; color: #335867;
+  border: 1px solid #cad8dd; border-radius: 8px; padding: 9px 13px; background: #fff;
+  cursor: pointer; }
+.workspace-dialog-actions button:hover:not(:disabled) { border-color: #80b3ae; background: #f1faf7; }
+.workspace-dialog-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.workspace-file-list { margin: 0 24px; min-height: 0; max-height: none; flex: 1 1 auto;
+  overflow: auto; background: #fafcfd; border: 1px solid #dde5e8; border-radius: 10px; padding: 6px; }
+.workspace-tree-row { display: flex; width: 100%; align-items: center; min-width: 0; border-radius: 7px; }
+.workspace-tree-row:hover { background: #eaf3f3; }
+.workspace-tree-row.selected { background: #d9f1e9; }
+.workspace-entry { display: flex; align-items: center; min-width: 0; flex: 1; min-height: 37px;
+  gap: 10px; border: 0; border-radius: 7px; padding: 7px 14px;
+  text-align: left; color: #385664; background: transparent; font-size: 13px;
+  cursor: pointer; }
+.workspace-tree-row.selected .workspace-entry { color: #146e65; }
+.workspace-entry:focus-visible, .workspace-disclosure:focus-visible { outline: 2px solid #4b968d; outline-offset: -2px; }
+.workspace-disclosure { display: inline-flex; align-items: center; justify-content: center;
+  flex: none; width: 22px; height: 29px; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: #0b8477; font-size: 15px; cursor: pointer; }
+.workspace-disclosure:hover { background: #cce9e3; }
+.workspace-file-icon { width: 19px; flex: none; text-align: center; color: #0d8377; font-size: 17px; }
+.workspace-entry-icon { width: 19px; flex: none; text-align: center; color: #0d8377; font-size: 17px; }
+.workspace-entry-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 550; }
+.workspace-entry-meta { flex: none; font-size: 12px; color: #607887; }
+.workspace-file-list .root-entry { color: #1c6c64; font-weight: 750; }
+.workspace-list-empty { color: #667b85; padding: 15px 20px; font-size: 13px; }
+.workspace-dialog-footer { display: flex; gap: 12px; justify-content: space-between;
+  padding: 12px 25px 4px; font-size: 12px; color: #526b79; overflow-wrap: anywhere; }
+#workspace-message { color: #426e68; margin: 0; padding: 9px 25px; font-size: 12px;
+  min-height: 36px; overflow-wrap: anywhere; }
+#workspace-message.error { color: #a8423c; }
+.workspace-bottom-actions { justify-content: flex-end; padding-top: 8px; border-top: 1px solid #e1e8eb; }
+.workspace-dialog-actions button.workspace-danger { color: #a23b3b; }
+.workspace-dialog-actions button.workspace-primary { background: #087f76; color: white; border-color: #087f76; }
+.workspace-dialog-actions button.workspace-primary:hover:not(:disabled) { background: #076e67; }
+@media(max-width: 600px) {
+  .file-workspace { max-height: calc(100vh - 18px); }
+  .workspace-dialog-header { padding: 16px 14px 13px; }
+  .workspace-dialog-actions { padding: 9px 12px; }
+  .workspace-file-list { margin: 0 12px; }
+  .workspace-dialog-footer { padding: 10px 14px 2px; flex-wrap: wrap; }
+  #workspace-message { padding: 8px 14px; }
+}
+
+/* Single upload window for files and folders; browser-native pickers remain distinct. */
+.workspace-upload-dialog { width: min(550px, calc(100vw - 36px)); max-height: calc(100vh - 36px);
+  padding: 0; border: 1px solid #cbd8df; border-radius: 16px; background: #fff;
+  color: #233f4a; box-shadow: 0 35px 95px #1d394a48; }
+.workspace-upload-dialog::backdrop { background: #1528319e; }
+.workspace-upload-body { padding: 20px 24px 22px; }
+.workspace-drop-zone { min-height: 180px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 11px; border: 2px dashed #a4c7c5; border-radius: 14px;
+  color: #14776e; background: #f5fbf9; text-align: center; padding: 24px 15px; }
+.workspace-drop-zone strong { color: #2b5966; font-size: 16px; }
+.workspace-drop-zone span { font-size: 12px; color: #58717b; }
+.workspace-drop-zone.drag-over { border-color: #008778; background: #e5f7f0; box-shadow: inset 0 0 0 2px #9be0d3; }
+.workspace-upload-choices { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding-top: 18px; }
+.workspace-upload-choices button { padding: 10px 17px; border: 1px solid #9fcac5; border-radius: 9px;
+  background: #fff; color: #136c65; font-size: 13px; font-weight: 700; cursor: pointer; }
+.workspace-upload-choices button:hover:not(:disabled) { background: #eefaf6; }
+.workspace-upload-choices button:disabled { opacity: 0.5; cursor: not-allowed; }
+.workspace-upload-hint { font-size: 12px; line-height: 1.6; color: #637985; text-align: center; margin: 13px 0 0; }
+#workspace-upload-progress { min-height: 22px; margin: 12px 0 0; font-size: 12px;
+  color: #286c61; overflow-wrap: anywhere; }
+#workspace-upload-progress.error { color: #ac3939; }
+@media(max-width: 600px) {
+  .workspace-upload-body { padding: 15px 14px 18px; }
+  .workspace-drop-zone { min-height: 145px; }
+}

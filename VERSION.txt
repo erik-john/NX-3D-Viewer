@@ -1,3 +1,64 @@
+Milestone: 24 — Workspace Modal Layout Refinement
+
+Changes
+- Fix Workspace dialog height to prevent resizing when folders collapse or expand.
+- Allow only the file-list region to scroll; keep header, action buttons and footer in place.
+- Rename the top-header FILE WORKSPACE action to WORKSPACE.
+- Rename the main dialog title to Workspace and remove its eyebrow and subtitle.
+- Remove the default folder-selection helper sentence while keeping upload, error and operation feedback.
+- Preserve sorting, folder collapse, upload, ZIP extraction, directory management and NX opening.
+- Keep port 8888, Windows CRLF text files and branch-specific .gitignore rules unchanged.
+
+Verification
+- Check dialog height before and after collapsing folders and refreshing the file list.
+- Confirm dialog title, header button, removed helper line and normal workspace operations.
+- Run Python and JavaScript regression tests in the dev branch.
+
+Commit suggestions
+- dev: fix(workspace): stabilize modal size and simplify workspace labels
+- main: fix(workspace): release stable dialog layout and labels
+
+Milestone: 23 — File Workspace Explorer Improvements
+
+Changes
+- Sort folders before files at every folder level using case-insensitive natural (numeric) ordering.
+- Render a nested file tree with per-folder expand/collapse arrows, preserving collapse state through refresh.
+- Replace separate Upload files / Upload folder actions with one Upload button and a single upload window.
+- Allow file and directory drag-and-drop into that window, including mixed drops and empty directories when browser APIs provide them.
+- Keep separate browser-native Choose files / Choose folder choices inside the window, because one native picker cannot select both types reliably.
+- Maintain destination-folder selection, existing file replacement prompts, ZIP extraction, deletion, file-open operations, security limits, local port 8888, and Windows CRLF.
+- Preserve branch-specific .gitignore and exclude uploaded CAD data from the release archive.
+
+Verification
+- Python workspace API and NX conversion regression tests.
+- JavaScript source checks and Chromium workspace interaction tests for sorting, folder collapse, upload methods, and file operations.
+- Browser native folder drag-and-drop requires Chrome/Edge validation on Windows.
+
+Git commit suggestions
+- dev: feat(workspace): add Explorer sorting, collapsible folders and unified upload
+- main: feat(workspace): release improved CAD file explorer
+
+Milestone: 22 — File Workspace & Upload Management
+
+Features
+- Add a FILE WORKSPACE dialog while retaining the existing OPEN NX FILES command, 3D controls, Item Structure, and Part Inspector.
+- Store uploaded files persistently under the root uploads/ directory; preserve nested folder paths for assembly dependencies and associated files.
+- Upload files, upload folders via webkitdirectory, create folders, list content, open stored .prt files, confirm replacement, delete content, and safely extract ZIP archives.
+- Use the existing NX Open conversion service for selected uploaded .prt files; do not modify original CAD files.
+- Add safe path validation, deny path traversal and symlinks, restrict uploads to the local browser origin, stream uploads in chunks, and verify ZIP contents before extraction.
+- Storage limits: 512 MB/file, 2 GB total, 3000 files, and maximum folder depth 24. ZIP archives are stored plus extracted content.
+- Assembly references are preserved as files and relative paths; actual NX assembly resolution still depends on the original file references and NX configuration.
+- Keep uploads/ ignored by existing branch-specific .gitignore, fixed port 8888, Windows CRLF text, and no version details in UI.
+
+Verification
+- Python tests include file upload, nested directory handling, duplicate protection and replacement, delete, ZIP extraction, path traversal, symbolic links and selected-file NX conversion.
+- Browser checks cover the workspace dialog, folder creation, upload, .prt open and delete with simulated NX.
+- Real Siemens NX assembly dependency resolution and Windows workstation behavior require confirmation before promotion to main.
+
+Commit suggestions
+- dev: feat(workspace): add persistent CAD file and folder management
+- main: feat(workspace): release local CAD file workspace
+
 Milestone: 21 — Recover NX STL Triangle Counts and Empty Body Fallback
 
 Changes

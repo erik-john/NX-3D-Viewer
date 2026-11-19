@@ -2,6 +2,7 @@ import { Viewer } from './viewer.js';
 import { parseSTL } from './stl.js';
 import { ItemTree } from './item_tree.js';
 import { PartInspector } from './inspector.js';
+import { FileWorkspace } from './workspace.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
@@ -94,17 +95,21 @@ function setup() {
     return { meshes: pieces.flat(), perBody: true };
   }
 
-  async function openNXPart() {
+  async function openNXPart(workspacePath = null) {
     const button = $('open-nx-button');
     if (button.disabled) return;
     button.disabled = true;
     $('import-message').hidden = true;
     clearScene();
     $('empty-state').hidden = true;
-    showLoading('Opening NX file', 'Select a part file on the server computer; NX will prepare the geometry.');
-    $('status-message').textContent = 'Choose an NX part file on this computer…';
+    showLoading('Opening NX file', workspacePath ? `Preparing uploads/${workspacePath}` : 'Select a part file on the server computer; NX will prepare the geometry.');
+    $('status-message').textContent = workspacePath ? `Opening uploads/${workspacePath}…` : 'Choose an NX part file on this computer…';
     try {
-      const result = await fetch('/api/open', { method: 'POST', cache: 'no-store' });
+      const result = await fetch(workspacePath ? '/api/workspace/open' : '/api/open', {
+        method: 'POST', cache: 'no-store',
+        ...(workspacePath ? {headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({path: workspacePath})} : {}),
+      });
       const info = await result.json();
       if (info.cancelled) {
         $('empty-state').hidden = false;
@@ -134,7 +139,8 @@ function setup() {
     }
   }
 
-  $('open-nx-button').addEventListener('click', openNXPart);
+  $('open-nx-button').addEventListener('click', () => openNXPart());
+  new FileWorkspace(path => openNXPart(path));
   for (const button of document.querySelectorAll('[data-view]')) {
     button.addEventListener('click', () => setCameraView(button.dataset.view));
   }
