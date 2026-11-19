@@ -86,7 +86,11 @@ void main() {
   gl_Position = uViewProjection * vec4(aPosition, 1.0);
 }`;
 const SOLID_FRAGMENT = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
 precision mediump float;
+#endif
 uniform vec3 uColor;
 uniform vec3 uEye;
 uniform float uWire;
@@ -94,18 +98,35 @@ varying vec3 vNormal;
 varying vec3 vPosition;
 void main() {
   vec3 normal = normalize(vNormal);
-  vec3 eyeDir = normalize(uEye - vPosition);
+  vec3 viewDir = normalize(uEye - vPosition);
   if (!gl_FrontFacing) normal = -normal;
-  vec3 keyDir = normalize(vec3(-0.48, 0.84, 0.32));
-  vec3 fillDir = normalize(vec3(0.75, 0.15, -0.62));
+
+  // Soft studio illumination keeps dark-facing steel surfaces legible.
+  vec3 keyDir = normalize(vec3(-0.47, 0.83, 0.31));
+  vec3 fillDir = normalize(vec3(0.81, 0.32, -0.51));
+  vec3 backDir = normalize(vec3(-0.26, -0.39, -0.88));
   float key = max(dot(normal, keyDir), 0.0);
   float fill = max(dot(normal, fillDir), 0.0);
-  float diffuse = 0.43 + 0.44 * key + 0.16 * fill;
-  float specular = pow(max(dot(reflect(-keyDir, normal), eyeDir), 0.0), 32.0) * 0.42;
-  specular += pow(max(dot(reflect(-fillDir, normal), eyeDir), 0.0), 22.0) * 0.11;
-  float rim = pow(1.0 - max(dot(normal, eyeDir), 0.0), 3.0) * 0.08;
-  vec3 silver = uColor * diffuse + vec3(specular + rim);
-  gl_FragColor = vec4(mix(silver, vec3(0.36, 0.41, 0.47), uWire), 1.0);
+  float back = max(dot(normal, backDir), 0.0);
+  float sky = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
+  float diffuse = 0.50 + 0.34 * key + 0.16 * fill + 0.08 * back + 0.06 * sky;
+
+  // Wide softbox reflections roll gently around cylindrical NX surfaces.
+  vec3 keyHalf = normalize(keyDir + viewDir);
+  vec3 fillHalf = normalize(fillDir + viewDir);
+  float broad = pow(max(dot(normal, keyHalf), 0.0), 13.0) * 0.10;
+  float tight = pow(max(dot(normal, fillHalf), 0.0), 52.0) * 0.035;
+  vec3 reflected = reflect(-viewDir, normal);
+  float softbox = pow(max(dot(reflected, normalize(vec3(-0.82, 0.49, 0.30))), 0.0), 7.0) * 0.06;
+
+  // Keep the CAD silhouette subtle; mechanical crease lines supply edge detail.
+  float facing = max(dot(normal, viewDir), 0.0);
+  float silhouette = pow(1.0 - facing, 3.0);
+  vec3 baseLinear = pow(clamp(uColor, 0.0, 1.0), vec3(2.2));
+  vec3 linearSteel = baseLinear * diffuse * (1.0 - 0.06 * silhouette) + vec3(broad + tight + softbox);
+  // Convert linear illumination to display sRGB. Without this, gray faces look charcoal.
+  vec3 steel = pow(clamp(linearSteel, 0.0, 1.0), vec3(1.0 / 2.2)) * 0.96;
+  gl_FragColor = vec4(mix(steel, vec3(0.37, 0.41, 0.45), uWire), 1.0);
 }`;
 const LINE_VERTEX = `
 attribute vec3 aPosition;
@@ -126,6 +147,16 @@ function createBuffer(gl, data, target = gl.ARRAY_BUFFER) {
   gl.bindBuffer(target, buffer);
   gl.bufferData(target, data, gl.STATIC_DRAW);
   return buffer;
+}
+
+// Semi-transparent technical edges follow actual mesh creases rather than
+// drawing every triangle of the STL tessellation.
+function makeCreaseColors(count) {
+  const colors = new Float32Array(count * 4);
+  for (let i = 0; i < count; i += 1) {
+    colors.set([0.24, 0.25, 0.27, 0.58], i * 4);
+  }
+  return colors;
 }
 
 function getEdges(indices) {
@@ -261,6 +292,8 @@ export class Viewer {
       gl.deleteBuffer(item.normal);
       gl.deleteBuffer(item.triangles);
       gl.deleteBuffer(item.edges);
+      if (item.creasePosition) gl.deleteBuffer(item.creasePosition);
+      if (item.creaseColor) gl.deleteBuffer(item.creaseColor);
     }
     this.geometry = meshes.map(item => {
       if (item.positions.length / 3 > 65535) throw new Error('Mesh exceeds the current index limit');
@@ -272,6 +305,9 @@ export class Viewer {
         triangleCount: item.indices.length,
         edges: createBuffer(gl, edges, gl.ELEMENT_ARRAY_BUFFER),
         edgeCount: edges.length,
+        creasePosition: item.creasePositions?.length ? createBuffer(gl, item.creasePositions) : null,
+        creaseColor: item.creasePositions?.length ? createBuffer(gl, makeCreaseColors(item.creasePositions.length / 3)) : null,
+        creaseCount: (item.creasePositions?.length || 0) / 3,
         color: colorFromHex(item.color),
         meshId: item.meshId || 'root',
         visible: true,
@@ -440,6 +476,8 @@ export class Viewer {
     if (this.showGrid) this.renderLines(this.gridBuffers.position, this.gridBuffers.color, this.gridBuffers.count, matrix);
     if (this.showAxes) this.renderLines(this.gridBuffers.planePosition,
       this.gridBuffers.planeColor, this.gridBuffers.planeCount, matrix, gl.TRIANGLES);
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(1, 1);
     gl.useProgram(this.solid);
     gl.uniformMatrix4fv(this.solidLoc.matrix, false, matrix);
     gl.uniform1f(this.solidLoc.wire, this.wireframe ? 1 : 0);
@@ -456,6 +494,13 @@ export class Viewer {
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.wireframe ? part.edges : part.triangles);
       gl.drawElements(this.wireframe ? gl.LINES : gl.TRIANGLES,
         this.wireframe ? part.edgeCount : part.triangleCount, gl.UNSIGNED_SHORT, 0);
+    }
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    if (!this.wireframe) {
+      for (const part of this.geometry) {
+        if (part.visible && part.creaseCount) this.renderLines(
+          part.creasePosition, part.creaseColor, part.creaseCount, matrix);
+      }
     }
     if (this.showAxes) {
       this.renderLines(this.gridBuffers.outlinePosition,
