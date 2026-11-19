@@ -29,8 +29,8 @@ for (const name of ['grid-button','axes-button','wire-button']) {
 }
 assert.ok(app.includes("const views = { '1': 'iso', '2': 'front', '3': 'top', '4': 'right' }"));
 assert.ok(app.includes("event.key.toLowerCase() === 'f'"));
-assert.match(stl, /color: '#d3dade'/);
-assert.match(viewer, /float diffuse = 0\.43 \+ 0\.44 \* key \+ 0\.16 \* fill/);
+assert.match(stl, /color: '#dee1e3'/);
+assert.match(viewer, /float diffuse = 0\.50 \+ 0\.34 \* key/);
 assert.match(viewer, /this\.showGrid = false/);
 assert.match(viewer, /this\.showAxes = true/);
 assert.match(css, /\.inspector-row dt[^}]*color: #3e5260/);

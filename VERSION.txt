@@ -1,3 +1,74 @@
+MS16 — Subtle Steel Tone Adjustment
+
+Changes
+- Reduce the final silver-steel brightness by 4% compared with MS15.
+- Preserve the exact studio lighting, material base color, smooth normals, and dark mechanical edge treatment.
+- No changes to UI, NX loading, tree, inspector, camera controls, port 8888, or the default grid state.
+- Windows CRLF files are retained; branch-specific .gitignore is not included.
+
+Verification
+- Run the Python and JavaScript checks; verify actual shading on the NX workstation.
+
+Git commits
+- dev: fix(render): slightly darken NX steel material
+- main: fix(render): release balanced steel tone
+
+MS15 — Bright NX-style Studio Steel Correction
+
+Changes
+- Correct the overly dark MS14 steel material observed in the side-by-side NX screenshots.
+- Raise the opaque silver base to #dee1e3 and replace the 22% diffuse baseline with 50% soft ambient fill.
+- Apply sRGB output encoding to the shader so lighting computed in linear space does not look unnaturally dark in the browser.
+- Introduce broad softbox highlights and gentle secondary lighting on the ring and spherical components.
+- Reduce silhouette darkening from 27% to 6%; retain the established mechanical crease outlines and smooth STL normals.
+- Keep the MS12 light workspace, NX axes, viewport buttons, Inspector, Item Structure, loading workflow and fixed port 8888.
+- Source text uses Windows CRLF; branch-specific .gitignore is not included.
+
+Verification
+- Run the existing Python and JavaScript checks and additional studio-lighting tests.
+- Compare a real NX part on the Windows workstation; the software does not provide physically based HDR environment maps or true ambient occlusion.
+
+Git commits
+- dev: fix(render): brighten NX steel and balance studio lighting
+- main: fix(render): release brighter NX-style steel material
+
+MS14 — NX-style Satin Steel Shading and Mechanical Edges
+
+Changes
+- Replace the glass-like bright-rim material with opaque satin-gray steel illumination, broad studio reflections, and darker shaded sides.
+- Recalculate smoothed STL vertex normals for neighboring triangles with angles below 42 degrees; preserve hard mechanical corners.
+- Display fine dark crease lines at shared STL facet boundaries above 38 degrees; do not draw every triangulation edge.
+- Keep the model fully opaque and the studio shading independent of the NX datum references.
+- Preserve UI layout, inspector, NX hierarchy/loading, fixed port 8888, and Windows CRLF formatting.
+
+Limitations
+- This is real-time studio lighting and crease rendering, not a full NX/SolidWorks PBR environment or physically accurate ambient occlusion/cast shadows.
+- STL geometry is tessellated; separate chunks cannot smooth normals across a chunk boundary, and internal recess shadowing will differ from NX's native renderer.
+- Real Siemens NX 1855 imports and GPU WebGL rendering require confirmation on the Windows workstation.
+
+Validation
+- Python and JavaScript smoke tests, normals/crease tests, ZIP integrity, line-ending checks.
+- Dev commit: feat(render): add NX-style satin steel shading and mechanical creases
+- Main commit: feat(render): release refined steel surface shading
+
+Milestone: 13 — Real Steel Material Refinement
+
+Changes
+- Replace the previous soft light-steel shader with a more realistic metallic finish for NX meshes.
+- Increase the base metal brightness to a neutral silver steel and reduce the glass-like appearance.
+- Use stronger directional highlights, a subtler ambient fill, and Fresnel reflections to better mimic steel.
+- Keep the current MS12 layout: OPEN NX FILES in the header, camera icons inside the viewport, hidden grid, visible NX axes and datum planes.
+- Keep Item Structure, Part Inspector, port 8888, Run.bat, CRLF text files, and branch-specific .gitignore handling unchanged.
+
+Checks
+- Verify real NX models appear metallic and opaque on the workstation, especially on curved surfaces.
+- Run Python and JavaScript suites in the dev branch before promoting production files.
+- Siemens NX 1855 export and GPU/WebGL rendering still require workstation validation.
+
+Commit suggestions
+- dev: feat(render): refine metallic steel shading for NX models
+- main: feat(render): release improved steel material shading
+
 Milestone: 12 — Compact View Controls and Readable Light Workspace
 
 Changes

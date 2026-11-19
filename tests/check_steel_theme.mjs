@@ -7,9 +7,9 @@ const viewerSource = readFileSync(resolve(root, 'frontend/js/viewer.js'), 'utf8'
 const css = readFileSync(resolve(root, 'frontend/css/style.css'), 'utf8');
 const html = readFileSync(resolve(root, 'frontend/index.html'), 'utf8');
 const stl = readFileSync(resolve(root, 'frontend/js/stl.js'), 'utf8');
-assert.match(stl, /color: '#d3dade'/);
+assert.match(stl, /color: '#dee1e3'/);
 assert.match(viewerSource, /uniform vec3 uEye/);
-assert.match(viewerSource, /float specular = pow/);
+assert.match(viewerSource, /float broad = pow/);
 assert.match(css, /color-scheme: light/);
 assert.match(css, /\.tree-panel\s*\{[^}]*background: #ffffff/s);
 assert.match(css, /\.inspector-panel\s*\{[^}]*background: #ffffff/s);
