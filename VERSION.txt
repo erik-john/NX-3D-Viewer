@@ -1,22 +1,18 @@
 NX 3D Viewer
 
-Milestone: 5 — NX Item Structure Panel
-Status: Implementation prepared; Siemens NX 1855 workstation verification required
+Milestone: 6 — Unified Top Toolbar
+Status: UI implementation prepared; NX 1855 workstation verification required
 Port: 8888 (fixed)
 Launcher: Run.bat
 
 Production changes:
-- Removed the floating CURRENT SCENE card and its obsolete DOM and styles.
-- Added a left Item Structure panel, with expand/collapse and draggable/keyboard-resizable splitter.
-- Model tree uses actual NX Open component occurrences and body names; repeated component instances remain separate nodes.
-- Checkboxes toggle rendering of an individual body or an entire component subtree when each NX body exports separately.
-- Clicking an item selects it in the tree and displays its name in the status bar.
-- NX journal still exports a combined STL, and also produces hierarchy JSON and individual positioned body STLs.
-- If any individual body STL cannot be exported, the complete combined STL is retained; tree remains navigable with visibility disabled.
-- NX service passes hierarchy path to journal; backend serves registered body STLs and returns tree / geometry mode in /api/open.
-- Existing empty scene, loading overlay, camera, wireframe, grid, axes, and fixed port remain.
-- Geometry/structure are immediately discarded when starting a new file load; cancel/failure leaves an empty viewer.
-- No version/build number shown in the web UI.
+- Removed the branded information header, LOCAL VIEWER label and NX availability status indicators.
+- Moved all existing OPEN NX FILES / VIEW / DISPLAY controls into a single top header row.
+- Preserved all button IDs, view selection, toggle states, shortcuts, and loading behavior.
+- Kept the Item Structure panel, resizer, loading overlay and status bar unchanged.
+- The top toolbar scrolls horizontally on narrow screens instead of wrapping into a second row.
+- Removed the unused browser-side NX availability request; the NX open operation still reports errors in the viewport.
+- Port stays 8888. No version information appears in the page.
 
 Known limits:
 - Browser UI checks used a simulated WebGL implementation, not actual 3D rendering.
@@ -42,9 +38,9 @@ Validation commands (dev branch):
 - node tests/check_loading.mjs
 - py -3 dev/browser_smoke.py (Chromium and Playwright required)
 - Open standalone .prt and an assembly with repeated components on NX 1855.
-- Verify: hierarchy names/depth, collapse, splitter, body/component visibility,
-  clearing on new load, and complete geometry fallback if a body export fails.
+- Verify: single-row top toolbar at desktop width, horizontal scrolling at mobile width,
+  all controls functioning, NX hierarchy, loading splash, and error display.
 
 Suggested Git commit messages:
-- dev: feat(viewer): add NX assembly item tree and component visibility
-- main: feat(viewer): release verified NX item structure panel
+- dev: feat(ui): unify viewer controls in top header
+- main: feat(ui): release unified top toolbar

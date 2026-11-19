@@ -6,22 +6,6 @@ const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
 const MAX_TOTAL_TRIANGLES = 1_000_000;
 
-async function updateConnectionStatus() {
-  const label = $('connection-label');
-  const dot = $('connection-dot');
-  try {
-    const response = await fetch('/api/health', { cache: 'no-store' });
-    if (!response.ok) throw new Error('Server unavailable');
-    const data = await response.json();
-    if (data.status !== 'ok') throw new Error('Unexpected response');
-    label.textContent = data.nxAvailable ? 'NX available' : 'Connected · NX not found';
-    dot.className = 'connection-dot online';
-  } catch {
-    label.textContent = 'Disconnected';
-    dot.className = 'connection-dot offline';
-  }
-}
-
 function setup() {
   let viewer;
   try {
@@ -138,7 +122,6 @@ function setup() {
     } finally {
       finishLoading();
       button.disabled = false;
-      updateConnectionStatus();
     }
   }
 
@@ -174,4 +157,3 @@ function setup() {
 }
 
 setup();
-updateConnectionStatus();
