@@ -9,16 +9,14 @@ from http.server import ThreadingHTTPServer
 ROOT = Path(__file__).resolve().parents[1]
 SERVER_FILE = ROOT / "backend" / "server.py"
 
-spec = importlib.util.spec_from_file_location("viewer_backend", SERVER_FILE)
-backend = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(backend)
+from backend import server as backend
 
 
 class StructureTests(unittest.TestCase):
     def test_required_files_exist(self):
         expected = [
             "Run.bat", "backend/server.py", "frontend/index.html",
-            "frontend/css/style.css", "frontend/js/app.js", "nx/.gitkeep",
+            "frontend/css/style.css", "frontend/js/app.js", "nx/export_stl.py",
             "README.md", "VERSION.txt",
         ]
         for name in expected:
@@ -37,7 +35,7 @@ class StructureTests(unittest.TestCase):
         try:
             with urlopen(base + "/api/health", timeout=4) as response:
                 self.assertEqual(200, response.status)
-                self.assertEqual({"status": "ok"}, json.load(response))
+                self.assertEqual("ok", json.load(response)["status"])
             for path, expected in [
                 ("/", b"NX 3D Viewer"),
                 ("/css/style.css", b".workspace"),

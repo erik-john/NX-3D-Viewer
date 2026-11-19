@@ -9,14 +9,12 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 FRONT = ROOT / 'frontend'
 
-spec = importlib.util.spec_from_file_location('viewer_server_m2', ROOT / 'backend/server.py')
-server = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(server)
+from backend import server as server
 
 
 class ViewerTests(unittest.TestCase):
     def test_locally_bundled_source_files(self):
-        for name in ['index.html', 'css/style.css', 'js/app.js', 'js/viewer.js', 'js/geometry.js']:
+        for name in ['index.html', 'css/style.css', 'js/app.js', 'js/viewer.js', 'js/geometry.js', 'js/stl.js']:
             with self.subTest(name=name):
                 self.assertTrue((FRONT / name).is_file())
 
@@ -30,7 +28,7 @@ class ViewerTests(unittest.TestCase):
         self.assertNotIn('http://', html + renderer)
         self.assertNotIn('https://', html + renderer)
         for element in ['viewer-canvas', 'sample-select', 'fit-button', 'grid-button',
-                        'axes-button', 'wire-button', 'scene-title', 'viewer-error']:
+                        'axes-button', 'wire-button', 'scene-title', 'viewer-error', 'open-nx-button']:
             with self.subTest(element=element):
                 self.assertIn(f'id="{element}"', html)
 
