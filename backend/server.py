@@ -1,6 +1,7 @@
 """Serve the local NX 3D Viewer on port 8888."""
 
 import json
+import re
 import tempfile
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -85,6 +86,36 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             return self.send_error_json(404, "Unknown endpoint.")
         return super().do_GET()
 
+    def prepare_structure(self, output, display_name):
+        manifest_path = output.with_suffix('.json')
+        default = {'id': 'root', 'name': display_name, 'type': 'part', 'children': [],
+                   'meshId': 'root'}
+        if not manifest_path.is_file():
+            return default, 'combined', None, ''
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        tree = manifest.get('root')
+        if not isinstance(tree, dict) or not isinstance(tree.get('children'), list):
+            raise RuntimeError('NX returned an invalid component structure.')
+        mode = manifest.get('geometryMode', 'combined')
+        if mode == 'separate':
+            meshes = manifest.get('meshes', [])
+            if not meshes:
+                mode = 'combined'
+            else:
+                files = []
+                for item in meshes:
+                    name, mesh_id = item.get('file'), item.get('id')
+                    if not isinstance(name, str) or not re.fullmatch(r'[0-9a-f]{32}_body_\d{5}\.stl', name):
+                        raise RuntimeError('NX returned an invalid geometry file name.')
+                    mesh_path = output.parent / name
+                    if not mesh_path.is_file():
+                        raise RuntimeError('NX body geometry is missing: ' + name)
+                    files.append({'id': mesh_id, 'url': '/api/models/' + name})
+                    with self.asset_lock:
+                        self.assets[name] = mesh_path
+                return tree, mode, files, manifest.get('warning', '')
+        return tree, 'combined', None, manifest.get('warning', '')
+
     def do_POST(self):
         if not self.valid_request_host():
             return self.send_error_json(403, "Local viewer requests only.")
@@ -104,12 +135,17 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             if self.export_directory is None:
                 raise RuntimeError("Model export directory unavailable.")
             output = convert_prt(selection, self.export_directory, nx_journal)
+            tree, geometry_mode, files, warning = self.prepare_structure(output, Path(selection).name)
             with self.asset_lock:
                 self.assets[output.name] = output
             return self.send_json(200, {
                 "ok": True,
                 "name": Path(selection).name,
                 "modelUrl": "/api/models/" + output.name,
+                "tree": tree,
+                "geometryMode": geometry_mode,
+                "meshes": files,
+                "warning": warning,
             })
         except Exception as error:
             return self.send_error_json(500, str(error))

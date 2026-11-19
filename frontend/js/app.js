@@ -1,7 +1,10 @@
 import { Viewer } from './viewer.js';
 import { parseSTL } from './stl.js';
+import { ItemTree } from './item_tree.js';
 
 const $ = id => document.getElementById(id);
+const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
+const MAX_TOTAL_TRIANGLES = 1_000_000;
 
 async function updateConnectionStatus() {
   const label = $('connection-label');
@@ -29,6 +32,12 @@ function setup() {
     $('status-message').textContent = 'Unable to start 3D renderer';
     return;
   }
+  const tree = new ItemTree({
+    panel: $('tree-panel'), toggle: $('tree-toggle'), resizer: $('tree-resizer'),
+    container: $('model-tree'), summary: $('tree-summary'), note: $('tree-note'),
+    onVisibility: (meshId, visible) => viewer.setMeshVisible(meshId, visible),
+    onSelect: node => { $('status-message').textContent = `Selected: ${node.name}`; },
+  });
   let selectedView = 'iso';
 
   function setCameraView(view) {
@@ -41,23 +50,9 @@ function setup() {
     }
   }
 
-  function updateScene(title, description, meshes, source) {
-    viewer.setScene(meshes);
-    $('scene-title').textContent = title;
-    $('scene-description').textContent = description;
-    $('scene-objects').textContent = String(meshes.length);
-    $('scene-triangles').textContent = meshes.reduce((n, item) => n + item.indices.length / 3, 0).toLocaleString();
-    $('scene-source').textContent = source;
-    setCameraView('iso');
-  }
-
   function clearScene() {
     viewer.setScene([]);
-    $('scene-title').textContent = 'No model loaded';
-    $('scene-description').textContent = 'Open an NX file to visualize its geometry.';
-    $('scene-objects').textContent = '0';
-    $('scene-triangles').textContent = '0';
-    $('scene-source').textContent = 'No NX file selected';
+    tree.clear();
     setCameraView('iso');
     $('empty-state').hidden = false;
   }
@@ -72,6 +67,39 @@ function setup() {
   function finishLoading() {
     $('loading-overlay').hidden = true;
     $('viewer-workspace').removeAttribute('aria-busy');
+  }
+
+  async function readSTL(url) {
+    const reply = await fetch(url, { cache: 'no-store' });
+    if (!reply.ok) throw new Error('NX geometry download failed.');
+    return reply.arrayBuffer();
+  }
+
+  async function loadGeometry(info) {
+    if (info.geometryMode !== 'separate' || !Array.isArray(info.meshes) || !info.meshes.length) {
+      const buffer = await readSTL(info.modelUrl);
+      const meshes = parseSTL(buffer).map(mesh => ({ ...mesh, meshId: 'root' }));
+      return { meshes, perBody: false };
+    }
+    const pieces = new Array(info.meshes.length);
+    let current = 0, completed = 0, totalBytes = 0, totalTriangles = 0;
+    const workers = Math.min(4, info.meshes.length);
+    await Promise.all(Array.from({ length: workers }, async () => {
+      while (current < info.meshes.length) {
+        const at = current++;
+        const item = info.meshes[at];
+        const buffer = await readSTL(item.url);
+        totalBytes += buffer.byteLength;
+        if (totalBytes > MAX_TOTAL_STL_BYTES) throw new Error('NX geometry exceeds the 256 MB viewer limit.');
+        const meshes = parseSTL(buffer).map(mesh => ({ ...mesh, meshId: item.id }));
+        totalTriangles += meshes.reduce((sum, mesh) => sum + mesh.indices.length / 3, 0);
+        if (totalTriangles > MAX_TOTAL_TRIANGLES) throw new Error('NX geometry exceeds the 1,000,000 triangle viewer limit.');
+        pieces[at] = meshes;
+        completed += 1;
+        $('loading-detail').textContent = `Loading NX bodies · ${completed} / ${info.meshes.length}`;
+      }
+    }));
+    return { meshes: pieces.flat(), perBody: true };
   }
 
   async function openNXPart() {
@@ -92,14 +120,14 @@ function setup() {
         return;
       }
       if (!result.ok || !info.ok) throw new Error(info.error || 'NX could not open this file.');
-      showLoading('Retrieving 3D geometry', `Downloading the converted geometry for ${info.name}…`);
+      showLoading('Loading NX geometry', `Preparing the geometry for ${info.name}…`);
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
-      const data = await fetch(info.modelUrl, { cache: 'no-store' });
-      if (!data.ok) throw new Error('NX geometry download failed.');
-      showLoading('Loading 3D model', `Building the viewer geometry for ${info.name}…`);
-      const meshes = parseSTL(await data.arrayBuffer());
-      updateScene(info.name, 'NX part geometry displayed as tessellated surfaces.', meshes,
-        'NX geometry · STL visualization');
+      const { meshes, perBody } = await loadGeometry(info);
+      viewer.setScene(meshes);
+      tree.show(info.tree || { id: 'root', name: info.name, type: 'part', children: [] }, {
+        visibilityEnabled: perBody, warning: info.warning || '',
+      });
+      setCameraView('iso');
       $('empty-state').hidden = true;
       $('status-message').textContent = `${info.name} loaded · Drag to rotate · Scroll to zoom`;
     } catch (error) {
@@ -119,7 +147,6 @@ function setup() {
     const button = $(id);
     button.classList.toggle('active', viewer[prop]);
     button.setAttribute('aria-pressed', String(viewer[prop]));
-    if (prop === 'wireframe') $('scene-render-mode').textContent = viewer[prop] ? 'Wireframe' : 'Solid';
     viewer.requestRender();
   }
 

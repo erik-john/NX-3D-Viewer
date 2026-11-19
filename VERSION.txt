@@ -1,48 +1,50 @@
 NX 3D Viewer
 
-Milestone: 4 — NX File Loading UI & Progress Screen
-Status: Implementation delivered; NX 1855 workstation verification required
+Milestone: 5 — NX Item Structure Panel
+Status: Implementation prepared; Siemens NX 1855 workstation verification required
 Port: 8888 (fixed)
 Launcher: Run.bat
 
 Production changes:
-- backend/nx_service.py: discover NX journal, open local PRT picker, invoke NX and check conversion results
-- backend/server.py: /api/open and registered /api/models/*.stl endpoints, fixed-port local server
-- nx/export_stl.py: NX Open part/assembly occurrence body collection and STL export
-- frontend/js/stl.js: binary and ASCII STL parsing with bounded mesh chunking and NX-to-viewer coordinate conversion
-- frontend/js/app.js: empty startup scene, clear on new load, splash lifecycle, status and error feedback
-- frontend/index.html: OPEN NX FILES button, no sample menu, empty state and splash overlay
-- frontend/css/style.css: import button, empty-state UI, centered animated loading overlay
-- frontend/js/geometry.js: retain boundsFor only; remove sample generation code
-- README.md: operating instructions and supported file types
+- Removed the floating CURRENT SCENE card and its obsolete DOM and styles.
+- Added a left Item Structure panel, with expand/collapse and draggable/keyboard-resizable splitter.
+- Model tree uses actual NX Open component occurrences and body names; repeated component instances remain separate nodes.
+- Checkboxes toggle rendering of an individual body or an entire component subtree when each NX body exports separately.
+- Clicking an item selects it in the tree and displays its name in the status bar.
+- NX journal still exports a combined STL, and also produces hierarchy JSON and individual positioned body STLs.
+- If any individual body STL cannot be exported, the complete combined STL is retained; tree remains navigable with visibility disabled.
+- NX service passes hierarchy path to journal; backend serves registered body STLs and returns tree / geometry mode in /api/open.
+- Existing empty scene, loading overlay, camera, wireframe, grid, axes, and fixed port remain.
+- Geometry/structure are immediately discarded when starting a new file load; cancel/failure leaves an empty viewer.
+- No version/build number shown in the web UI.
 
-Known boundaries:
-- NX 1855 could not be executed in this build environment; real journal behavior and assembly export must be verified on the licensed Windows NX machine.
-- Exporter fails on unresolved/unloaded assembly components rather than silently drawing misplaced prototypes.
-- STL output is a single tessellated combined display mesh; no NX assembly tree, selection or CAD editing.
-- 256 MB or 1,000,000 triangle STL limit; mesh split into <=18,000 triangles per WebGL mesh.
-- Source changes still need a browser refresh or server restart; live reload is not included.
-- The file picker executes on the same Windows computer that runs the Python server.
-- Opening a new file immediately discards the previous displayed model; cancelling or failing leaves an empty viewer.
-- The splash is indeterminate: no numeric progress percentage is available from the NX conversion API.
-- No version/build information in the page. Always use port 8888.
+Known limits:
+- Browser UI checks used a simulated WebGL implementation, not actual 3D rendering.
+- NX 1855 and real assembly occurrences must be verified on licensed Windows NX installation.
+- NX Open exports STL tessellation rather than exact CAD faces.
+- A big assembly may take longer to load because body meshes are exported separately when possible.
+- The client enforces 256 MB total STL bytes and 1,000,000 total triangles.
+- Structure selection in the tree does not yet highlight the matching geometry in the viewport.
+- Siemens .jt and .chr import is not implemented; OPEN NX FILES currently opens .prt only.
+- Separate export fallback preserves complete geometry but cannot individually hide/show bodies.
+- File picker runs on the computer hosting Python, not the remote browser.
+- Existing branch-specific .gitignore files must not be overwritten.
 
 Branch policy:
-- ZIP contains shared production sources plus dev/ and tests/ folders.
-- ZIP does not contain .gitignore. Existing per-branch root .gitignore must remain unchanged.
-- dev branch: tests/ and dev/ files are allowed to be tracked.
-- main branch: tests/ and dev/ are ignored if untracked; never merge them from dev.
-- Promote production paths selectively using git restore --source=dev, not git merge dev.
-- The same ZIP is used once on the dev checkout, then validated production paths are promoted to main after review.
+- Single ZIP for both branches; .gitignore intentionally omitted.
+- First extract into dev, test, then commit and push dev.
+- Promote only README.md, VERSION.txt, Run.bat, backend/, frontend/, nx/ from dev to main.
+- tests/ and dev/ belong only in dev; use selective restore, not a dev -> main merge.
 
-Validation:
-- Run: py -3 -m unittest discover -s tests -v
-- STL parser: node tests/check_stl.mjs
-- Frontend controller: node tests/check_loading.mjs (Node.js)
-- Browser smoke: py -3 dev/browser_smoke.py (requires Playwright and Chromium; browser access may be restricted in isolated environments)
-- Actual NX .prt load needs a licensed Siemens NX 1855 installation and available component references.
-- Confirm that the converted part is oriented correctly; compare complex assemblies against NX.
+Validation commands (dev branch):
+- py -3 -m unittest discover -s tests -v
+- node tests/check_stl.mjs
+- node tests/check_loading.mjs
+- py -3 dev/browser_smoke.py (Chromium and Playwright required)
+- Open standalone .prt and an assembly with repeated components on NX 1855.
+- Verify: hierarchy names/depth, collapse, splitter, body/component visibility,
+  clearing on new load, and complete geometry fallback if a body export fails.
 
 Suggested Git commit messages:
-- dev: feat(viewer): simplify NX opening and add loading splash
-- main: feat(viewer): release NX loading splash and empty state
+- dev: feat(viewer): add NX assembly item tree and component visibility
+- main: feat(viewer): release verified NX item structure panel

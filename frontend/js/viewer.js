@@ -214,11 +214,20 @@ export class Viewer {
         edges: createBuffer(gl, edges, gl.ELEMENT_ARRAY_BUFFER),
         edgeCount: edges.length,
         color: colorFromHex(item.color),
+        meshId: item.meshId || 'root',
+        visible: true,
       };
     });
     this.bounds = boundsFor(meshes);
     this.updateGrid();
     this.setView('iso');
+  }
+
+  setMeshVisible(meshId, visible) {
+    for (const item of this.geometry) {
+      if (item.meshId === meshId) item.visible = visible;
+    }
+    this.requestRender();
   }
 
   updateGrid() {
@@ -336,6 +345,7 @@ export class Viewer {
     gl.uniformMatrix4fv(this.solidLoc.matrix, false, matrix);
     gl.uniform1f(this.solidLoc.wire, this.wireframe ? 1 : 0);
     for (const part of this.geometry) {
+      if (!part.visible) continue;
       gl.bindBuffer(gl.ARRAY_BUFFER, part.position);
       gl.enableVertexAttribArray(this.solidLoc.position);
       gl.vertexAttribPointer(this.solidLoc.position, 3, gl.FLOAT, false, 0, 0);
