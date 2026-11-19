@@ -5,6 +5,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 ## Features
 
 - Open Siemens NX **`.prt`** files from the server computer and visualize their geometry.
+- Manage CAD source files in the local **`uploads/`** workspace: upload individual files, entire folders and ZIP archives, organize folders, and open uploaded NX parts.
 - Render NX geometry as tessellated STL surfaces; original NX files are not changed.
 - Use the light NX 3D Viewer header to open NX files, with compact icon-based camera controls inside the 3D workspace.
 - Rotate, pan, zoom, and switch between isometric, front, top, and right views. Imported models are automatically centered and fitted in full, with a margin around their geometry.
@@ -37,9 +38,25 @@ Actual `.prt` conversion requires NX Open and its `run_journal.exe` program. An 
 
 The server listens only on the local computer. Port **8888** is fixed.
 
+## Workspace
+
+Click **WORKSPACE** in the top header to manage CAD files stored in the local **`uploads/`** folder at the project root. The workspace can be opened and organized even when Siemens NX is not installed; rendering an uploaded `.prt` still requires NX on the server computer.
+
+- **Upload** opens a single upload window. Drag files, complete folders, or a mixture into the drop area to upload into the selected folder. Alternatively, choose **Choose files** or **Choose folder** within that same window. Browsers use separate native pickers for file and folder browsing.
+- **Folder tree** lists folders before files at each level, with Windows-style natural sorting. Click the arrow beside a folder to collapse or expand it; double-clicking a folder also toggles its children. A collapsed folder does not delete or unload anything.
+- Folder uploads preserve the selected folder's name and subfolders, so related NX part files and accompanying files remain together (folder picking supported in browsers such as Chrome and Edge). Dragging folders into the drop area can also preserve empty directories when supported by the browser.
+- **New folder** creates a folder beneath the selected folder, or at the root if nothing is selected.
+- **ZIP archives** can be uploaded as files; select a `.zip` and click **Extract ZIP** to unpack it into a new folder named after the archive. The uploaded archive is retained separately.
+- **Open selected .prt** loads a selected uploaded NX part through the same NX Open conversion process as **OPEN NX FILES**. Double-clicking a `.prt` also opens it.
+- **Delete selected** deletes a file or an entire folder and its contents after confirmation. Uploading a file with an existing name asks for confirmation before replacing it.
+
+The workspace allows up to **512 MB per uploaded file**, **2 GB of files in total**, and **3,000 files**. ZIP extraction is subject to the same storage limits. Uploaded source files remain on disk between server restarts; converted STL files are temporary. The workspace is available only from the local viewer on `127.0.0.1:8888`.
+
+**Assembly dependencies:** Keep the required components and associated files together with the correct relative paths. Preserving those paths does not guarantee that every assembly reference will resolve: Siemens NX may require the original expected filenames, reference locations, and properly configured assembly loading/search paths. Uploading `.jt` or `.chr` stores those files but does not make them viewable yet.
+
 ## Open an NX file
 
-1. Click **OPEN NX FILES** in the top toolbar.
+1. Click **OPEN NX FILES** in the top toolbar for a local NX file-picker, or click **WORKSPACE** and select an uploaded `.prt`.
 2. Choose a `.prt` file using the file selection dialog on the **computer running the Python server**.
 3. The viewer asks Siemens NX to open the part and create a temporary STL representation.
 4. The current geometry and item structure are cleared, and a loading screen is shown while the new file is prepared.

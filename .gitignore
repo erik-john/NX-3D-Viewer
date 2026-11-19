@@ -31,11 +31,11 @@ logs/
 cache/
 temp/
 tmp/
-uploads/
 exports/
 output/
 dist/
 build/
+/uploads/
 
 # Development-only content excluded from the main branch
 /tests/

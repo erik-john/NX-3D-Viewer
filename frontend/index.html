@@ -23,6 +23,8 @@
         <div class="toolbar-group">
           <button type="button" id="open-nx-button" class="tool-button open-nx-button"
             title="Open a Siemens NX file (.prt) on this computer">OPEN NX FILES</button>
+          <button type="button" id="workspace-button" class="tool-button workspace-header-button"
+            title="Manage uploaded CAD files and related folders">WORKSPACE</button>
         </div>
       </div>
     </header>
@@ -120,6 +122,53 @@
         </aside>
       </section>
     </main>
+    <dialog id="file-workspace" class="file-workspace" aria-labelledby="workspace-title">
+      <div class="workspace-dialog-header">
+        <h2 id="workspace-title">Workspace</h2>
+        <button id="workspace-close" type="button" class="workspace-close" aria-label="Close Workspace" title="Close">×</button>
+      </div>
+      <div class="workspace-dialog-actions">
+        <button id="workspace-upload" type="button">Upload</button>
+        <button id="workspace-new-folder" type="button">New folder</button>
+        <button id="workspace-refresh" type="button">Refresh</button>
+      </div>
+      <div class="workspace-file-list" id="workspace-file-list" role="list" aria-label="Uploaded folders and files"></div>
+      <div class="workspace-dialog-footer">
+        <span id="workspace-selected">Selected: uploads/</span>
+        <span id="workspace-usage"></span>
+      </div>
+      <p id="workspace-message" role="status" aria-live="polite"></p>
+      <div class="workspace-dialog-actions workspace-bottom-actions">
+        <button id="workspace-extract" type="button" disabled>Extract ZIP</button>
+        <button id="workspace-delete" type="button" class="workspace-danger" disabled>Delete selected</button>
+        <button id="workspace-open" type="button" class="workspace-primary" disabled>Open selected .prt</button>
+      </div>
+    </dialog>
+    <dialog id="workspace-upload-dialog" class="workspace-upload-dialog" aria-labelledby="workspace-upload-title">
+      <div class="workspace-dialog-header">
+        <div>
+          <span class="workspace-dialog-eyebrow">LOCAL CAD FILES</span>
+          <h2 id="workspace-upload-title">Upload files or folders</h2>
+          <p id="workspace-upload-destination">Destination: uploads/</p>
+        </div>
+        <button id="workspace-upload-close" type="button" class="workspace-close" aria-label="Close upload window" title="Close">×</button>
+      </div>
+      <div class="workspace-upload-body">
+        <div class="workspace-drop-zone" id="workspace-drop-zone" role="region" aria-label="Drop files or folders to upload">
+          <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4 4 4"/><path d="M3.5 14.5v4A2.5 2.5 0 0 0 6 21h12a2.5 2.5 0 0 0 2.5-2.5v-4"/></svg>
+          <strong>Drop files or folders here</strong>
+          <span>Original folder names and subfolders are preserved.</span>
+        </div>
+        <div class="workspace-upload-choices">
+          <button id="workspace-choose-files" type="button">Choose files</button>
+          <button id="workspace-choose-folder" type="button">Choose folder</button>
+        </div>
+        <p class="workspace-upload-hint">You can drop files and folders together. Browser file pickers use separate choices for files and folders.</p>
+        <p id="workspace-upload-progress" role="status" aria-live="polite"></p>
+        <input id="workspace-file-input" type="file" multiple hidden>
+        <input id="workspace-folder-input" type="file" webkitdirectory multiple hidden>
+      </div>
+    </dialog>
     <footer class="status-bar">
       <span id="status-message" role="status" aria-live="polite">Preparing 3D workspace…</span>
       <span class="status-right"><span class="status-indicator"></span> WebGL Renderer <span class="status-separator">·</span> NX coordinate axes</span>
