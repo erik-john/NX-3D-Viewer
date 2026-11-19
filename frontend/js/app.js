@@ -1,6 +1,7 @@
 import { Viewer } from './viewer.js';
 import { parseSTL } from './stl.js';
 import { ItemTree } from './item_tree.js';
+import { PartInspector } from './inspector.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
@@ -16,11 +17,17 @@ function setup() {
     $('status-message').textContent = 'Unable to start 3D renderer';
     return;
   }
+  const inspector = new PartInspector({
+    panel: $('inspector-panel'), toggle: $('inspector-toggle'), content: $('inspector-content'),
+  });
   const tree = new ItemTree({
     panel: $('tree-panel'), toggle: $('tree-toggle'), resizer: $('tree-resizer'),
     container: $('model-tree'), summary: $('tree-summary'), note: $('tree-note'),
     onVisibility: (meshId, visible) => viewer.setMeshVisible(meshId, visible),
-    onSelect: node => { $('status-message').textContent = `Selected: ${node.name}`; },
+    onSelect: node => {
+      inspector.select(node);
+      $('status-message').textContent = `Selected: ${node.name}`;
+    },
   });
   let selectedView = 'iso';
 
@@ -37,6 +44,7 @@ function setup() {
   function clearScene() {
     viewer.setScene([]);
     tree.clear();
+    inspector.clear();
     setCameraView('iso');
     $('empty-state').hidden = false;
   }
@@ -112,6 +120,7 @@ function setup() {
         visibilityEnabled: perBody, warning: info.warning || '',
       });
       setCameraView('iso');
+      inspector.show(info, meshes, { perBody, gridSize: viewer.gridSize });
       $('empty-state').hidden = true;
       $('status-message').textContent = `${info.name} loaded · Drag to rotate · Scroll to zoom`;
     } catch (error) {

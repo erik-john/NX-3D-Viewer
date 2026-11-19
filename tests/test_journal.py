@@ -53,6 +53,22 @@ class JournalTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'assembly body position'):
             journal.bodies_for_export(part)
 
+    def test_inspector_part_units_and_attributes(self):
+        import types
+        part = types.SimpleNamespace(
+            PartUnits='Part.Units.Millimeters',
+            GetUserAttributes=lambda: [
+                types.SimpleNamespace(Title='Material', Type='String', StringValue='Steel'),
+                types.SimpleNamespace(Title='Revision', Type='Integer', IntegerValue=3),
+            ],
+        )
+        info = journal.get_part_information(part)
+        self.assertEqual('mm', info['units'])
+        self.assertEqual([{'name': 'Material', 'value': 'Steel'},
+                          {'name': 'Revision', 'value': '3'}], info['attributes'])
+        self.assertEqual({'units': None, 'attributes': []},
+                         journal.get_part_information(types.SimpleNamespace()))
+
     def test_tree_preserves_repeated_component_instances(self):
         prototype = Body(12)
         prototype.Name = 'Bolt Body'

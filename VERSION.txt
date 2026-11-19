@@ -1,3 +1,28 @@
+NX 3D Viewer — Milestone 9: Part Inspector
+
+Changes:
+- Added a right-side collapsible, scrollable Part Inspector panel, alongside the existing NX item hierarchy and 3D viewport.
+- Shows NX file name, path, size, modified time; part units and user attributes when supported by NX Open.
+- Calculates X/Y/Z bounds, STL vertex and triangle counts from the actual loaded geometry.
+- Displays NX part structure counts, combined/separate geometry mode, actual reference-grid dimensions.
+- Selection in Item Structure updates the inspector with selected component/body mesh metrics when separate meshes are available.
+- Inspector and previous geometry clear immediately on a new file open, cancellation, or error.
+- Preserves port 8888, Run.bat, premium branding, NX loading, grid and auto-fit.
+- No version information displayed in the browser.
+
+Validation:
+- Real NX 1855 export and WebGL still require confirmation on a licensed Windows workstation.
+- Unit readback is optional: when NX does not provide it, the panel does not assume mm.
+- STL triangles are not exact NX B-rep faces; vertex counts are STL tessellation vertices (not unique vertices).
+- Component-level geometry metrics are unavailable if NX must fall back to one combined STL.
+- Production source and README do not include internal validation instructions; dev and test files are separate.
+- Text source files in this ZIP use Windows CRLF; binary assets unchanged; .gitignore excluded.
+
+Suggested commit messages:
+- dev: feat(inspector): display NX part metadata and geometry statistics
+- main: feat(inspector): release NX Part Inspector panel
+
+--- Prior history ---
 NX 3D Viewer
 
 Milestone: 8 — Empty Grid Zoom & Automatic Model Fit

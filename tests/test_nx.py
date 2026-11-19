@@ -95,6 +95,33 @@ class NXAPITests(unittest.TestCase):
             self.assertEqual(triangle_stl(), reply.read())
             self.assertEqual('model/stl', reply.headers['Content-Type'])
 
+    def test_inspector_metadata_and_local_file_details(self):
+        with tempfile.TemporaryDirectory() as directory:
+            selected = Path(directory) / 'gear.prt'
+            selected.write_bytes(b'NX local file content')
+            def convert(*args):
+                output = server.ViewerHandler.export_directory / 'model.stl'
+                output.write_bytes(triangle_stl())
+                output.with_suffix('.json').write_text(json.dumps({
+                    'root': {'id': 'root', 'name': 'Gear', 'type': 'part', 'children': []},
+                    'geometryMode': 'combined',
+                    'partInfo': {'units': 'in', 'attributes': [
+                        {'name': 'Revision', 'value': 'B'}]},
+                }), encoding='utf-8')
+                return output
+            with patch.object(server, 'find_nx_journal', return_value=Path('run_journal.exe')), \
+                 patch.object(server, 'choose_prt_file', return_value=str(selected)), \
+                 patch.object(server, 'convert_prt', side_effect=convert):
+                request = Request(self.base + '/api/open', data=b'', method='POST',
+                                  headers={'Origin': self.base})
+                with urlopen(request, timeout=4) as reply:
+                    data = json.load(reply)
+            self.assertEqual(selected.stat().st_size, data['file']['size'])
+            self.assertEqual(str(selected), data['file']['path'])
+            self.assertRegex(data['file']['modified'], r'^\d{4}-\d{2}-\d{2}')
+            self.assertEqual('in', data['nx']['units'])
+            self.assertEqual('B', data['nx']['attributes'][0]['value'])
+
     def test_open_file_returns_real_hierarchy_and_body_meshes(self):
         token = 'a' * 32
         manifest_root = {

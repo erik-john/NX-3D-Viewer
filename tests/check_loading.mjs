@@ -31,6 +31,7 @@ const ids = [
   'empty-state', 'loading-overlay', 'loading-title', 'loading-detail',
   'viewer-workspace', 'open-nx-button', 'import-message', 'fit-button',
   'grid-button', 'axes-button', 'wire-button',
+  'inspector-panel', 'inspector-toggle', 'inspector-content',
 ];
 const elems = Object.fromEntries(ids.map(id => [id, makeElement()]));
 elems['loading-overlay'].hidden = true;
@@ -56,6 +57,12 @@ const fetch = (url) => {
   throw new Error(`Unexpected URL: ${url}`);
 };
 const fakeMesh = { indices: new Uint16Array([0, 1, 2]), positions: new Float32Array(9), normals: new Float32Array(9), color: '#8ab1ca' };
+class FakeInspector {
+  constructor() { this.info = null; this.metrics = null; this.clears = 0; FakeInspector.instance = this; }
+  clear() { this.info = null; this.clears++; }
+  show(info, meshes, options) { this.info = info; this.meshes = meshes; this.options = options; }
+  select(node) { this.selected = node; }
+}
 class FakeTree {
   constructor() { this.root = null; this.clears = 0; FakeTree.instance = this; }
   clear() { this.root = null; this.clears += 1; }
@@ -63,6 +70,7 @@ class FakeTree {
 }
 const context = {
   ItemTree: FakeTree,
+  PartInspector: FakeInspector,
   Viewer: class extends FakeViewer { constructor(...args) { super(...args); viewer = this; } },
   parseSTL: () => [fakeMesh],
   fetch,
@@ -100,6 +108,7 @@ mesh.resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(84) });
 await work;
 assert.equal(viewer.meshes.length, 1);
 assert.equal(FakeTree.instance.root.name, 'example.prt');
+assert.equal(FakeInspector.instance.info.name, 'example.prt');
 assert.equal(ui('empty-state').hidden, true);
 assert.equal(ui('loading-overlay').hidden, true);
 assert.equal(ui('open-nx-button').disabled, false);
@@ -110,6 +119,7 @@ const cancel = deferred(); openResponses.push(cancel);
 const cancelWork = ui('open-nx-button').trigger('click');
 assert.equal(viewer.meshes.length, 0, 'previous model must be released before new NX request');
 assert.equal(FakeTree.instance.root, null);
+assert.equal(FakeInspector.instance.info, null);
 assert.equal(ui('loading-overlay').hidden, false);
 cancel.resolve(response({ cancelled: true, ok: false }));
 await cancelWork;

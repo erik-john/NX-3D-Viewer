@@ -17,7 +17,7 @@ def small_stl():
 
 
 def script_code():
-    paths = ['geometry.js', 'stl.js', 'viewer.js', 'item_tree.js', 'app.js']
+    paths = ['geometry.js', 'stl.js', 'viewer.js', 'item_tree.js', 'inspector.js', 'app.js']
     pieces = []
     for name in paths:
         code = (FRONTEND / 'js' / name).read_text(encoding='utf-8')
@@ -44,6 +44,8 @@ def html_source():
     payload = {
         'ok': True, 'name': 'fasteners.prt', 'modelUrl': '/api/models/combined.stl',
         'geometryMode': 'separate', 'tree': root,
+        'file': {'path': 'C:/models/fasteners.prt', 'size': 16384, 'modified': '2026-11-19 08:00'},
+        'nx': {'units': 'mm', 'attributes': [{'name': 'Material', 'value': 'Steel'}]},
         'meshes': [{'id': 'b1', 'url': '/api/models/b1.stl'},
                    {'id': 'b2', 'url': '/api/models/b2.stl'}],
     }
@@ -107,6 +109,7 @@ with sync_playwright() as p:
     if os.environ.get('NX_PREVIEW_PATH'):
         page.screenshot(path=os.environ['NX_PREVIEW_PATH'])
     assert page.locator('#tree-summary').inner_text() == 'No NX file loaded'
+    assert page.locator('#inspector-content').inner_text().startswith('Open an NX file')
     assert page.locator('.scene-panel').count() == 0
     assert page.locator('#viewer-error').is_hidden()
     assert page.locator('#empty-state').is_visible()
@@ -125,12 +128,17 @@ with sync_playwright() as p:
     assert page.locator('#empty-state').is_hidden()
     assert page.locator('.tree-row[data-kind="component"]').count() == 2
     assert page.locator('.tree-row[data-kind="body"]').count() == 2
+    assert 'Geometry Information' in page.locator('#inspector-content').inner_text()
+    assert 'Material' in page.locator('#inspector-content').inner_text()
+    assert 'mm' in page.locator('#inspector-content').inner_text()
     if os.environ.get('SAVE_PREVIEW'):
         page.screenshot(path=os.environ['SAVE_PREVIEW'], full_page=True)
     page.get_by_role('button', name='Toggle Fastener A').click()
     assert page.get_by_role('button', name='Bolt body').first.is_visible()
     page.get_by_role('button', name='Fastener A', exact=True).click()
     assert 'Selected: Fastener A' in page.locator('#status-message').inner_text()
+    assert 'Selected Item' in page.locator('#inspector-content').inner_text()
+    assert 'Fastener A' in page.locator('#inspector-content').inner_text()
     checkbox = page.get_by_role('checkbox', name='Show Fastener A')
     assert checkbox.is_checked()
     checkbox.uncheck()
@@ -145,6 +153,7 @@ with sync_playwright() as p:
     page.locator('#open-nx-button').click()
     page.wait_for_function("document.querySelector('#viewer-workspace').getAttribute('aria-busy') === 'true'")
     assert page.locator('#tree-summary').inner_text() == 'No NX file loaded'
+    assert page.locator('#inspector-content').inner_text().startswith('Open an NX file')
     assert page.locator('.tree-row').count() == 0
     page.wait_for_function("document.querySelector('#loading-overlay').hidden === true")
     assert page.locator('#empty-state').is_visible()
@@ -154,6 +163,10 @@ with sync_playwright() as p:
     assert page.locator('#grid-button').get_attribute('aria-pressed') == 'false'
     page.locator('#wire-button').click()
     assert page.locator('#wire-button').get_attribute('aria-pressed') == 'true'
+    page.locator('#inspector-toggle').click()
+    assert 'is-collapsed' in page.locator('#inspector-panel').get_attribute('class')
+    page.locator('#inspector-toggle').click()
+    assert 'is-collapsed' not in page.locator('#inspector-panel').get_attribute('class')
     page.set_viewport_size({'width': 420, 'height': 750})
     assert page.locator('header.toolbar').bounding_box()['height'] == 62
     assert page.locator('.toolbar-scroll').evaluate('(el) => el.scrollWidth > el.clientWidth')

@@ -77,6 +77,40 @@ def build_structure(part):
     return root, all_bodies, leaf_bodies
 
 
+def get_part_information(part):
+    """Read optional NX properties without interfering with STL export."""
+    information = {'units': None, 'attributes': []}
+    try:
+        units = str(part.PartUnits).lower()
+        if 'millimeter' in units:
+            information['units'] = 'mm'
+        elif 'inch' in units:
+            information['units'] = 'in'
+    except Exception:
+        pass
+    try:
+        attributes = part.GetUserAttributes()
+    except Exception:
+        attributes = []
+    for attribute in list(attributes or [])[:50]:
+        try:
+            name = str(attribute.Title)
+            kind = str(attribute.Type).lower()
+            if 'string' in kind:
+                value = attribute.StringValue
+            elif 'integer' in kind:
+                value = attribute.IntegerValue
+            elif 'real' in kind or 'number' in kind:
+                value = attribute.RealValue
+            elif 'boolean' in kind:
+                value = attribute.BooleanValue
+            else:
+                continue
+            information['attributes'].append({'name': name, 'value': str(value)})
+        except Exception:
+            continue
+    return information
+
 def bodies_for_export(part):
     return build_structure(part)[1]
 
@@ -129,6 +163,7 @@ def export(input_path, output_path, manifest_path=None):
                 break
         manifest = {
             'root': root,
+            'partInfo': get_part_information(part),
             'geometryMode': 'separate' if separate_error is None else 'combined',
             'meshes': meshes if separate_error is None else [],
         }

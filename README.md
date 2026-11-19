@@ -10,6 +10,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Rotate, pan, zoom, and switch between isometric, front, top, and right views. Imported models are automatically centered and fitted in full, with a margin around their geometry.
 - Toggle the reference grid, coordinate axes, and wireframe display.
 - Browse the NX part and component hierarchy in a collapsible, resizable left panel.
+- Inspect model dimensions, geometry counts, part details, NX units, and available NX attributes in the right Part Inspector panel.
 - Expand/collapse components, select items, and show/hide individual bodies when separate body geometry is available.
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
 
@@ -80,6 +81,20 @@ Use **FIT** (or **F**) after rotating or zooming to show the entire model again.
 - Use the checkboxes to show or hide whole components or individual bodies when separate NX body geometry is available.
 
 The panel shows the hierarchy reported by NX Open. If NX can only export a combined STL, the model still displays, but individual visibility controls are disabled rather than presenting an inaccurate result.
+
+## Part Inspector
+
+The **Part Inspector** opens at the right side of the 3D workspace and displays information for the loaded NX file:
+
+- **Dimensions:** X, Y, and Z measurements from the displayed STL geometry, in the NX part's units when reported by NX.
+- **Geometry:** mesh-vertex and triangle counts, mesh chunks, and reference-grid size.
+- **Structure:** numbers of NX components and bodies, and whether individual body visibility is supported.
+- **File details:** `.prt` name, file location, size, and last modified time when accessible.
+- **NX attributes:** user attributes returned by NX Open, when available.
+
+Selecting a part, component, or body in the left **Item Structure** panel updates the **Selected Item** section. When body meshes are exported separately, the inspector also shows the selected item's mesh dimensions and triangle count. If only combined geometry is available, item-specific measurements are not provided. Click the arrow at the top of Part Inspector to collapse or expand the panel.
+
+All dimensions and mesh statistics describe the tessellated visualization; they are not precise CAD feature or mass-property measurements. Attributes and units not reported by NX are not invented.
 
 ## Supported scope
 
