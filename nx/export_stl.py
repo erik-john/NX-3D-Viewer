@@ -7,6 +7,15 @@ import sys
 import traceback
 
 
+
+
+def record_stage(stage_path, message):
+    """Keep an export progress trail even if the NX process terminates unexpectedly."""
+    if not stage_path:
+        return
+    with io.open(stage_path, 'a', encoding='utf-8') as stream:
+        stream.write(message + '\n')
+
 def journal_arguments():
     args = sys.argv
     return args[args.index('-args') + 1:] if '-args' in args else args[1:]
@@ -129,13 +138,16 @@ def export_bodies(session, bodies, output_path):
         creator.Commit()
     finally:
         creator.Destroy()
-    if not os.path.isfile(output_path) or os.path.getsize(output_path) < 84:
+    if not os.path.isfile(output_path) or os.path.getsize(output_path) <= 84:
         raise RuntimeError('NX STL export did not generate any geometry.')
 
 
-def export(input_path, output_path, manifest_path=None):
+def export(input_path, output_path, manifest_path=None, stage_path=None):
+    record_stage(stage_path, 'starting NX Open')
     import NXOpen
+    record_stage(stage_path, 'initializing NX session')
     session = NXOpen.Session.GetSession()
+    record_stage(stage_path, 'opening NX part')
     opened = session.Parts.OpenBaseDisplay(input_path)
     if isinstance(opened, tuple):
         part = next((item for item in opened if hasattr(item, 'Bodies')), None)
@@ -145,11 +157,15 @@ def export(input_path, output_path, manifest_path=None):
     try:
         if part is None:
             raise RuntimeError('NX could not open the selected part.')
+        record_stage(stage_path, 'reading NX body and component structure')
         root, bodies, leaves = build_structure(part)
         # The combined STL is the complete fallback if an individual export fails.
+        record_stage(stage_path, 'exporting combined STL geometry')
         export_bodies(session, bodies, output_path)
         if manifest_path is None:
+            record_stage(stage_path, 'completed NX export')
             return
+        record_stage(stage_path, 'exporting separate body STL geometry')
         meshes = []
         separate_error = None
         for index, (node_id, body) in enumerate(leaves, 1):
@@ -169,8 +185,10 @@ def export(input_path, output_path, manifest_path=None):
         }
         if separate_error:
             manifest['warning'] = 'Individual NX body export is unavailable; showing complete model geometry.'
+        record_stage(stage_path, 'writing NX hierarchy manifest')
         with io.open(manifest_path, 'w', encoding='utf-8') as stream:
             json.dump(manifest, stream, ensure_ascii=False)
+        record_stage(stage_path, 'completed NX export')
     finally:
         if load_status is not None:
             load_status.Dispose()
@@ -178,12 +196,14 @@ def export(input_path, output_path, manifest_path=None):
 
 def main():
     args = journal_arguments()
-    if len(args) not in (2, 3):
-        raise RuntimeError('Expected PRT input, STL output, and optionally hierarchy JSON path.')
+    if len(args) not in (2, 3, 4):
+        raise RuntimeError('Expected PRT input, STL output, hierarchy JSON and optional progress log.')
     paths = [os.path.abspath(value.strip('"')) for value in args]
+    stage_path = paths[3] if len(paths) == 4 else None
     try:
         export(*paths)
     except Exception:
+        record_stage(stage_path, 'exception during NX export')
         error_path = os.path.splitext(paths[1])[0] + '.error.txt'
         with io.open(error_path, 'w', encoding='utf-8') as stream:
             stream.write(traceback.format_exc())

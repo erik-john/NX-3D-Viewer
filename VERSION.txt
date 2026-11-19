@@ -1,3 +1,73 @@
+Milestone: 21 — Recover NX STL Triangle Counts and Empty Body Fallback
+
+Changes
+- Recover a binary STL produced by NX with a zero triangle header only if its size is an exact number of 50-byte facets and every facet has finite coordinates and at least one facet has nonzero area.
+- Rewrite only generated temporary STL header bytes, never the source NX .prt.
+- Apply the same recovery to complete separate body STL files where applicable.
+- Reject an 84-byte, zero-triangle body STL and use the validated combined STL instead, preserving the full geometry and the component tree.
+- When the fallback is used, individual body visibility is unavailable; no partial assembly is passed to the viewer.
+- Log each recovery action alongside final artifact inspection and NX return code.
+- Recovery occurs only after the NX journal writes its completion marker without a journal error file.
+- Keep existing viewer UI, port 8888, branch-specific .gitignore and Windows CRLF text files.
+
+Reference: DIN6885 keyway.prt NX diagnostic on 2026-11-19
+- Combined STL 24,784 bytes: consistent with 494 full binary facets but count written as zero.
+- Third individual body STL 84 bytes: an empty zero-facet file.
+- NX journal completed, followed by run_journal.exe exit code 1.
+- Real NX workstation verification is still required to confirm the generated facet payload is usable.
+
+Suggested commits
+- dev: fix(nx): recover unfinalized STL facets and fall back from empty body exports
+- main: fix(nx): release resilient STL recovery for legacy NX parts
+
+Milestone: 20 — NX Export Artifact Validation and Diagnostic Reporting
+
+Findings from DIN6885 keyway failure
+- The NX journal completed all export stages but run_journal.exe exited with code 1.
+- The previous diagnostic did not record STL format, triangle count, file size or manifest validity.
+- Failure cause cannot be confirmed from stage markers alone; workstation retest is required.
+
+Changes
+- Recognize complete ASCII as well as binary STL files, matching the browser's supported formats.
+- Validate both combined STL and separate body-mesh outputs.
+- Preserve valid completed exports after an abnormal NX process exit, without accepting incomplete geometry.
+- Include STL and hierarchy-manifest inspection results in persistent conversion logs.
+- Produce a more specific error when the output is missing, empty or structurally invalid.
+- Preserve the current NX Open export journal and Iray process override.
+- Do not modify NX part files. Keep all application UI, port 8888, and Windows CRLF source unchanged.
+
+Verification
+- Python tests for binary and ASCII STL, missing and malformed export data, and abnormal NX exit behavior.
+- JavaScript checks for viewer compatibility and all existing behavior.
+- Real Siemens NX 1855 conversion remains unverified and must be tested on the workstation.
+
+Commit suggestions
+- dev: fix(nx): validate STL exports and report detailed NX conversion failures
+- main: fix(nx): release resilient NX export diagnostics
+
+Milestone: 19 — NX Iray+ Legacy Part Compatibility and Export Diagnostics
+
+Changes
+- Launch the NX conversion subprocess with NX_RTS_IRAY=0 by default to avoid legacy Iray+ material migration prompts for older NX parts, while respecting an existing NX_RTS_IRAY override.
+- Do not change the original .prt or save any converted part during the export.
+- Record NX journal stages (startup, part open, body structure, combined STL, separate body STL and manifest) to identify which operation fails.
+- Persist complete process stdout/stderr/return code and NX journal traceback to a local diagnostic log under the operating system's temporary NX_3D_Viewer/logs folder.
+- Replace the unhelpful 'No further information' error with an exit code, last journal stage and diagnostic log path.
+- If NX reports a nonzero shutdown code after explicitly completing the export, accept the geometry only when STL and manifest validity checks pass.
+- Explain NX modal-dialog timeouts with a safe manual workaround; never automatically click dialogs or write NX preference files.
+- Preserve existing NX geometry handling, Item Structure, Inspector, visualization, port 8888, Run.bat and the production UI.
+- Keep CRLF for text source files; .gitignore remains branch-specific and is not in the release ZIP.
+
+Validation
+- Simulated legacy Iray+ environment variable propagation, success/failure return codes, stage tracing and diagnostic log persistence.
+- Run Python and JavaScript regression suites on dev before selectively promoting production files.
+- Siemens NX 1855 execution with the supplied DIN6885 keyway.prt still needs to be tested on the licensed Windows workstation.
+- Related files in the uploaded ZIP: DIN6885 keyway.prt, .bmp preview, and .krx Knowledge Reuse definition. The supplied CAD data is not redistributed with this release.
+
+Git commit suggestions
+- dev: fix(nx): handle legacy Iray conversion and log journal failures
+- main: fix(nx): improve legacy part export diagnostics
+
 Milestone: 18 — Remove Mouse Hint Controls
 
 Changes
