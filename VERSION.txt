@@ -1,3 +1,21 @@
+Milestone: 32 — Vertically Split Controls & Structure Sidebar
+
+Changes
+- Divide the left sidebar into an untitled upper controls area and lower component-structure area, with a horizontal drag handle between them.
+- Keep Isolate / Restore, Fit Selected, Move Selected, Reset Selected and Reset All in the upper area; keep the assembly hierarchy, visibility checkboxes, Explode toggles and row Move icons in the lower area.
+- Resize upper and lower areas vertically by dragging the divider or by focusing it and using Up/Down (Shift for larger steps); double-click to restore the default split.
+- Keep existing horizontal left-sidebar resizing and collapse/expand functionality. Upper controls and lower hierarchy scroll independently; the viewport and Part Inspector remain unchanged.
+- Preserve all MS31 geometry, selection, moving, exploding, coloring, isolation, and workspace logic; no backend or NX exporter changes.
+- Port 8888, root uploads exclusion and Windows CRLF policy remain unchanged.
+
+Checks
+- Python, Node JavaScript, and Chromium interaction checks for both splitter axes, tree scrolling, controls, component selection and actions.
+- Actual licensed NX 1855 behavior must still be verified on Windows before production promotion.
+
+Suggested commits
+- dev: refactor(ui): split sidebar into resizable controls and structure areas
+- main: refactor(ui): release resizable split sidebar
+
 Milestone: 31 — Manual NX Component Movement (X/Y/Z)
 
 Changes

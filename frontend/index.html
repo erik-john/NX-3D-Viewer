@@ -31,40 +31,44 @@
 
     <main class="main-content">
       <section class="workspace" aria-label="Model workspace" id="viewer-workspace">
-        <aside class="tree-panel" id="tree-panel" aria-label="NX item structure">
-          <div class="tree-heading">
-            <div class="tree-heading-copy">
-              <span class="tree-eyebrow">NX MODEL</span>
-              <h2>Item Structure</h2>
-            </div>
-            <button type="button" class="tree-collapse" id="tree-toggle" aria-label="Collapse item structure panel" title="Collapse panel" aria-expanded="true">‹</button>
-          </div>
+        <aside class="tree-panel" id="tree-panel" aria-label="NX model controls and component structure">
           <div class="tree-content" id="tree-content">
-            <p class="tree-summary" id="tree-summary">No NX file loaded</p>
-            <div class="tree-selection-actions" id="tree-selection-actions" role="group" aria-label="Selected item controls" hidden>
-              <button type="button" id="isolate-selected" class="tree-action-button" disabled aria-pressed="false"
-                title="Show only the selected component">
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 20 8v8l-8 4-8-4V8z"/><path d="m4 8 8 4 8-4M12 12v8"/></svg>
-                <span id="isolate-selected-label">Isolate</span>
-              </button>
-              <button type="button" id="fit-selected" class="tree-action-button" disabled title="Fit the selected item in the 3D view">
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/><path d="M8 8h8v8H8z"/></svg>
-                <span>Fit Selected</span>
-              </button>
-            </div>
-            <div class="tree-move-actions" id="tree-move-actions" role="group" aria-label="Manual component movement" hidden>
-              <div class="tree-move-buttons">
-                <button type="button" id="move-selected" class="tree-action-button" disabled aria-pressed="false" title="Move selected component along NX X, Y or Z">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3"/></svg>
-                  <span>Move</span>
-                </button>
-                <button type="button" id="reset-move-selected" class="tree-action-button" disabled title="Reset only the selected component manual movement">Reset Selected</button>
-                <button type="button" id="reset-move-all" class="tree-action-button" disabled title="Reset all manual movements (preserve Explode positions)">Reset All</button>
+            <section class="sidebar-controls" id="sidebar-controls" aria-label="Component controls">
+              <div class="tree-heading">
+                <button type="button" class="tree-collapse" id="tree-toggle" aria-label="Collapse left panel" title="Collapse panel" aria-expanded="true">‹</button>
               </div>
-              <div class="tree-move-readout" id="tree-move-readout">Select a component, then drag an X/Y/Z axis arrow.</div>
-            </div>
-            <div class="tree-entries" id="model-tree" role="tree" aria-label="NX component hierarchy"></div>
-            <p class="tree-note" id="tree-note" hidden></p>
+              <div class="tree-selection-actions" id="tree-selection-actions" role="group" aria-label="Selected item controls" hidden>
+                <button type="button" id="isolate-selected" class="tree-action-button" disabled aria-pressed="false"
+                  title="Show only the selected component">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 20 8v8l-8 4-8-4V8z"/><path d="m4 8 8 4 8-4M12 12v8"/></svg>
+                  <span id="isolate-selected-label">Isolate</span>
+                </button>
+                <button type="button" id="fit-selected" class="tree-action-button" disabled title="Fit the selected item in the 3D view">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/><path d="M8 8h8v8H8z"/></svg>
+                  <span>Fit Selected</span>
+                </button>
+              </div>
+              <div class="tree-move-actions" id="tree-move-actions" role="group" aria-label="Manual component movement" hidden>
+                <div class="tree-move-buttons">
+                  <button type="button" id="move-selected" class="tree-action-button" disabled aria-pressed="false" title="Move selected component along NX X, Y or Z">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3"/></svg>
+                    <span>Move</span>
+                  </button>
+                  <button type="button" id="reset-move-selected" class="tree-action-button" disabled title="Reset only the selected component manual movement">Reset Selected</button>
+                  <button type="button" id="reset-move-all" class="tree-action-button" disabled title="Reset all manual movements (preserve Explode positions)">Reset All</button>
+                </div>
+                <div class="tree-move-readout" id="tree-move-readout">Select a component, then drag an X/Y/Z axis arrow.</div>
+              </div>
+            </section>
+            <div class="sidebar-splitter" id="sidebar-splitter" role="separator"
+              aria-label="Resize controls and structure areas" aria-orientation="horizontal"
+              aria-controls="sidebar-controls sidebar-structure" tabindex="0"
+              title="Drag to resize controls and structure; double-click to reset"></div>
+            <section class="sidebar-structure" id="sidebar-structure" aria-label="Assembly structure">
+              <p class="tree-summary" id="tree-summary">No NX file loaded</p>
+              <div class="tree-entries" id="model-tree" role="tree" aria-label="NX component hierarchy"></div>
+              <p class="tree-note" id="tree-note" hidden></p>
+            </section>
           </div>
         </aside>
         <div class="tree-resizer" id="tree-resizer" role="separator" aria-label="Resize item structure panel" aria-orientation="vertical" tabindex="0"></div>

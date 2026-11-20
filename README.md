@@ -10,7 +10,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Use the light NX 3D Viewer header to open NX files, with compact icon-based camera controls inside the 3D workspace.
 - Rotate, pan, zoom, and switch between isometric, front, top, and right views. Imported models are automatically centered and fitted in full, with a margin around their geometry.
 - Work in an NX-style light gray 3D environment with a light silver-steel model, NX X/Y/Z axes and exactly three small XY, YZ, and XZ coordinate reference planes. The grid is hidden by default while the coordinate references remain visible.
-- Browse the NX part and component hierarchy in a collapsible, resizable white left panel.
+- Use a collapsible, horizontally resizable left sidebar with independently scrollable Controls and Structure areas, separated by a vertically draggable divider (without area titles).
 - Inspect model dimensions, geometry counts, part details, NX units, and available NX attributes in the white right Part Inspector panel.
 - Click a component directly in the 3D viewport to select it and synchronize Item Structure and Part Inspector. Hover over a visible component for a temporary teal highlight.
 - Click **Color components by type** in the View icon area to switch between the original steel appearance and distinct component colors. Repeated occurrences of the same NX prototype (such as identical bearings or same-size bolts) share a color.
@@ -79,7 +79,7 @@ Adjust the path to your actual NX installation. The launcher also looks for NX u
 
 ## Viewer controls
 
-The light header displays the NX 3D Viewer branding and **OPEN NX FILES** command, with room for future features. Camera controls are floating icon buttons at the upper-right corner of the 3D workspace; hover for a tooltip. The Item Structure panel remains on the left.
+The light header displays the NX 3D Viewer branding and **OPEN NX FILES** command, with room for future features. Camera controls are floating icon buttons at the upper-right corner of the 3D workspace; hover for a tooltip. The untitled Controls and Structure areas share the left sidebar.
 
 | Action | Control |
 | --- | --- |
@@ -96,15 +96,17 @@ The light header displays the NX 3D Viewer branding and **OPEN NX FILES** comman
 
 Use the **Fit icon** (or **F**) after rotating or zooming to show the entire model again. The WebGL display is Y-up: NX (X, Y, Z) is mapped to viewport (X, Z, −Y). Axis labels, the rotating axis compass, and the Part Inspector dimensions retain NX X/Y/Z meaning.
 
-## Item Structure panel
+## Left sidebar controls and structure
 
-- Click the arrow at the top of the panel to collapse or expand it.
-- Drag the panel divider horizontally to resize the tree; the divider can also be adjusted with the left/right arrow keys.
+- The upper area contains Isolate/Restore, Fit Selected, Move Selected, Reset Selected and Reset All. The lower area contains the component hierarchy and its row actions; no extra area titles are displayed.
+- Drag the horizontal divider between these areas up or down to adjust their heights. The divider also supports Up/Down arrow keys (Shift for larger steps) and double-click to return to the default split. Each area scrolls independently.
+- Click the arrow at the top of the sidebar to collapse or expand the full left panel.
+- Drag the outside divider horizontally to resize the entire sidebar; that divider also accepts Left/Right arrow keys.
 - Click the disclosure arrows to browse nested NX components and bodies. Click an item name to select it and highlight its geometry. Clicking a component in the viewport selects and reveals the corresponding Item Structure entry.
 - Use the checkboxes to show or hide whole components or individual bodies when separate NX body geometry is available.
 - Click the single position toggle beside a component's visibility checkbox to **Explode** it; click the same highlighted toggle to **Reset** it. On the assembly row, the toggle explodes or resets **all** components. Hover over the icon to see the current action.
-- Select a component or body, then use **Isolate** above the tree to show just that item, or **Fit Selected** to center and zoom to its visible geometry. Click **Restore** to return to the visibility state that existed before isolation. The Restore action remains available if the selection is cleared.
-- Choose the **four-arrow Move icon** beside a component row, or select a component and click **Move** above the tree. A colored X/Y/Z handle appears at the selected component. Drag one axis to translate that occurrence. Click the active Move icon again to leave movement mode.
+- Select a component or body, then use **Isolate** in the upper controls area to show just that item, or **Fit Selected** to center and zoom to its visible geometry. Click **Restore** to return to the visibility state that existed before isolation. The Restore action remains available if the selection is cleared.
+- Choose the **four-arrow Move icon** beside a component row, or select a component and click **Move** in the upper controls area. A colored X/Y/Z handle appears at the selected component. Drag one axis to translate that occurrence. Click the active Move icon again to leave movement mode.
 - Use **Reset Selected** to undo manual movement of the selected component, or **Reset All** to undo all manual movements. These actions do not reset existing Explode toggles.
 
 The panel shows the hierarchy reported by NX Open. If NX can only export a combined STL, the model still displays, but individual visibility controls are disabled rather than presenting an inaccurate result.

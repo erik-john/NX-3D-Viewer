@@ -52,7 +52,68 @@ export class ItemTree {
       const width = panel.getBoundingClientRect().width + (event.key === 'ArrowRight' ? 20 : -20);
       panel.style.setProperty('--tree-width', `${Math.max(210, Math.min(470, width))}px`);
     });
+    this.setupVerticalSplitter();
     this.clear();
+  }
+
+  setupVerticalSplitter() {
+    const panel = this.panel;
+    const divider = panel.querySelector?.('#sidebar-splitter');
+    const content = panel.querySelector?.('#tree-content');
+    if (!divider || !content) return;
+    const DEFAULT_HEIGHT = 178;
+    const MIN_CONTROLS = 54;
+    const MIN_STRUCTURE = 94;
+    let preferredHeight = DEFAULT_HEIGHT;
+    const bounds = () => {
+      const space = Math.max(0, content.getBoundingClientRect().height - divider.offsetHeight);
+      const max = Math.max(0, space - MIN_STRUCTURE);
+      return { min: Math.min(MIN_CONTROLS, max), max };
+    };
+    const apply = () => {
+      if (panel.classList.contains('is-collapsed') || !content.getBoundingClientRect().height) return;
+      const { min, max } = bounds();
+      const height = Math.max(min, Math.min(max, preferredHeight));
+      panel.style.setProperty('--controls-height', `${height}px`);
+      divider.setAttribute('aria-valuemin', String(Math.round(min)));
+      divider.setAttribute('aria-valuemax', String(Math.round(max)));
+      divider.setAttribute('aria-valuenow', String(Math.round(height)));
+    };
+    const setHeight = height => { preferredHeight = height; apply(); };
+    divider.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || panel.classList.contains('is-collapsed')) return;
+      event.preventDefault();
+      const startY = event.clientY;
+      const startHeight = panel.querySelector('#sidebar-controls').getBoundingClientRect().height;
+      divider.classList.add('is-resizing');
+      const move = e => setHeight(startHeight + e.clientY - startY);
+      const stop = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', stop);
+        window.removeEventListener('pointercancel', stop);
+        divider.classList.remove('is-resizing');
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', stop);
+      window.addEventListener('pointercancel', stop);
+    });
+    divider.addEventListener('keydown', event => {
+      const step = event.shiftKey ? 40 : 16;
+      if (event.key === 'ArrowUp') setHeight(preferredHeight - step);
+      else if (event.key === 'ArrowDown') setHeight(preferredHeight + step);
+      else if (event.key === 'Home') setHeight(bounds().min);
+      else if (event.key === 'End') setHeight(bounds().max);
+      else return;
+      event.preventDefault();
+    });
+    divider.addEventListener('dblclick', () => setHeight(DEFAULT_HEIGHT));
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(apply).observe(content);
+    } else {
+      window.addEventListener('resize', apply);
+    }
+    this.applyVerticalSize = apply;
+    apply();
   }
 
   setCollapsed(collapsed) {
@@ -61,6 +122,7 @@ export class ItemTree {
     this.toggle.setAttribute('aria-expanded', String(!collapsed));
     this.toggle.setAttribute('aria-label', collapsed ? 'Expand item structure panel' : 'Collapse item structure panel');
     this.toggle.title = collapsed ? 'Expand panel' : 'Collapse panel';
+    if (!collapsed) this.applyVerticalSize?.();
   }
 
   clear() {
