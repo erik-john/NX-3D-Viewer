@@ -27,6 +27,11 @@ class WorkspaceError(ValueError):
     pass
 
 
+class WorkspaceDependencyWarning(WorkspaceError):
+    """A matching sibling JT may rely on the folder being deleted."""
+    pass
+
+
 def _segments(relative, allow_root=False):
     if not isinstance(relative, str) or len(relative) > 1024:
         raise WorkspaceError('Invalid workspace path.')
@@ -97,7 +102,7 @@ def _scan():
                 'type': 'folder' if is_dir else 'file',
                 'size': None if is_dir else info.st_size,
                 'modified': datetime.fromtimestamp(info.st_mtime).strftime('%Y-%m-%d %H:%M'),
-                'canOpen': not is_dir and source.suffix.lower() == '.prt',
+                'canOpen': not is_dir and source.suffix.lower() in ('.prt', '.jt'),
             })
             if len(items) > MAX_FILES * 2:
                 raise WorkspaceError('Workspace contains too many items.')
@@ -124,8 +129,8 @@ def directory(relative):
 def file_for_open(relative):
     with LOCK:
         target = resolve(relative)
-        if not target.is_file() or target.suffix.lower() != '.prt':
-            raise WorkspaceError('Choose a .prt file from the uploaded workspace.')
+        if not target.is_file() or target.suffix.lower() not in ('.prt', '.jt'):
+            raise WorkspaceError('Choose a .prt or .jt file from the uploaded workspace.')
         return target
 
 
@@ -163,11 +168,74 @@ def upload(relative, source, length, overwrite=False):
         return {'ok': True, 'path': relative, 'size': length}
 
 
-def delete(relative):
+def _deletion_items(relative):
+    """Resolve a JT parent and matching sibling folder as a single logical package.
+
+    Sibling stem matching is a conservative filename convention, not proof that
+    a binary JT reference exists. The user reviews the set before deletion.
+    """
+    target = resolve(relative)
+    if not target.exists():
+        raise FileNotFoundError('File or folder was not found.')
+    group = [target]
+    sibling = None
+    if target.is_dir():
+        sibling = next((p for p in target.parent.iterdir()
+                        if p.is_file() and not p.is_symlink()
+                        and p.suffix.lower() == '.jt' and
+                        p.stem.casefold() == target.name.casefold()), None)
+    elif target.suffix.lower() == '.jt':
+        sibling = next((p for p in target.parent.iterdir()
+                        if p.is_dir() and not p.is_symlink() and
+                        p.name.casefold() == target.stem.casefold()), None)
+    if sibling is not None:
+        group.append(sibling)
+    return group
+
+
+def deletion_plan(relative):
+    """Preview all paths that will be removed, including JT companions."""
     with LOCK:
-        target = resolve(relative)
-        if not target.exists():
-            raise FileNotFoundError('File or folder was not found.')
+        group = _deletion_items(relative)
+        base = _root()
+        return {'ok': True, 'path': relative, 'package': len(group) > 1,
+                'items': [{'path': p.relative_to(base).as_posix(),
+                           'type': 'folder' if p.is_dir() else 'file'}
+                          for p in group]}
+
+
+def delete_package(relative, expected_paths):
+    """Delete exactly the approved package in one locked operation.
+
+    Revalidate the preview under LOCK to prevent deleting newly linked items
+    or a changed selection. Never follow symbolic links.
+    """
+    if (not isinstance(expected_paths, list) or not expected_paths or
+            len(expected_paths) > 2 or any(not isinstance(p, str) for p in expected_paths) or
+            len(expected_paths) != len(set(expected_paths))):
+        raise WorkspaceError('Invalid deletion review. Refresh Workspace and try again.')
+    with LOCK:
+        group = _deletion_items(relative)
+        paths = [p.relative_to(_root()).as_posix() for p in group]
+        if set(paths) != set(expected_paths):
+            raise WorkspaceDependencyWarning('JT package contents changed. Review the files again.')
+        # All paths are validated before the first destructive operation.
+        for source in group:
+            if source.is_dir():
+                shutil.rmtree(source)
+            else:
+                source.unlink()
+        return {'ok': True, 'deleted': paths}
+
+
+def delete(relative, force=False):
+    """Legacy single delete: do not allow a JT companion to be orphaned."""
+    with LOCK:
+        group = _deletion_items(relative)
+        if len(group) != 1:
+            raise WorkspaceDependencyWarning(
+                'Related JT files must be deleted together using the package review.')
+        target = group[0]
         if target.is_dir():
             shutil.rmtree(target)
         else:

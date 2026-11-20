@@ -1,3 +1,89 @@
+MS42 UI follow-up — Structure panel horizontal scrolling
+
+Changes
+- Keep complete NX/JT file and component names on one line in the left Structure area.
+- Show a horizontal scrollbar for long names while retaining vertical scrolling, hierarchy indentation, selection, and existing action buttons.
+- No changes to MS41 upload/delete wizards, backend, NX conversion, or viewer tools.
+
+Checks
+- 74 Python unittest tests and 27 JavaScript checks passed locally; Windows browser visual check recommended.
+- Port 8888, Run.bat, light theme, CRLF and offline operation unchanged.
+
+Suggested commit
+- dev: fix(ui): allow horizontal scrolling for long structure names
+- main: fix(ui): release structure horizontal scrolling
+
+--- Prior milestone ---
+Milestone: 42 — JT Component Feature Compatibility
+
+Changes
+- Validate NX separate-body STL exports against the assembly occurrence tree before enabling component-level controls. Prevent missing, duplicate, or orphaned body IDs from silently breaking JT selection, explode, move, colors, transparency, or measurement.
+- Preserve original MS41 JT package upload/delete step-wizard UI, NX 1855 converter, existing PRT support, and all viewer controls. Valid repeated JT component occurrences keep distinct mesh IDs while same-prototype instances retain type colors.
+- An incomplete/invalid separate-body export falls back to the combined STL when complete geometry is available, with component actions unavailable rather than misleading; otherwise conversion surfaces a diagnostic error.
+- Add JT occurrence-contract Python and JS regression coverage; correct older mock fixtures to describe a valid hierarchy.
+
+Checks
+- Python 74 tests and JavaScript checks pass in local simulated environment. Live Siemens NX 1855 JT assembly import and actual WebGL behavior still require verification on Windows.
+- Port 8888, Run.bat, light theme, Windows CRLF, offline workflow, and omitted .gitignore remain unchanged.
+
+Suggested commits
+- dev: fix(jt): validate component occurrence mesh IDs for viewer controls
+- main: fix(jt): release MS42 JT feature compatibility safeguards
+
+--- Previous milestone history ---
+Milestone: 41 Revision — JT Package Upload / Deletion Step Wizards
+
+Changes
+- Replace the previous native confirmation flow for JT folder deletion with a light-theme three-step application dialog: Review, Related Files, Confirm.
+- Deleting a JT companion folder also deletes its same-stem sibling parent JT file in one server-side locked operation; deleting the parent also includes its companion folder. A stale or mismatched preview is rejected. The legacy DELETE endpoint no longer permits one-sided deletion, even with force=1.
+- Uploading a parent-like JT file without a companion presents a Review / Companion Folder / Confirm wizard before uploading. The user can select the expected directory; referenced component files upload before the parent. A user may explicitly identify a genuinely standalone JT to proceed without a folder. A JT already accompanied by its folder does not require a wizard.
+- Matching same-stem paths is a safety heuristic, not full JT binary dependency parsing; JT references can be compressed. An explicit standalone declaration cannot verify absent references.
+- All dialogs use the existing light theme. No dark theme or other viewport/design changes. Preserve the working NX Open JT converter and PRT support.
+
+Checks
+- New Python HTTP package deletion tests, JS upload/deletion wizard checks, and Chromium real-dialog interaction (including the native folder picker simulation). Previous Python and JavaScript regressions run without licensed NX.
+- Live Siemens NX JT conversion still requires workstation verification. Port 8888, CRLF, /uploads/ policy, and branch-specific .gitignore unchanged.
+
+Suggested commits
+- dev: feat(jt): add guided JT package upload and linked deletion
+- main: feat(jt): release JT package management wizard
+
+Milestone: 41 — JT Companion Folder Safety & Friendly Import Errors
+
+Changes
+- Preserve the working NX JT (.jt) -> temporary STL opening process from MS40.
+- When deleting an uploads folder whose name matches a sibling JT file, warn that this folder may be an external JT dependency. A second explicit confirmation permits deletion; cancel keeps files unchanged. This naming rule is conservative and not a full JT binary dependency parser.
+- If NX fails to load exportable JT geometry, show recovery instructions and diagnostic-log location instead of a raw Python traceback. Suggest restoring the same-name folder next to the parent JT when appropriate.
+- If NX Open PartLoadStatus identifies unloaded JT components, report their names and reasons and do not silently render a partial assembly.
+- Continue allowing standalone JT files without a companion folder. No JT content or source files are altered. Component hierarchy features remain dependent on what NX successfully loads.
+- Keep updated concise README, current screenshot, and existing User Manual.
+
+Checks
+- Python unit, HTTP, JavaScript interaction, and optional browser tests cover matching folder deletion, explicit override, cancellation, NX missing-bodies errors, NX unloaded component details, and old PRT/JT workflows.
+- NX 1855 live JT conversion and GUI behavior still require local verification. No claim to decode arbitrary JT references or reconstruct geometry after a dependency has been removed.
+- Port 8888, Windows CRLF, and branch-specific .gitignore policy unchanged.
+
+Suggested commits
+- dev: fix(jt): warn before deleting linked folders and clarify import failures
+- main: fix(jt): release JT dependency safeguards
+
+Milestone: 40 — Basic JT Loading & Visualization
+
+Changes
+- Allow .jt files in the existing Windows file picker and uploads Workspace Open action without replacing the current .prt workflow.
+- Route JT files through Siemens NX 1855 OpenBaseDisplay in the NX Open export journal, reusing the existing STL conversion and viewer rendering. A valid JT file header is checked before starting NX; loading uses its original source path so relative dependencies can be resolved by NX.
+- Keep port 8888, model display, camera, assembly controls, and geometry/measurement UI unchanged. Preserve original .jt source (no SaveAs) and .prt behavior.
+- For initial tests use the component file Bolt_M12x55_303.jt; the parent Bolt_M12x55.jt references an external component in a Bolt_M12x55 subfolder. Multi-file JT assembly semantics are planned for the next milestone.
+
+Checks
+- Existing Python and JavaScript checks plus new tests for valid/corrupted JT headers, NX journal routing, Workspace file eligibility, HTTP open response, and CAD file-picker integration.
+- Actual licensed NX 1855 JT import and real WebGL geometry display are unverified in this environment. This release relies on NX Open JT importing loadable solid/sheet bodies and may not display facet-only JT models.
+- ZIP uses Windows CRLF for text, excludes .gitignore, uploads and local caches.
+
+Suggested commits
+- dev: feat(jt): add basic JT opening through NX and Workspace
+- main: feat(jt): release basic JT file viewing
+
 Milestone: 39 — Dual Plane Angle/Gap & Fit Measurement Faces
 
 Changes

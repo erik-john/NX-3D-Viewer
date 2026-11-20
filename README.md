@@ -4,8 +4,8 @@ A local, browser-based viewer for Siemens NX geometry. NX converts supported CAD
 
 ## Features
 
-- Open **NX `.prt`** and basic **JT `.jt`** files; manage uploads, folders, and ZIP archives in **Workspace**.
-- Explore parts and assemblies with the **Item Structure** tree and **Part Inspector**.
+- Open **NX `.prt`** and **JT `.jt`** files; manage uploads, folders, ZIP archives, and linked JT packages in **Workspace**.
+- Explore parts and assemblies with the **Item Structure** tree and **Part Inspector**. The Structure area scrolls horizontally for long component names and vertically for large hierarchies.
 - Rotate, pan, zoom, fit, and use isometric/front/top/right views.
 - Select, highlight, show/hide, isolate, explode, move, and color individual components when separate meshes are available.
 - Apply per-component glass-style transparency and restore all components to solid.
@@ -21,7 +21,7 @@ A local, browser-based viewer for Siemens NX geometry. NX converts supported CAD
 
 ![NX 3D Viewer — current light-theme interface preview](screenshot.png)
 
-*MS40 UI preview combined with an earlier real NX assembly capture; illustrative, not a verified JT conversion.*
+*Illustrative interface preview combined with an NX assembly capture; not a verified JT conversion.*
 
 ## Start
 
@@ -35,17 +35,21 @@ A local, browser-based viewer for Siemens NX geometry. NX converts supported CAD
 | Format / capability | Current scope |
 | --- | --- |
 | **PRT** | Single parts and assemblies via Siemens NX; separate-body controls when exportable. |
-| **JT** | Basic `.jt` opening/conversion path implemented; **real NX 1855 JT conversion still needs workstation validation**. Linked JT assemblies are a later milestone. |
+| **JT** | Standalone JT and externally linked JT opening via NX. Keep referenced component files in their expected relative folders; Workspace guides upload of parent JT files with companion folders and reviews related files for deletion as a package. Standalone JT can be declared explicitly. Full JT assembly compatibility depends on NX. |
 | **CHR / STEP** | Not directly supported in the viewer yet. |
 | **Measurements** | Approximate results from **STL triangles**, not certified CAD dimensions or exact gear pitch geometry. |
 | **Deployment** | Runs locally on `127.0.0.1:8888`; uploaded files persist under `uploads/`. |
+
+## JT component controls
+
+For separate NX-exported body meshes, each JT occurrence must have a unique mesh ID corresponding to exactly one body node in the NX hierarchy. The viewer reuses existing Selection, Explode, Move, Color, Transparency, and Measurement controls; these operate on triangulated geometry, not exact JT CAD topology. If the NX translator cannot produce a complete, consistent set of separate bodies, the viewer displays a combined STL when possible and disables per-component controls. JT assemblies must still be tested using the licensed NX 1855 installation.
 
 ## Troubleshooting
 
 | Problem | Check |
 | --- | --- |
 | `run_journal.exe` not found | Set `NX_RUN_JOURNAL` to its full path (example: `C:\Program Files\Siemens\NX1855\NXBIN\run_journal.exe`) and restart. |
-| NX/JT conversion fails | Confirm NX licensing, JT import capability, and required component/reference files. Check logs in `%TEMP%\NX_3D_Viewer\logs`. |
+| NX/JT conversion fails | Restore referenced component files (often a folder matching the parent JT filename). Confirm NX JT support and check `%TEMP%\NX_3D_Viewer\logs`. |
 | Individual component actions unavailable | NX may have supplied a **combined STL** rather than separate meshes. |
 | Inaccurate measurement | Measurements use tessellated STL; use NX CAD/metrology for exact values. |
 | Page does not open | Check that the Python server is running and **port 8888** is available. |

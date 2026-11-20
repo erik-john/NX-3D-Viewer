@@ -22,7 +22,7 @@
       <div class="toolbar-scroll">
         <div class="toolbar-group">
           <button type="button" id="open-nx-button" class="tool-button open-nx-button"
-            title="Open a Siemens NX file (.prt) on this computer">OPEN NX FILES</button>
+            title="Open a Siemens NX part (.prt) or JT file (.jt) on this computer">OPEN NX FILES</button>
           <button type="button" id="workspace-button" class="tool-button workspace-header-button"
             title="Manage uploaded CAD files and related folders">WORKSPACE</button>
         </div>
@@ -169,7 +169,7 @@
         <div class="empty-state" id="empty-state">
           <div class="empty-state-mark">NX</div>
           <h2>Ready to view</h2>
-          <p>Select <strong>OPEN NX FILES</strong> to display a Siemens NX part.</p>
+          <p>Select <strong>OPEN NX FILES</strong> to display a Siemens NX part or JT file.</p>
         </div>
         <div class="loading-overlay" id="loading-overlay" role="status" aria-live="polite" aria-atomic="true" hidden>
           <div class="loading-panel">
@@ -217,7 +217,7 @@
       <div class="workspace-dialog-actions workspace-bottom-actions">
         <button id="workspace-extract" type="button" disabled>Extract ZIP</button>
         <button id="workspace-delete" type="button" class="workspace-danger" disabled>Delete selected</button>
-        <button id="workspace-open" type="button" class="workspace-primary" disabled>Open selected .prt</button>
+        <button id="workspace-open" type="button" class="workspace-primary" disabled>Open selected file</button>
       </div>
     </dialog>
     <dialog id="workspace-upload-dialog" class="workspace-upload-dialog" aria-labelledby="workspace-upload-title">
@@ -243,6 +243,38 @@
         <p id="workspace-upload-progress" role="status" aria-live="polite"></p>
         <input id="workspace-file-input" type="file" multiple hidden>
         <input id="workspace-folder-input" type="file" webkitdirectory multiple hidden>
+      </div>
+    </dialog>
+    <dialog id="workspace-jt-wizard" class="workspace-jt-wizard" aria-labelledby="jt-wizard-title">
+      <div class="workspace-dialog-header">
+        <div>
+          <span class="workspace-dialog-eyebrow">WORKSPACE · FILE OPERATIONS</span>
+          <h2 id="jt-wizard-title">JT package</h2>
+        </div>
+        <button type="button" id="jt-wizard-close" class="workspace-close" title="Cancel" aria-label="Cancel package action">×</button>
+      </div>
+      <ol class="jt-wizard-steps" aria-label="JT package steps">
+        <li class="is-current" data-wizard-step="0"><span>1</span><small>Review</small></li>
+        <li data-wizard-step="1"><span>2</span><small id="jt-step-two-title">Related files</small></li>
+        <li data-wizard-step="2"><span>3</span><small>Confirm</small></li>
+      </ol>
+      <section class="jt-wizard-body" aria-live="polite">
+        <h3 id="jt-wizard-heading"></h3>
+        <p id="jt-wizard-description"></p>
+        <div class="jt-wizard-items" id="jt-wizard-items"></div>
+        <div id="jt-wizard-folder-controls" class="jt-wizard-folder-controls" hidden>
+          <button id="jt-wizard-choose-folder" type="button">Choose companion folder</button>
+          <input id="jt-wizard-folder-input" type="file" webkitdirectory multiple hidden>
+          <label class="jt-wizard-standalone"><input id="jt-wizard-standalone" type="checkbox">
+            This JT is standalone and has no externally referenced components.</label>
+        </div>
+        <p id="jt-wizard-notice" role="status"></p>
+      </section>
+      <div class="jt-wizard-actions">
+        <button type="button" id="jt-wizard-cancel">Cancel</button>
+        <span class="jt-wizard-action-spacer"></span>
+        <button type="button" id="jt-wizard-back">Back</button>
+        <button type="button" id="jt-wizard-next" class="workspace-primary">Next</button>
       </div>
     </dialog>
     <footer class="status-bar">

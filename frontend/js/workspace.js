@@ -11,7 +11,11 @@ async function api(url, options) {
   const response = await fetch(url, { cache: 'no-store', ...options });
   let data;
   try { data = await response.json(); } catch { throw new Error(`Workspace request failed (${response.status}).`); }
-  if (!response.ok || !data.ok) throw new Error(data.error || `Workspace request failed (${response.status}).`);
+  if (!response.ok || !data.ok) {
+    const error = new Error(data.error || `Workspace request failed (${response.status}).`);
+    error.code = data.code || '';
+    throw error;
+  }
   return data;
 }
 const jsonPost = (url, body) => api(url, {
@@ -35,6 +39,8 @@ export class FileWorkspace {
   constructor(onOpen) {
     this.dialog = $('file-workspace');
     this.uploadDialog = $('workspace-upload-dialog');
+    this.jtWizard = $('workspace-jt-wizard');
+    this.wizardState = null;
     this.files = [];
     this.selected = '';
     this.expandedFolders = new Set();
@@ -82,10 +88,187 @@ export class FileWorkspace {
     $('workspace-extract').addEventListener('click', () => this.extract());
     $('workspace-delete').addEventListener('click', () => this.deleteSelected());
     $('workspace-open').addEventListener('click', () => this.openSelected());
+    $('jt-wizard-close').addEventListener('click', () => this.finishJtWizard(null));
+    $('jt-wizard-cancel').addEventListener('click', () => this.finishJtWizard(null));
+    $('jt-wizard-back').addEventListener('click', () => this.changeJtStep(-1));
+    $('jt-wizard-next').addEventListener('click', () => this.changeJtStep(1));
+    $('jt-wizard-choose-folder').addEventListener('click', () => $('jt-wizard-folder-input').click());
+    $('jt-wizard-folder-input').addEventListener('change', event => this.pickJtFolder(event.target));
+    $('jt-wizard-standalone').addEventListener('change', event => {
+      if (this.wizardState?.type === 'upload') {
+        this.wizardState.standalone = event.target.checked;
+        this.renderJtWizard();
+      }
+    });
+    this.jtWizard.addEventListener('cancel', event => {
+      event.preventDefault(); this.finishJtWizard(null);
+    });
     this.panel.addEventListener('keydown', event => {
       if (event.key === 'Enter' && this.selected && this.item()?.canOpen) this.openSelected();
     });
     this.syncButtons();
+  }
+
+  // A JT parent can refer to compressed external data. Same-stem folders are
+  // a naming convention, not a verified binary dependency. A standalone JT is
+  // allowed only after an explicit declaration in the wizard.
+  missingJtFolders(files, base) {
+    const incoming = files.map(({relative}) => joinPath(base, relative.replaceAll('\\', '/')));
+    const available = [...incoming, ...this.files.filter(item => item.type === 'file').map(item => item.path)];
+    return incoming.filter(path => /\.jt$/i.test(path) && !/_\d+\.jt$/i.test(path)).map(path => {
+      const folder = path.slice(0, -3);
+      const hasCompanion = available.some(candidate => candidate !== path &&
+        candidate.toLowerCase().startsWith(`${folder.toLowerCase()}/`) && /\.jt$/i.test(candidate));
+      return hasCompanion ? null : {path, folder};
+    }).filter(Boolean);
+  }
+
+  async reviewJtUpload(files, folders, base) {
+    const missing = this.missingJtFolders(files, base);
+    if (!missing.length) return {files, folders};
+    const wizard = {type:'upload', step:0, files:[...files], folders:[...folders],
+      base, missing, standalone:false, problem:''};
+    const approved = await this.startJtWizard(wizard);
+    return approved ? {files:wizard.files, folders:wizard.folders,
+      standalone:wizard.standalone} : null;
+  }
+
+  startJtWizard(state) {
+    if (this.wizardState) return Promise.resolve(null);
+    this.wizardState = state;
+    this.renderJtWizard();
+    this.jtWizard.showModal();
+    return new Promise(resolve => { state.resolve = resolve; });
+  }
+
+  finishJtWizard(result) {
+    const state = this.wizardState;
+    if (!state) return;
+    this.wizardState = null;
+    if (this.jtWizard.open) this.jtWizard.close();
+    state.resolve?.(result);
+  }
+
+  pickJtFolder(input) {
+    const state = this.wizardState;
+    if (!state || state.type !== 'upload') return;
+    const picked = Array.from(input.files || []).map(file => ({
+      file, relative: file.webkitRelativePath || file.name,
+    }));
+    input.value = '';
+    if (!picked.length) return;
+    const roots = new Set(picked.map(item => item.relative.replaceAll('\\', '/').split('/')[0].toLowerCase()));
+    const expectedRoots = new Set(state.missing.map(item => item.folder.split('/').at(-1).toLowerCase()));
+    if (roots.size !== 1 || !expectedRoots.has([...roots][0]) ||
+        !picked.some(item => /\.jt$/i.test(item.relative))) {
+      state.problem = 'Choose the matching companion folder containing its JT component files.';
+      this.renderJtWizard(); return;
+    }
+    const root = [...roots][0];
+    const already = new Set(state.files.map(item => item.relative.toLowerCase()));
+    for (const entry of picked) {
+      if (!already.has(entry.relative.toLowerCase())) {
+        state.files.push(entry); already.add(entry.relative.toLowerCase());
+      }
+    }
+    state.folders.push(picked[0].relative.replaceAll('\\', '/').split('/')[0]);
+    state.missing = this.missingJtFolders(state.files, state.base);
+    state.problem = '';
+    if (!state.missing.length) state.standalone = false;
+    this.renderJtWizard();
+  }
+
+  changeJtStep(delta) {
+    const state = this.wizardState;
+    if (!state) return;
+    if (delta < 0) {state.step = Math.max(0, state.step - 1); this.renderJtWizard(); return;}
+    if (state.type === 'upload' && state.step === 1 &&
+        state.missing.length && !state.standalone) {
+      state.problem = 'Choose the companion folder, or explicitly confirm the JT is standalone.';
+      this.renderJtWizard(); return;
+    }
+    if (state.step === 2) {
+      this.finishJtWizard(true); return;
+    }
+    state.problem = '';
+    state.step += 1;
+    this.renderJtWizard();
+  }
+
+  renderJtWizard() {
+    const state = this.wizardState;
+    if (!state) return;
+    const upload = state.type === 'upload';
+    const step = state.step;
+    $('jt-wizard-title').textContent = upload ? 'Upload JT package' : state.plan.package ? 'Delete JT package' : 'Delete selected item';
+    $('jt-step-two-title').textContent = upload ? 'Companion folder' : 'Related files';
+    for (const el of this.jtWizard.querySelectorAll('[data-wizard-step]')) {
+      const i = Number(el.dataset.wizardStep);
+      el.classList.toggle('is-current', i === step);
+      el.classList.toggle('is-complete', i < step);
+      if (i === step) el.setAttribute('aria-current','step');
+      else el.removeAttribute('aria-current');
+    }
+    const heading = $('jt-wizard-heading');
+    const description = $('jt-wizard-description');
+    const items = $('jt-wizard-items');
+    items.replaceChildren();
+    const addItem = (name, type, note = '') => {
+      const row = document.createElement('div'); row.className='jt-wizard-item';
+      const icon=document.createElement('span'); icon.textContent = type === 'folder' ? '▣' : '⬡';
+      const title=document.createElement('strong'); title.textContent = name;
+      row.append(icon,title);
+      if (note) {const small=document.createElement('em'); small.textContent=note; row.append(small);}
+      items.append(row);
+    };
+    const folderControls = $('jt-wizard-folder-controls');
+    folderControls.hidden = !(upload && step === 1 && state.missing.length);
+    $('jt-wizard-standalone').checked = !!state.standalone;
+    $('jt-wizard-back').disabled = step === 0;
+    const next = $('jt-wizard-next');
+    next.textContent = step < 2 ? 'Next ›' : upload ? 'Upload package' : 'Delete package';
+    next.classList.toggle('workspace-danger', !upload && step === 2);
+    next.classList.toggle('workspace-primary', upload || step < 2);
+    if (upload) {
+      if (step === 0) {
+        heading.textContent = 'Review JT upload';
+        description.textContent = 'Some JT files may reference geometry in a same-named folder. Review the files before uploading.';
+        for (const item of state.files) addItem(item.relative, 'file');
+      } else if (step === 1) {
+        heading.textContent = state.missing.length ? 'Add the related JT folder' : 'Companion folder ready';
+        description.textContent = state.missing.length ?
+          'Choose the matching folder from your computer. The parent JT will not be uploaded as a package until its component files are included.' :
+          'The related JT component files are included in this upload.';
+        if (state.missing.length) for (const missing of state.missing) addItem(missing.folder + '/', 'folder', 'Required or mark standalone');
+        else for (const item of state.files.filter(f => f.relative.includes('/'))) addItem(item.relative, 'file', 'Included');
+      } else {
+        heading.textContent = 'Confirm JT upload';
+        description.textContent = state.standalone ?
+          'You declared the remaining JT files standalone. Any missing external references may still prevent them from opening.' :
+          'The parent and companion files will be uploaded together. Components are uploaded before parent JT files.';
+        for (const item of state.files) addItem(item.relative, 'file');
+      }
+    } else {
+      const list = state.plan.items;
+      if (step === 0) {
+        heading.textContent = 'Review selected item';
+        description.textContent = 'Review the Workspace item and check whether it has related JT files.';
+        addItem(state.plan.path, list[0].type);
+      } else if (step === 1) {
+        heading.textContent = state.plan.package ? 'Delete related files together' : 'Review deletion';
+        description.textContent = state.plan.package ?
+          'These items form one JT package by filename convention. Both will be removed to avoid an orphaned reference.' :
+          'Only the selected Workspace item will be removed.';
+        for (const item of list) addItem(item.path, item.type);
+      } else {
+        heading.textContent = 'Confirm permanent deletion';
+        description.textContent = 'This action cannot be undone. All items below will be deleted together.';
+        for (const item of list) addItem(item.path, item.type);
+      }
+    }
+    $('jt-wizard-notice').textContent = state.problem || (
+      upload && state.missing.length && step === 1 ?
+      'JT reference detection is not exact. Use “standalone” only for files with no external components.' : '');
   }
 
   item() { return this.files.find(item => item.path === this.selected); }
@@ -282,6 +465,16 @@ export class FileWorkspace {
   async uploadItems(files, folders) {
     if (this.busy || (!files.length && !folders.length)) return;
     const base = this.uploadBase;
+    const reviewed = await this.reviewJtUpload(files, folders, base);
+    if (!reviewed) return;
+    files = reviewed.files;
+    folders = reviewed.folders;
+    // Upload referenced components before parent JT files: an incomplete
+    // companion upload must not leave a newly uploaded parent in Workspace.
+    const parents = new Set(files.filter(item => /\.jt$/i.test(item.relative) &&
+      !/_\d+\.jt$/i.test(item.relative)).map(item => item.relative.toLowerCase()));
+    files = [...files].sort((a,b) => Number(parents.has(a.relative.toLowerCase())) -
+      Number(parents.has(b.relative.toLowerCase())));
     this.setBusy(true);
     let success = 0, foldersCreated = 0;
     const failures = [];
@@ -308,6 +501,10 @@ export class FileWorkspace {
         const { file, relative } = files[i];
         const target = joinPath(base, relative.replaceAll('\\', '/'));
         this.uploadStatus(`Uploading ${i + 1} of ${files.length}: ${file.name}`);
+        if (parents.has(relative.toLowerCase()) && failures.length) {
+          failures.push(`${relative}: skipped because a companion file failed to upload.`);
+          continue;
+        }
         try {
           try {
             await api(`/api/workspace/upload?path=${encodeURIComponent(target)}`, {
@@ -349,13 +546,23 @@ export class FileWorkspace {
 
   async deleteSelected() {
     const item = this.item();
-    if (!item || !window.confirm(`Delete ${item.type} "${item.path}"${item.type === 'folder' ? ' and everything inside it' : ''}? This cannot be undone.`)) return;
+    if (!item || this.busy) return;
+    let plan;
+    try {
+      plan = await api(`/api/workspace/delete-plan?path=${encodeURIComponent(item.path)}`);
+    } catch (error) {this.status(error.message, true); return;}
+    const accepted = await this.startJtWizard({type:'delete', step:0, plan, problem:''});
+    if (!accepted) return;
     this.setBusy(true);
     try {
-      await api(`/api/workspace?path=${encodeURIComponent(item.path)}`, {method: 'DELETE'});
-      this.selected = ''; await this.refresh(); this.status(`Deleted ${item.path}`);
-    } catch (error) { this.status(error.message, true); }
-    finally { this.setBusy(false); }
+      const result = await jsonPost('/api/workspace/delete-package', {
+        path:plan.path, expectedPaths:plan.items.map(entry => entry.path),
+      });
+      this.selected = '';
+      await this.refresh();
+      this.status(`Deleted ${result.deleted.join(' and ')}.`);
+    } catch (error) {this.status(error.message, true);}
+    finally {this.setBusy(false);}
   }
 
   async openSelected() {

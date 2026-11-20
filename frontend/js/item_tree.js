@@ -375,6 +375,8 @@ export class ItemTree {
     label.textContent = node.name;
     label.addEventListener('click', () => this.selectNode(node));
     row.append(label);
+    const actions = document.createElement('span');
+    actions.className = 'tree-inline-actions';
     const leafIds = this.descendants(node);
     if (leafIds.length) {
       const check = document.createElement('input');
@@ -399,7 +401,7 @@ export class ItemTree {
         this.updateAncestors();
       });
       this.checkboxes.set(node.id, check);
-      row.append(check);
+      actions.append(check);
     }
     // Assembly-wide actions on the root, per-occurrence actions on components.
     // Body rows retain their existing visibility checkbox only.
@@ -411,13 +413,14 @@ export class ItemTree {
         'Explode all components' : `Explode component ${node.name}`);
       positionToggle.title = 'Separate component geometry required';
       this.explodeActions.set(node.id, positionToggle);
-      row.append(positionToggle);
+      actions.append(positionToggle);
     }
     if (node.type === 'component') {
       const moveToggle = this.createMoveToggle(node);
       this.moveActions.set(node.id, moveToggle);
-      row.append(moveToggle);
+      actions.append(moveToggle);
     }
+    if (actions.childElementCount) row.append(actions);
     li.append(row);
     if (children.length) {
       const nested = document.createElement('ul');

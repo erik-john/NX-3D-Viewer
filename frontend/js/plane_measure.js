@@ -1,4 +1,4 @@
-// MS37 — Planar distance/angle and high-confidence circular/cylindrical diameter on STL.
+// Planar distance/angle and high-confidence circular/cylindrical diameter on STL.
 // All positions here use the viewer's X,Z,-Y basis, preserving model units.
 const pmDot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
 const sub = (a, b) => a.map((v, i) => v - b[i]);
