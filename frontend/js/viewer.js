@@ -284,6 +284,7 @@ export class Viewer {
     this.onSelectMesh = null;
     this.hoveredMeshIds = new Set();
     this.selectedMeshIds = new Set();
+    this.componentColorsEnabled = false;
     this.solidLoc = {
       position: gl.getAttribLocation(this.solid, 'aPosition'),
       normal: gl.getAttribLocation(this.solid, 'aNormal'),
@@ -349,6 +350,7 @@ export class Viewer {
         creaseColor: item.creasePositions?.length ? createBuffer(gl, makeCreaseColors(item.creasePositions.length / 3)) : null,
         creaseCount: (item.creasePositions?.length || 0) / 3,
         color: colorFromHex(item.color),
+        componentColor: null,
         meshId: item.meshId || 'root',
         bounds: boundsFor([item]),
         offset: [0, 0, 0],
@@ -360,6 +362,20 @@ export class Viewer {
     this.bounds = boundsFor(meshes);
     this.updateGrid();
     this.setView('iso');
+  }
+
+  setComponentColors(colors) {
+    const byMesh = colors || new Map();
+    for (const part of this.geometry) {
+      const color = byMesh.get(part.meshId);
+      part.componentColor = color ? colorFromHex(color) : null;
+    }
+    this.requestRender();
+  }
+
+  setComponentColorMode(enabled) {
+    this.componentColorsEnabled = !!enabled;
+    this.requestRender();
   }
 
   setExplodeOffsets(offsets) {
@@ -704,7 +720,8 @@ export class Viewer {
       gl.bindBuffer(gl.ARRAY_BUFFER, part.normal);
       gl.enableVertexAttribArray(this.solidLoc.normal);
       gl.vertexAttribPointer(this.solidLoc.normal, 3, gl.FLOAT, false, 0, 0);
-      gl.uniform3fv(this.solidLoc.color, part.color);
+      gl.uniform3fv(this.solidLoc.color,
+        this.componentColorsEnabled && part.componentColor ? part.componentColor : part.color);
       gl.uniform3fv(this.solidLoc.offset, part.offset);
       gl.uniform1f(this.solidLoc.highlight, this.selectedMeshIds.has(part.meshId) ? 2 :
         this.hoveredMeshIds.has(part.meshId) ? 1 : 0);

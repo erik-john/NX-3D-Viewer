@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 FRONT = ROOT / 'frontend'
 
-source_names = ['geometry.js','stl.js','picking.js','viewer.js','item_tree.js','inspector.js']
+source_names = ['geometry.js','stl.js','picking.js','viewer.js','item_tree.js','inspector.js', 'assembly_explode.js', 'component_colors.js']
 source = []
 for name in source_names:
     s = (FRONT / 'js' / name).read_text(encoding='utf-8')

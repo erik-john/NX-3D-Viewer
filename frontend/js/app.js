@@ -4,6 +4,7 @@ import { ItemTree } from './item_tree.js';
 import { PartInspector } from './inspector.js';
 import { FileWorkspace } from './workspace.js';
 import { createExplodePlan, calculateExplodeOffsets, selectionGroupIds } from './assembly_explode.js';
+import { buildComponentColors } from './component_colors.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
@@ -24,7 +25,20 @@ function setup() {
   let explodeLevel = 0;
   const selectedOverrides = new Map();
   let isolated = null; // { nodeId, previous: Map(meshId -> prior visible) }
+  let componentColorEnabled = false;
+  let componentColors = { available: false, colors: new Map() };
   const canExplode = () => explodeGroups.length >= 2;
+
+  function updateComponentColorMode() {
+    const active = componentColors.available && componentColorEnabled;
+    const button = $('component-color-toggle');
+    button.disabled = !componentColors.available;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+    button.title = !componentColors.available ? 'Component colors require separate assembly geometry' :
+      active ? 'Restore original steel appearance' : 'Color components by type';
+    viewer.setComponentColorMode(active);
+  }
 
   function selectedNode() {
     return tree.nodes.get(tree.selectedId) || null;
@@ -140,6 +154,9 @@ function setup() {
   function clearScene() {
     isolated = null;
     viewer.setScene([]);
+    componentColors = { available: false, colors: new Map() };
+    viewer.setComponentColors(componentColors.colors);
+    updateComponentColorMode();
     explodeGroups = [];
     explodeBounds = null;
     explodeLevel = 0;
@@ -223,7 +240,12 @@ function setup() {
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
       const { meshes, perBody } = await loadGeometry(info);
       viewer.setScene(meshes);
-      tree.show(info.tree || { id: 'root', name: info.name, type: 'part', children: [] }, {
+      const structure = info.tree || { id: 'root', name: info.name, type: 'part', children: [] };
+      componentColors = perBody ? buildComponentColors(structure, meshes) :
+        { available: false, colors: new Map() };
+      viewer.setComponentColors(componentColors.colors);
+      updateComponentColorMode();
+      tree.show(structure, {
         visibilityEnabled: perBody, warning: info.warning || '',
       });
       setCameraView('iso');
@@ -268,6 +290,11 @@ function setup() {
     button.addEventListener('click', () => setCameraView(button.dataset.view));
   }
   $('fit-button').addEventListener('click', () => viewer.fit());
+  $('component-color-toggle').addEventListener('click', () => {
+    if (!componentColors.available) return;
+    componentColorEnabled = !componentColorEnabled;
+    updateComponentColorMode();
+  });
   $('isolate-selected').addEventListener('click', isolateOrRestore);
   $('fit-selected').addEventListener('click', () => {
     const node = selectedNode();

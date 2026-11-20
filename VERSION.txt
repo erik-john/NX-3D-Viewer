@@ -1,3 +1,24 @@
+Milestone: 30 — Component Color Mode
+
+Changes
+- Add a single multicolor cube toggle beneath Fit in the 3D workspace View icon group.
+- Switch between the existing steel material and per-component colors without changing source geometry or NX .prt files.
+- Group repeated occurrences (and multiple bodies) of the same NX prototype under one color. Separate source parts, including different bolt sizes, receive different colors.
+- Export a stable prototype partKey to the NX assembly manifest, preferring the source .prt path and falling back to the prototype name.
+- For older manifests, use conservative normalized component names as a best-effort fallback.
+- Preserve hover/selection highlighting, Item Structure, Explode, Isolate, Fit Selected, and visibility controls.
+- Disable component colors when a standalone part or combined STL does not support reliable independent coloring.
+- Keep port 8888, original steel appearance when mode is off, and Windows CRLF.
+
+Checks
+- 58 Python tests and 17 JavaScript checks, including grouping, repeated occurrences, bolt sizes, 24 different type colors, and combined STL fallback.
+- Chromium integration for color toggle, original steel restoration, selection, explosion and fallback, plus existing selection/explode/isolate tests.
+- Real NX 1855 assembly rendering and prototype metadata remain to be checked on Windows before promotion to main.
+
+Suggested commits
+- dev: feat(viewer): add prototype-based assembly color mode
+- main: feat(viewer): release assembly color toggle
+
 Milestone: 29 — Isolate Selected & Fit Selected
 
 Changes

@@ -18,8 +18,10 @@ for(const view of ['iso','front','top','right']) {
   assert.ok(viewport.includes(`data-view="${view}"`), view);
 }
 assert.ok(viewport.includes('id="fit-button"'));
-assert.match(viewport, /class="viewport-view-tools" role="group" aria-label="Camera views"/);
-assert.equal((viewport.match(/class=\"viewport-view-button/g)||[]).length,5);
+assert.match(viewport, /class="viewport-view-tools" role="group" aria-label="View and appearance controls"/);
+assert.equal((viewport.match(/class=\"viewport-view-button/g)||[]).length,6);
+assert.ok(viewport.includes('id="component-color-toggle"'));
+assert.ok(viewport.includes('aria-label="Color components by type"'));
 assert.ok(!viewport.includes('viewport-mouse-'));
 for(const label of ['Isometric view','Front view','Top view','Right view','Fit model to view']){
   assert.ok(viewport.includes(`aria-label="${label}"`),label);

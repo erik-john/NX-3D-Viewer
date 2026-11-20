@@ -30,7 +30,7 @@ const ids = [
   'tree-resizer', 'model-tree', 'tree-summary', 'tree-note',
   'empty-state', 'loading-overlay', 'loading-title', 'loading-detail',
   'viewer-workspace', 'open-nx-button', 'import-message', 'fit-button',
-  'inspector-panel', 'inspector-toggle', 'inspector-content',
+  'inspector-panel', 'inspector-toggle', 'inspector-content', 'component-color-toggle',
   'tree-selection-actions','isolate-selected','isolate-selected-label','fit-selected',
 ];
 const elems = Object.fromEntries(ids.map(id => [id, makeElement()]));
@@ -48,6 +48,8 @@ class FakeViewer {
   setMeshVisible(id, visible) { this.lastVisible = [id, visible]; this.geometry.filter(p=>p.meshId===id).forEach(p=>p.visible=visible); }
   fitMeshIds() { return true; }
   setExplodeOffsets(offsets) { this.explodeOffsets=offsets; }
+  setComponentColors(colors) { this.componentColors = colors; }
+  setComponentColorMode(value) { this.componentColorsEnabled = value; }
 }
 let viewer;
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -79,6 +81,7 @@ const context = {
   createExplodePlan: () => [],
   calculateExplodeOffsets: () => new Map(),
   selectionGroupIds: () => [],
+  buildComponentColors: () => ({ available: false, colors: new Map() }),
   Viewer: class extends FakeViewer { constructor(...args) { super(...args); viewer = this; } },
   parseSTL: () => [fakeMesh],
   fetch,

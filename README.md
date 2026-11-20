@@ -13,6 +13,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Browse the NX part and component hierarchy in a collapsible, resizable white left panel.
 - Inspect model dimensions, geometry counts, part details, NX units, and available NX attributes in the white right Part Inspector panel.
 - Click a component directly in the 3D viewport to select it and synchronize Item Structure and Part Inspector. Hover over a visible component for a temporary teal highlight.
+- Click **Color components by type** in the View icon area to switch between the original steel appearance and distinct component colors. Repeated occurrences of the same NX prototype (such as identical bearings or same-size bolts) share a color.
 - Expand/collapse components, select items, and show/hide individual bodies when separate body geometry is available.
 - Isolate a selected component with one click, restore its previous visibility, and fit the camera to only the selected geometry.
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
@@ -88,6 +89,7 @@ The light header displays the NX 3D Viewer branding and **OPEN NX FILES** comman
 | Zoom | Mouse wheel |
 | Fit | **Fit icon** in workspace, **F**, or double-click |
 | Camera views | **Isometric / Front / Top / Right icons** in workspace, or keys **1–4** |
+| Component colors | **Multicolor cube icon** below Fit; click again to return to steel |
 
 Use the **Fit icon** (or **F**) after rotating or zooming to show the entire model again. The WebGL display is Y-up: NX (X, Y, Z) is mapped to viewport (X, Z, −Y). Axis labels, the rotating axis compass, and the Part Inspector dimensions retain NX X/Y/Z meaning.
 
@@ -101,6 +103,12 @@ Use the **Fit icon** (or **F**) after rotating or zooming to show the entire mod
 - Select a component or body, then use **Isolate** above the tree to show just that item, or **Fit Selected** to center and zoom to its visible geometry. Click **Restore** to return to the visibility state that existed before isolation. The Restore action remains available if the selection is cleared.
 
 The panel shows the hierarchy reported by NX Open. If NX can only export a combined STL, the model still displays, but individual visibility controls are disabled rather than presenting an inaccurate result.
+
+## Component color mode
+
+The **multicolor cube icon** at the bottom of the right-side **VIEW** controls toggles component color mode. Colors are assigned by NX **source part/prototype**, so repeated occurrences of the same NX part (including all its body meshes) share a color, while different source part types receive different colors. The size or specification of a fastener must be represented by its actual source `.prt` part: a bolt of a different size in a different NX part receives a separate color. This is a visualization aid, not a change to NX materials or file data.
+
+Turn the icon off to restore the original steel shading. The feature can be combined with 3D selection, hover highlighting, Explode, Isolate and Fit Selected. When only one combined STL is available, or a standalone part has no separate assembly components, the icon is disabled. Older NX manifests without part/prototype identifiers use component-name matching when possible; their grouping may be less reliable.
 
 ## Isolate and Fit Selected
 

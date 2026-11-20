@@ -64,12 +64,26 @@ def build_structure(part):
                                   name_of(proto, 'Body ' + str(index + 1))))
         return nodes
 
+    def prototype_key(prototype, fallback):
+        # FullPath identifies the source NX .prt across repeated occurrences.
+        # Do not infer part size/type from instance labels when NX can identify it.
+        for property_name in ('FullPath', 'FullPathName', 'Name', 'Leaf', 'DisplayName'):
+            try:
+                value = getattr(prototype, property_name)
+                if value:
+                    return str(value)
+            except Exception:
+                pass
+        return fallback
+
     def component_node(component, path):
         prototype = component.Prototype
         if prototype is None or not hasattr(prototype, 'Bodies'):
             raise RuntimeError('A component is not loaded. Load all assembly components in NX and try again.')
         result = {'id': path, 'name': name_of(component, 'Component'),
-                  'type': 'component', 'children': own_bodies(prototype, component, path)}
+                  'type': 'component',
+                  'partKey': prototype_key(prototype, name_of(component, path)),
+                  'children': own_bodies(prototype, component, path)}
         for index, child in enumerate(component.GetChildren()):
             result['children'].append(component_node(child, path + '_c' + str(index + 1)))
         return result

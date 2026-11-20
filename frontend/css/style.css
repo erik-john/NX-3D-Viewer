@@ -366,6 +366,8 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   background: #dff3ef; color: #006f66; border-color: #80bdb5;
 }
 .viewport-view-button:focus-visible { outline: 2px solid #006f66; outline-offset: 1px; }
+.viewport-view-button:disabled { opacity: .42; cursor: not-allowed; }
+#component-color-toggle.active { background: #e6f3fa; color: #15668d; border-color: #8ebcd4; }
 .viewport-tool-divider { width: 28px; height: 1px; margin: 4px 0; background: #d4e0e3; }
 @media (max-width: 760px) {
   .viewport-view-tools { top: 14px; right: 10px; padding: 6px 4px; gap: 2px; }
