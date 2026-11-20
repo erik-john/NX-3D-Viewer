@@ -97,6 +97,7 @@ uniform vec3 uColor;
 uniform vec3 uEye;
 uniform float uWire;
 uniform float uHighlight;
+uniform float uOpacity;
 varying vec3 vNormal;
 varying vec3 vPosition;
 void main() {
@@ -133,7 +134,24 @@ void main() {
   vec3 surface = mix(steel, vec3(0.37, 0.41, 0.45), uWire);
   if (uHighlight > 1.5) surface = mix(surface, vec3(0.24, 0.61, 0.88), 0.46);
   else if (uHighlight > 0.5) surface = mix(surface, vec3(0.23, 0.84, 0.74), 0.32);
-  gl_FragColor = vec4(surface, 1.0);
+  // CAD inspection glass: darker cool-smoke tint, a very clear center, and a
+  // stronger Fresnel edge. Keep the original steel shader exact at 0% glass.
+  float glassMix = smoothstep(0.0, 0.25, 1.0 - uOpacity);
+  float facingGlass = clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
+  float rim = pow(1.0 - facingGlass, 2.0);
+  float glint = pow(max(dot(normal, keyHalf), 0.0), 55.0);
+  vec3 glassTint = mix(vec3(0.10, 0.30, 0.38), vec3(0.16, 0.45, 0.54), rim);
+  glassTint += vec3(0.30, 0.45, 0.50) * glint * 0.44;
+  if (uHighlight > 1.5) glassTint = mix(glassTint, vec3(0.13, 0.44, 0.77), 0.48);
+  else if (uHighlight > 0.5) glassTint = mix(glassTint, vec3(0.13, 0.67, 0.62), 0.40);
+  surface = mix(surface, glassTint, glassMix);
+  // Back faces of closed STL solids otherwise pile up opacity and form an
+  // almost-white slab. Keep them, but let the front glass and internal parts
+  // dominate the view. Do not cull: imported CAD windings can differ.
+  float glassAlpha = clamp(uOpacity + glassMix * (0.24 * rim + 0.07 * glint), 0.0, 1.0);
+  float backFaceWeight = gl_FrontFacing ? 1.0 : mix(1.0, 0.22, glassMix);
+  float surfaceAlpha = clamp(mix(uOpacity, glassAlpha * backFaceWeight, glassMix), 0.0, 1.0);
+  gl_FragColor = vec4(surface, surfaceAlpha);
 }`;
 // Color ID pass shares the same mesh buffers and depth ordering as normal rendering.
 const PICK_VERTEX = `
@@ -162,8 +180,9 @@ void main() {
 }`;
 const LINE_FRAGMENT = `
 precision mediump float;
+uniform float uOpacity;
 varying vec4 vColor;
-void main() { gl_FragColor = vColor; }`;
+void main() { gl_FragColor = vec4(vColor.rgb, vColor.a * uOpacity); }`;
 
 function createBuffer(gl, data, target = gl.ARRAY_BUFFER) {
   const buffer = gl.createBuffer();
@@ -174,11 +193,11 @@ function createBuffer(gl, data, target = gl.ARRAY_BUFFER) {
 
 // Semi-transparent technical edges follow actual mesh creases rather than
 // drawing every triangle of the STL tessellation.
-function makeCreaseColors(count) {
+function makeCreaseColors(count, glass = false) {
   const colors = new Float32Array(count * 4);
-  for (let i = 0; i < count; i += 1) {
-    colors.set([0.24, 0.25, 0.27, 0.58], i * 4);
-  }
+  // Cool blue-gray glass contours remain legible on the light workspace.
+  const color = glass ? [0.11, 0.34, 0.42, 0.58] : [0.24, 0.25, 0.27, 0.58];
+  for (let i = 0; i < count; i += 1) colors.set(color, i * 4);
   return colors;
 }
 
@@ -293,6 +312,7 @@ export class Viewer {
       color: gl.getUniformLocation(this.solid, 'uColor'),
       wire: gl.getUniformLocation(this.solid, 'uWire'),
       highlight: gl.getUniformLocation(this.solid, 'uHighlight'),
+      opacity: gl.getUniformLocation(this.solid, 'uOpacity'),
       eye: gl.getUniformLocation(this.solid, 'uEye'),
     };
     this.lineLoc = {
@@ -300,6 +320,7 @@ export class Viewer {
       color: gl.getAttribLocation(this.lines, 'aColor'),
       matrix: gl.getUniformLocation(this.lines, 'uViewProjection'),
       offset: gl.getUniformLocation(this.lines, 'uOffset'),
+      opacity: gl.getUniformLocation(this.lines, 'uOpacity'),
     };
     this.geometry = [];
     this.explodeOffsets = new Map();
@@ -334,6 +355,7 @@ export class Viewer {
       gl.deleteBuffer(item.edges);
       if (item.creasePosition) gl.deleteBuffer(item.creasePosition);
       if (item.creaseColor) gl.deleteBuffer(item.creaseColor);
+      if (item.glassCreaseColor) gl.deleteBuffer(item.glassCreaseColor);
     }
     this.hoveredMeshIds.clear();
     this.selectedMeshIds.clear();
@@ -351,9 +373,11 @@ export class Viewer {
         edgeCount: edges.length,
         creasePosition: item.creasePositions?.length ? createBuffer(gl, item.creasePositions) : null,
         creaseColor: item.creasePositions?.length ? createBuffer(gl, makeCreaseColors(item.creasePositions.length / 3)) : null,
+        glassCreaseColor: item.creasePositions?.length ? createBuffer(gl, makeCreaseColors(item.creasePositions.length / 3, true)) : null,
         creaseCount: (item.creasePositions?.length || 0) / 3,
         color: colorFromHex(item.color),
         componentColor: null,
+        opacity: 1,
         meshId: item.meshId || 'root',
         bounds: boundsFor([item]),
         offset: [0, 0, 0],
@@ -378,6 +402,16 @@ export class Viewer {
 
   setComponentColorMode(enabled) {
     this.componentColorsEnabled = !!enabled;
+    this.requestRender();
+  }
+
+  // Presentation-only per-mesh transparency. NX data and vertex buffers are unchanged.
+  setMeshOpacities(opacities) {
+    const values = opacities || new Map();
+    for (const part of this.geometry) {
+      const opacity = values.get(part.meshId);
+      part.opacity = Number.isFinite(opacity) ? clamp(opacity, 0.045, 1) : 1;
+    }
     this.requestRender();
   }
 
@@ -730,8 +764,17 @@ export class Viewer {
     gl.uniformMatrix4fv(this.solidLoc.matrix, false, matrix);
     gl.uniform1f(this.solidLoc.wire, this.wireframe ? 1 : 0);
     gl.uniform3fv(this.solidLoc.eye, eye);
-    for (const part of this.geometry) {
-      if (!part.visible) continue;
+    // Draw opaque components first with depth writes, then transparent components
+    // back-to-front with blending and depth reads only. This allows rear solid
+    // components to remain visible through a selected translucent component.
+    const visible = this.geometry.filter(part => part.visible);
+    const opaque = visible.filter(part => (part.opacity ?? 1) >= 0.999);
+    const transparent = visible.filter(part => (part.opacity ?? 1) < 0.999).sort((a, b) => {
+      const squared = part => part.bounds.center.reduce((total, value, i) =>
+        total + Math.pow(value + part.offset[i] - eye[i], 2), 0);
+      return squared(b) - squared(a);
+    });
+    const drawSurface = part => {
       gl.bindBuffer(gl.ARRAY_BUFFER, part.position);
       gl.enableVertexAttribArray(this.solidLoc.position);
       gl.vertexAttribPointer(this.solidLoc.position, 3, gl.FLOAT, false, 0, 0);
@@ -741,17 +784,31 @@ export class Viewer {
       gl.uniform3fv(this.solidLoc.color,
         this.componentColorsEnabled && part.componentColor ? part.componentColor : part.color);
       gl.uniform3fv(this.solidLoc.offset, part.offset);
+      gl.uniform1f(this.solidLoc.opacity, part.opacity ?? 1);
       gl.uniform1f(this.solidLoc.highlight, this.selectedMeshIds.has(part.meshId) ? 2 :
         this.hoveredMeshIds.has(part.meshId) ? 1 : 0);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.wireframe ? part.edges : part.triangles);
       gl.drawElements(this.wireframe ? gl.LINES : gl.TRIANGLES,
         this.wireframe ? part.edgeCount : part.triangleCount, gl.UNSIGNED_SHORT, 0);
+    };
+    for (const part of opaque) drawSurface(part);
+    if (transparent.length) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(false);
+      for (const part of transparent) drawSurface(part);
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
     }
     gl.disable(gl.POLYGON_OFFSET_FILL);
     if (!this.wireframe) {
-      for (const part of this.geometry) {
-        if (part.visible && part.creaseCount) this.renderLines(
-          part.creasePosition, part.creaseColor, part.creaseCount, matrix, gl.LINES, part.offset);
+      for (const part of opaque) {
+        if (part.creaseCount) this.renderLines(part.creasePosition, part.creaseColor,
+          part.creaseCount, matrix, gl.LINES, part.offset);
+      }
+      for (const part of transparent) {
+        if (part.creaseCount) this.renderLines(part.creasePosition, part.glassCreaseColor || part.creaseColor,
+          part.creaseCount, matrix, gl.LINES, part.offset, Math.max(0.58, part.opacity ?? 1));
       }
     }
     if (this.showAxes) {
@@ -810,11 +867,12 @@ export class Viewer {
     }
   }
 
-  renderLines(position, color, count, matrix, primitive = this.gl.LINES, offset = [0, 0, 0]) {
+  renderLines(position, color, count, matrix, primitive = this.gl.LINES, offset = [0, 0, 0], opacity = 1) {
     const gl = this.gl;
     gl.useProgram(this.lines);
     gl.uniformMatrix4fv(this.lineLoc.matrix, false, matrix);
     gl.uniform3fv(this.lineLoc.offset, offset);
+    gl.uniform1f(this.lineLoc.opacity, opacity);
     gl.bindBuffer(gl.ARRAY_BUFFER, position);
     gl.enableVertexAttribArray(this.lineLoc.position);
     gl.vertexAttribPointer(this.lineLoc.position, 3, gl.FLOAT, false, 0, 0);

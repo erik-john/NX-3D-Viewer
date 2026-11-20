@@ -61,7 +61,7 @@ export class ItemTree {
     const divider = panel.querySelector?.('#sidebar-splitter');
     const content = panel.querySelector?.('#tree-content');
     if (!divider || !content) return;
-    const DEFAULT_HEIGHT = 178;
+    const DEFAULT_HEIGHT = 278;
     const MIN_CONTROLS = 54;
     const MIN_STRUCTURE = 94;
     let preferredHeight = DEFAULT_HEIGHT;

@@ -17,6 +17,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Expand/collapse components, select items, and show/hide individual bodies when separate body geometry is available.
 - Isolate a selected component with one click, restore its previous visibility, and fit the camera to only the selected geometry.
 - Move a selected assembly component along NX X/Y/Z with draggable 3D axis arrows; reset the selected component or all manual movements without disturbing Explode positions.
+- Adjust transparency directly from 0% (original solid) to 100% (maximum glass-like transparency) for the selected assembly component; use the adjacent Solid All icon to reset every component without changing NX geometry.
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
 
 ## Requirements
@@ -93,12 +94,13 @@ The light header displays the NX 3D Viewer branding and **OPEN NX FILES** comman
 | Component colors | **Multicolor cube icon** below Fit; click again to return to steel |
 | Move component | Select a component, choose **Move** in Item Structure (or the arrow icon on its row), then drag the red X, green Y, or blue Z arrow |
 | Reset manual movements | **Reset Selected** or **Reset All** in Item Structure; leaves Explode state unchanged |
+| Component transparency | Select an assembly component; adjust **Transparency** 0–100% in the upper controls area (0 = original solid, 100 = maximum glass effect); the adjacent **Solid All** icon resets all |
 
 Use the **Fit icon** (or **F**) after rotating or zooming to show the entire model again. The WebGL display is Y-up: NX (X, Y, Z) is mapped to viewport (X, Z, −Y). Axis labels, the rotating axis compass, and the Part Inspector dimensions retain NX X/Y/Z meaning.
 
 ## Left sidebar controls and structure
 
-- The upper area contains Isolate/Restore, Fit Selected, Move Selected, Reset Selected and Reset All. The lower area contains the component hierarchy and its row actions; no extra area titles are displayed.
+- The upper area contains Isolate/Restore, Fit Selected, Move Selected, Reset Selected, Reset All, and a selection-aware Transparency slider with one Solid All icon. The lower area contains the component hierarchy and its row actions; no extra area titles are displayed.
 - Drag the horizontal divider between these areas up or down to adjust their heights. The divider also supports Up/Down arrow keys (Shift for larger steps) and double-click to return to the default split. Each area scrolls independently.
 - Click the arrow at the top of the sidebar to collapse or expand the full left panel.
 - Drag the outside divider horizontally to resize the entire sidebar; that divider also accepts Left/Right arrow keys.
@@ -120,6 +122,14 @@ The panel reports movement as **ΔX, ΔY and ΔZ in the model's own units**. To 
 Manual movement is independent of **Explode**. For example, Explode a part, then move it along an axis; **Reset Selected** removes only your manual adjustment, leaving the part exploded until you reset its Explode toggle. Moving repeated occurrences of an identical component affects only the chosen occurrence, not all copies of that NX prototype.
 
 These adjustments are temporary display transforms and are cleared when another NX file is loaded. They do not save to or modify the original `.prt`. Manual movement requires distinct component meshes; it is unavailable when NX provides a combined STL or a standalone non-assembly part.
+
+## Component transparency
+
+Select an assembly component in the 3D viewport or the structure tree, then adjust **Transparency (0–100%)** in the upper controls area. **0%** leaves the original solid finish, while **100%** produces a highly see-through, cool blue-gray glass appearance with visible edge highlights. Intermediate slider values are tuned to reveal interior geometry without a dense white overlay. Click the adjacent **Solid All** icon to restore every component to its original solid finish, or set the selected component back to **0%**. Selecting another component displays its saved transparency value automatically. Repeated copies of a single NX prototype are independent.
+
+Transparency works together with component-color mode, selection/hover highlighting, Explode, manual movement, Isolate/Restore and Fit Selected. Hidden components remain hidden; translucency changes only the appearance of displayed meshes and never touches NX files or STL vertices. Reloading the assembly resets transparency. **Combined-STL fallback and standalone parts do not support component-specific transparency.**
+
+For performance, translucent component meshes are rendered in approximate back-to-front order, with reduced back-face density so inner assembly parts remain visible. Overlapping transparent surfaces can still show depth-order artifacts. The effect is technical inspection glass (not physically accurate refraction or a native NX material).
 
 ## Component color mode
 

@@ -48,6 +48,23 @@
                   <span>Fit Selected</span>
                 </button>
               </div>
+              <div class="tree-opacity-actions" id="tree-opacity-actions" role="group" aria-label="Component transparency" hidden>
+                <label class="tree-opacity-label" for="component-opacity-slider">Transparency
+                  <output id="component-opacity-value" for="component-opacity-slider">0%</output>
+                </label>
+                <div class="tree-opacity-slider-row">
+                  <input type="range" id="component-opacity-slider" min="0" max="100" step="1" value="0" disabled
+                    aria-label="Selected component transparency: 0 percent solid, 100 percent glass"/>
+                  <button type="button" id="reset-transparency-all" class="tree-opacity-reset" disabled
+                    aria-label="Solid All" title="Solid All — restore solid appearance for all components">
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z"/>
+                      <path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>
+                      <path d="M17.8 4.2 21 4v3.2"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
               <div class="tree-move-actions" id="tree-move-actions" role="group" aria-label="Manual component movement" hidden>
                 <div class="tree-move-buttons">
                   <button type="button" id="move-selected" class="tree-action-button" disabled aria-pressed="false" title="Move selected component along NX X, Y or Z">

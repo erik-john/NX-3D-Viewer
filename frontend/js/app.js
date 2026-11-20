@@ -26,6 +26,7 @@ function setup() {
   let explodeLevel = 0;
   const selectedOverrides = new Map();
   const manualGroupOffsets = new Map();
+  const componentOpacities = new Map(); // meshId -> opacity, per occurrence
   let moveMode = false;
   let moveGizmo = null;
   let isolated = null; // { nodeId, previous: Map(meshId -> prior visible) }
@@ -61,6 +62,38 @@ function setup() {
     tree.setVisibilityFromMeshes(map);
     updateMoveActions();
   }
+  // 0 = unchanged steel, 100 = clear glass with a thin visible silhouette.
+  // A perceptual curve opens up the interior sooner than linear alpha; its
+  // exact inverse keeps the selected component's saved slider value stable.
+  const GLASS_ALPHA = 0.045;
+  const transparencyToAlpha = value => GLASS_ALPHA + (1 - GLASS_ALPHA) *
+    Math.pow(1 - Math.min(100, Math.max(0, value)) / 100, 2);
+  const alphaToTransparency = alpha => {
+    const remaining = Math.min(1, Math.max(0, (alpha - GLASS_ALPHA) / (1 - GLASS_ALPHA)));
+    return Math.round(100 * (1 - Math.sqrt(remaining)));
+  };
+  function transparencyTarget() {
+    const node = selectedNode();
+    if (!tree.visibilityEnabled || node?.type !== 'component') return null;
+    const ids = meshIdsFor(node);
+    return ids.length && hasMesh(ids) ? { node, ids } : null;
+  }
+  function updateTransparencyActions() {
+    const target = transparencyTarget();
+    const slider = $('component-opacity-slider');
+    const currentAlpha = target ?
+      (componentOpacities.get(target.ids.find(id => componentOpacities.has(id))) ?? 1) : 1;
+    const current = Math.max(0, Math.min(100, alphaToTransparency(currentAlpha)));
+    $('tree-opacity-actions').hidden = !tree.root || !tree.visibilityEnabled;
+    $('reset-transparency-all').disabled = componentOpacities.size === 0;
+    slider.disabled = !target;
+    slider.value = String(current);
+    $('component-opacity-value').textContent = `${current}%`;
+  }
+  function applyTransparency() {
+    viewer.setMeshOpacities(componentOpacities);
+    updateTransparencyActions();
+  }
   function updateSelectionActions() {
     $('tree-selection-actions').hidden = !tree.root;
     const node = selectedNode();
@@ -77,6 +110,7 @@ function setup() {
       'Show only the selected component';
     $('fit-selected').disabled = !hasMesh(ids, true);
     updateMoveActions();
+    updateTransparencyActions();
   }
 
   // Manual moves are per assembly occurrence, independent of explode offsets.
@@ -261,6 +295,8 @@ function setup() {
   function clearScene() {
     isolated = null;
     viewer.setScene([]);
+    componentOpacities.clear();
+    viewer.setMeshOpacities(componentOpacities);
     componentColors = { available: false, colors: new Map() };
     viewer.setComponentColors(componentColors.colors);
     updateComponentColorMode();
@@ -403,6 +439,23 @@ function setup() {
     if (!componentColors.available) return;
     componentColorEnabled = !componentColorEnabled;
     updateComponentColorMode();
+  });
+  $('component-opacity-slider').addEventListener('input', () => {
+    const target = transparencyTarget();
+    if (!target) return;
+    const amount = Number($('component-opacity-slider').value);
+    if (!Number.isFinite(amount) || amount < 0 || amount > 100) return;
+    for (const id of target.ids) {
+      if (amount === 0) componentOpacities.delete(id);
+      else componentOpacities.set(id, transparencyToAlpha(amount));
+    }
+    applyTransparency();
+    $('status-message').textContent = `Transparency ${Math.round(amount)}%: ${target.node.name}`;
+  });
+  $('reset-transparency-all').addEventListener('click', () => {
+    componentOpacities.clear();
+    applyTransparency();
+    $('status-message').textContent = 'All components restored to solid appearance';
   });
   $('move-selected').addEventListener('click', toggleMoveSelected);
   $('reset-move-selected').addEventListener('click', resetSelectedMovement);

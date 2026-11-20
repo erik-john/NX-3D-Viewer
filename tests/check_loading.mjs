@@ -33,6 +33,8 @@ const ids = [
   'inspector-panel', 'inspector-toggle', 'inspector-content', 'component-color-toggle',
   'tree-selection-actions','isolate-selected','isolate-selected-label','fit-selected',
   'tree-move-actions','move-selected','reset-move-selected','reset-move-all','tree-move-readout','move-gizmo',
+  'tree-opacity-actions',
+  'reset-transparency-all','component-opacity-slider','component-opacity-value',
 ];
 const elems = Object.fromEntries(ids.map(id => [id, makeElement()]));
 elems['loading-overlay'].hidden = true;
@@ -52,6 +54,7 @@ class FakeViewer {
   setManualOffsets(offsets) { this.manualOffsets=offsets; }
   setComponentColors(colors) { this.componentColors = colors; }
   setComponentColorMode(value) { this.componentColorsEnabled = value; }
+  setMeshOpacities(values) { this.opacities = new Map(values); }
 }
 let viewer;
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
