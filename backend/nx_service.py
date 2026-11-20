@@ -197,6 +197,40 @@ def _inspect_manifest(manifest_path, output_path):
             details["reason"] = "separate mode has no body meshes"
             return details
         details["meshes"] = len(meshes)
+        # Geometry actions address occurrence BODY IDs, not source JT
+        # prototype names. Every exported mesh must have exactly one matching
+        # hierarchy body node, and every body node must have an export.
+        body_ids = []
+        node_ids = set()
+
+        def collect(node):
+            node_id = node.get("id")
+            if not isinstance(node_id, str) or not node_id or node_id in node_ids:
+                raise ValueError("hierarchy contains missing or duplicate node IDs")
+            node_ids.add(node_id)
+            if node.get("type") == "body":
+                mesh_id = node.get("meshId", node_id)
+                if not isinstance(mesh_id, str) or not mesh_id:
+                    raise ValueError("hierarchy body has no mesh ID")
+                body_ids.append(mesh_id)
+            children = node.get("children", [])
+            if not isinstance(children, list):
+                raise ValueError("hierarchy node has invalid children")
+            for child in children:
+                if not isinstance(child, dict):
+                    raise ValueError("hierarchy contains an invalid child")
+                collect(child)
+
+        collect(root)
+        exported_ids = [entry.get("id") if isinstance(entry, dict) else None
+                        for entry in meshes]
+        if (len(set(body_ids)) != len(body_ids)
+                or len(set(exported_ids)) != len(exported_ids)
+                or set(body_ids) != set(exported_ids)):
+            details["valid"] = False
+            details["reason"] = ("body mesh IDs do not match the NX assembly hierarchy; "
+                                 "individual component controls cannot be safely enabled")
+            return details
         for index, entry in enumerate(meshes, 1):
             if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
                 details["valid"] = False
@@ -219,6 +253,8 @@ def _inspect_manifest(manifest_path, output_path):
         details["reason"] = "all " + str(len(meshes)) + " body STL files are valid"
         return details
     except (OSError, ValueError, TypeError, AttributeError) as error:
+        details["valid"] = False
+        details["bodyFilesValid"] = False
         details["reason"] = "cannot parse manifest: " + str(error)
         return details
 

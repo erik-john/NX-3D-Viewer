@@ -1,3 +1,36 @@
+MS42 UI follow-up — Structure panel horizontal scrolling
+
+Changes
+- Keep complete NX/JT file and component names on one line in the left Structure area.
+- Show a horizontal scrollbar for long names while retaining vertical scrolling, hierarchy indentation, selection, and existing action buttons.
+- No changes to MS41 upload/delete wizards, backend, NX conversion, or viewer tools.
+
+Checks
+- 74 Python unittest tests and 27 JavaScript checks passed locally; Windows browser visual check recommended.
+- Port 8888, Run.bat, light theme, CRLF and offline operation unchanged.
+
+Suggested commit
+- dev: fix(ui): allow horizontal scrolling for long structure names
+- main: fix(ui): release structure horizontal scrolling
+
+--- Prior milestone ---
+Milestone: 42 — JT Component Feature Compatibility
+
+Changes
+- Validate NX separate-body STL exports against the assembly occurrence tree before enabling component-level controls. Prevent missing, duplicate, or orphaned body IDs from silently breaking JT selection, explode, move, colors, transparency, or measurement.
+- Preserve original MS41 JT package upload/delete step-wizard UI, NX 1855 converter, existing PRT support, and all viewer controls. Valid repeated JT component occurrences keep distinct mesh IDs while same-prototype instances retain type colors.
+- An incomplete/invalid separate-body export falls back to the combined STL when complete geometry is available, with component actions unavailable rather than misleading; otherwise conversion surfaces a diagnostic error.
+- Add JT occurrence-contract Python and JS regression coverage; correct older mock fixtures to describe a valid hierarchy.
+
+Checks
+- Python 74 tests and JavaScript checks pass in local simulated environment. Live Siemens NX 1855 JT assembly import and actual WebGL behavior still require verification on Windows.
+- Port 8888, Run.bat, light theme, Windows CRLF, offline workflow, and omitted .gitignore remain unchanged.
+
+Suggested commits
+- dev: fix(jt): validate component occurrence mesh IDs for viewer controls
+- main: fix(jt): release MS42 JT feature compatibility safeguards
+
+--- Previous milestone history ---
 Milestone: 41 Revision — JT Package Upload / Deletion Step Wizards
 
 Changes

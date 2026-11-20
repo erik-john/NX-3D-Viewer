@@ -281,7 +281,7 @@ class NXServiceTests(unittest.TestCase):
                 body_name = combined.stem + '_body_00001.stl'
                 (combined.parent / body_name).write_bytes(b'broken')
                 Path(command[5]).write_text(json.dumps({
-                    'root': {'id':'root','children':[]},
+                    'root': {'id':'root','children':[{'id':'root_b1','type':'body','meshId':'root_b1','children':[]}]},
                     'geometryMode':'separate','meshes':[{'id':'root_b1','file':body_name}]
                 }))
                 Path(command[6]).write_text('completed NX export\n')
@@ -372,7 +372,7 @@ class NXServiceTests(unittest.TestCase):
                 name = combined.stem + '_body_00001.stl'
                 (combined.parent / name).write_bytes(b'body'.ljust(80, b'\0') + struct.pack('<I', 0) + facet)
                 Path(command[5]).write_text(json.dumps({
-                    'root': {'id': 'root', 'children': []},
+                    'root': {'id': 'root', 'children': [{'id':'root_b1','type':'body','meshId':'root_b1','children':[]}]},
                     'geometryMode': 'separate', 'meshes': [{'id': 'root_b1', 'file': name}]}))
                 Path(command[6]).write_text('completed NX export\n')
                 return type('Completed', (), {'returncode': 1, 'stdout': '', 'stderr': ''})()
