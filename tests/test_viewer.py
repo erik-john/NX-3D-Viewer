@@ -14,7 +14,7 @@ from backend import server as server
 
 class ViewerTests(unittest.TestCase):
     def test_locally_bundled_source_files(self):
-        for name in ['index.html', 'css/style.css', 'js/app.js', 'js/viewer.js', 'js/picking.js', 'js/geometry.js', 'js/stl.js', 'js/item_tree.js']:
+        for name in ['index.html', 'css/style.css', 'js/app.js', 'js/viewer.js', 'js/picking.js', 'js/geometry.js', 'js/stl.js', 'js/item_tree.js', 'js/component_move.js']:
             with self.subTest(name=name):
                 self.assertTrue((FRONT / name).is_file())
 

@@ -32,6 +32,7 @@ const ids = [
   'viewer-workspace', 'open-nx-button', 'import-message', 'fit-button',
   'inspector-panel', 'inspector-toggle', 'inspector-content', 'component-color-toggle',
   'tree-selection-actions','isolate-selected','isolate-selected-label','fit-selected',
+  'tree-move-actions','move-selected','reset-move-selected','reset-move-all','tree-move-readout','move-gizmo',
 ];
 const elems = Object.fromEntries(ids.map(id => [id, makeElement()]));
 elems['loading-overlay'].hidden = true;
@@ -48,6 +49,7 @@ class FakeViewer {
   setMeshVisible(id, visible) { this.lastVisible = [id, visible]; this.geometry.filter(p=>p.meshId===id).forEach(p=>p.visible=visible); }
   fitMeshIds() { return true; }
   setExplodeOffsets(offsets) { this.explodeOffsets=offsets; }
+  setManualOffsets(offsets) { this.manualOffsets=offsets; }
   setComponentColors(colors) { this.componentColors = colors; }
   setComponentColorMode(value) { this.componentColorsEnabled = value; }
 }
@@ -72,6 +74,7 @@ class FakeTree {
   clear() { this.root = null; this.nodes.clear(); this.selectedId=null; this.clears += 1; }
   show(root, options) { this.root = root; this.nodes.set(root.id,root); this.visibilityEnabled=options.visibilityEnabled; this.options = options; }
   setExplodeState() {}
+  setMoveState() {}
   setVisibilityFromMeshes() {}
 }
 const context = {
@@ -82,6 +85,8 @@ const context = {
   calculateExplodeOffsets: () => new Map(),
   selectionGroupIds: () => [],
   buildComponentColors: () => ({ available: false, colors: new Map() }),
+  MOVE_AXES: { X:[1,0,0], Y:[0,0,-1], Z:[0,1,0] },
+  MoveGizmo: class { constructor() {} setTarget() {} update() {} },
   Viewer: class extends FakeViewer { constructor(...args) { super(...args); viewer = this; } },
   parseSTL: () => [fakeMesh],
   fetch,

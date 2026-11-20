@@ -470,3 +470,34 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   .workspace-drop-zone { min-height: 145px; }
 }
 
+
+/* MS31: local X/Y/Z translation handles. The overlay does not block orbiting
+   or GPU picking outside narrow axis hit targets. */
+.tree-move-actions { padding: 8px 10px 9px; border-bottom: 1px solid #e4eaed;
+  background: #f7fafb; display: flex; flex-direction: column; gap: 6px; }
+.tree-move-actions[hidden] { display: none; }
+.tree-move-buttons { display: flex; gap: 5px; }
+.tree-move-buttons .tree-action-button { font-size: 10.5px; padding: 0 4px; }
+.tree-move-readout { font-size: 10.5px; color: #64808b; font-variant-numeric: tabular-nums;
+  line-height: 1.4; overflow-wrap: anywhere; }
+.tree-move-toggle { flex: none; width: 25px; height: 25px; margin-left: 1px;
+  padding: 2px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #c7d6e0; border-radius: 6px; background: #f7fafc;
+  color: #51758b; cursor: pointer; }
+.tree-move-toggle:hover:not(:disabled) { background: #e7f2fa; border-color: #92b7d1; }
+.tree-move-toggle.is-active { color: #086f96; background: #dbf1fb; border-color: #73b9d9; }
+.tree-move-toggle:disabled { opacity: .3; cursor: not-allowed; }
+.tree-move-toggle:focus-visible { outline: 2px solid #167d9c; outline-offset: 1px; }
+.move-gizmo { position: absolute; z-index: 5; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; overflow: visible; user-select: none; touch-action: none; }
+.move-gizmo[hidden] { display: none; }
+.move-gizmo .move-axis-line { fill: none; stroke-width: 3.3; stroke-linecap: round;
+  pointer-events: none; }
+.move-gizmo .move-axis-head { stroke: #fff; stroke-width: 1; pointer-events: none; }
+.move-gizmo .move-axis-label { font-size: 12px; font-weight: 800; paint-order: stroke;
+  stroke: white; stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.move-gizmo .move-axis-hit { stroke: transparent; stroke-width: 22px; stroke-linecap: round;
+  pointer-events: stroke; cursor: grab; touch-action: none; }
+.move-gizmo .move-axis-hit:active { cursor: grabbing; }
+.move-gizmo .move-axis-hit:focus-visible { stroke: #066b9c55; outline: none; }
+.move-gizmo .move-axis-origin { fill: #fff; stroke: #41636d; stroke-width: 2; pointer-events: none; }

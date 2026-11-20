@@ -63,7 +63,7 @@ window.fetch = async (url, options={}) => {
 workspace = re.sub(r'\bexport\s+class\s+FileWorkspace', 'class FileWorkspace', read('js/workspace.js'))
 workspace = '(function(){\n' + workspace + '\nwindow.FileWorkspace = FileWorkspace;\n})();'
 parts = []
-for name in ('geometry.js','stl.js','viewer.js','item_tree.js','inspector.js','app.js'):
+for name in ('geometry.js','stl.js','viewer.js','item_tree.js','inspector.js','component_move.js','app.js'):
     piece = read('js/'+name)
     piece = re.sub(r'^import .*?;\s*$', '', piece, flags=re.MULTILINE)
     piece = re.sub(r'\bexport\s+(?=(?:function|class|const|let)\s)', '', piece)

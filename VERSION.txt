@@ -1,3 +1,24 @@
+Milestone: 31 — Manual NX Component Movement (X/Y/Z)
+
+Changes
+- Add a Move toggle beside each component in Item Structure, plus Move Selected, Reset Selected, and Reset All commands above the tree.
+- Show interactive NX X/Y/Z (red/green/blue) axis arrows at the currently selected visible component; drag an arrow to translate the component in model units. Focus an arrow and use arrow keys to nudge it (Shift for larger steps).
+- Display the selected component's translation in NX model coordinates, correctly transforming between NX (X,Y,Z) and viewer (X,Z,-Y).
+- Store per-occurrence manual translations separately from Explode displacements. Both compose in rendering, crease lines, depth picking and camera Fit. Reset manual positions preserves Explode settings; resetting Explode preserves manual positions.
+- Keep component colors, hover/selection, Item Structure, Isolate/Restore, Fit, visibility and mouse orbit/pan unaffected. Handle dragging does not orbit the camera.
+- Hide a handle when its axis points too closely toward the camera; rotating the view restores a usable drag axis.
+- Combined-STL fallback and standalone parts do not expose unsupported manual moves. Starting another part clears prior manual transforms.
+- No NX exporter, backend, source .prt, upload, or network changes. Port 8888 and Windows CRLF policy remain unchanged.
+
+Checks
+- 58 Python tests, 18 JavaScript checks, including projection, axis calibration and composed mesh offsets.
+- Chromium integration with simulated NX geometry and GPU: actual SVG pointer dragging, NX-axis keyboard nudge, independent component movement, reset, Explode interactions, selection, combined-STL fallback and prior regression scenarios.
+- Actual licensed NX 1855 assembly behavior must be verified on Windows before promoting to main.
+
+Suggested commits
+- dev: feat(assembly): add interactive per-component axis movement
+- main: feat(assembly): release manual NX component movement
+
 Milestone: 30 — Component Color Mode
 
 Changes

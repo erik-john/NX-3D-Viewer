@@ -16,6 +16,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Click **Color components by type** in the View icon area to switch between the original steel appearance and distinct component colors. Repeated occurrences of the same NX prototype (such as identical bearings or same-size bolts) share a color.
 - Expand/collapse components, select items, and show/hide individual bodies when separate body geometry is available.
 - Isolate a selected component with one click, restore its previous visibility, and fit the camera to only the selected geometry.
+- Move a selected assembly component along NX X/Y/Z with draggable 3D axis arrows; reset the selected component or all manual movements without disturbing Explode positions.
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
 
 ## Requirements
@@ -90,6 +91,8 @@ The light header displays the NX 3D Viewer branding and **OPEN NX FILES** comman
 | Fit | **Fit icon** in workspace, **F**, or double-click |
 | Camera views | **Isometric / Front / Top / Right icons** in workspace, or keys **1–4** |
 | Component colors | **Multicolor cube icon** below Fit; click again to return to steel |
+| Move component | Select a component, choose **Move** in Item Structure (or the arrow icon on its row), then drag the red X, green Y, or blue Z arrow |
+| Reset manual movements | **Reset Selected** or **Reset All** in Item Structure; leaves Explode state unchanged |
 
 Use the **Fit icon** (or **F**) after rotating or zooming to show the entire model again. The WebGL display is Y-up: NX (X, Y, Z) is mapped to viewport (X, Z, −Y). Axis labels, the rotating axis compass, and the Part Inspector dimensions retain NX X/Y/Z meaning.
 
@@ -101,8 +104,20 @@ Use the **Fit icon** (or **F**) after rotating or zooming to show the entire mod
 - Use the checkboxes to show or hide whole components or individual bodies when separate NX body geometry is available.
 - Click the single position toggle beside a component's visibility checkbox to **Explode** it; click the same highlighted toggle to **Reset** it. On the assembly row, the toggle explodes or resets **all** components. Hover over the icon to see the current action.
 - Select a component or body, then use **Isolate** above the tree to show just that item, or **Fit Selected** to center and zoom to its visible geometry. Click **Restore** to return to the visibility state that existed before isolation. The Restore action remains available if the selection is cleared.
+- Choose the **four-arrow Move icon** beside a component row, or select a component and click **Move** above the tree. A colored X/Y/Z handle appears at the selected component. Drag one axis to translate that occurrence. Click the active Move icon again to leave movement mode.
+- Use **Reset Selected** to undo manual movement of the selected component, or **Reset All** to undo all manual movements. These actions do not reset existing Explode toggles.
 
 The panel shows the hierarchy reported by NX Open. If NX can only export a combined STL, the model still displays, but individual visibility controls are disabled rather than presenting an inaccurate result.
+
+## Moving assembly components
+
+Use the 3D movement arrows only after selecting a **component** in Item Structure or in the viewport. The gizmo uses the NX coordinate directions: **X (red)**, **Y (green)** and **Z (blue)**. Drag one arrow to move that component along the corresponding NX axis. Move mode does not change the usual left-drag rotation or right-drag pan anywhere outside the arrows. For precise small adjustments, focus an arrow with the keyboard and use the arrow keys; hold **Shift** for larger steps.
+
+The panel reports movement as **ΔX, ΔY and ΔZ in the model's own units**. To see an axis that points almost directly toward the camera, rotate the model or switch to a different view. Use **Fit Selected** to bring the current component into view if it is far away.
+
+Manual movement is independent of **Explode**. For example, Explode a part, then move it along an axis; **Reset Selected** removes only your manual adjustment, leaving the part exploded until you reset its Explode toggle. Moving repeated occurrences of an identical component affects only the chosen occurrence, not all copies of that NX prototype.
+
+These adjustments are temporary display transforms and are cleared when another NX file is loaded. They do not save to or modify the original `.prt`. Manual movement requires distinct component meshes; it is unavailable when NX provides a combined STL or a standalone non-assembly part.
 
 ## Component color mode
 

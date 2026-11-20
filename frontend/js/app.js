@@ -5,6 +5,7 @@ import { PartInspector } from './inspector.js';
 import { FileWorkspace } from './workspace.js';
 import { createExplodePlan, calculateExplodeOffsets, selectionGroupIds } from './assembly_explode.js';
 import { buildComponentColors } from './component_colors.js';
+import { MoveGizmo, MOVE_AXES } from './component_move.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
@@ -24,6 +25,9 @@ function setup() {
   let explodeBounds = null;
   let explodeLevel = 0;
   const selectedOverrides = new Map();
+  const manualGroupOffsets = new Map();
+  let moveMode = false;
+  let moveGizmo = null;
   let isolated = null; // { nodeId, previous: Map(meshId -> prior visible) }
   let componentColorEnabled = false;
   let componentColors = { available: false, colors: new Map() };
@@ -55,6 +59,7 @@ function setup() {
   function applyVisibility(map) {
     for (const [id, visible] of map) viewer.setMeshVisible(id, visible);
     tree.setVisibilityFromMeshes(map);
+    updateMoveActions();
   }
   function updateSelectionActions() {
     $('tree-selection-actions').hidden = !tree.root;
@@ -71,6 +76,88 @@ function setup() {
     $('isolate-selected').title = shouldRestore ? 'Restore previous component visibility' :
       'Show only the selected component';
     $('fit-selected').disabled = !hasMesh(ids, true);
+    updateMoveActions();
+  }
+
+  // Manual moves are per assembly occurrence, independent of explode offsets.
+  // STL vertices, prototype files, and original NX component transforms stay intact.
+  function movableGroupIds(node) {
+    if (!tree.visibilityEnabled || !node || node.type !== 'component' || !canExplode()) return [];
+    return selectionGroupIds(explodeGroups, node, target => tree.descendants(target));
+  }
+  function moved(offset) {
+    return !!offset && offset.some(value => Math.abs(value) > 1e-8);
+  }
+  function updateMoveActions() {
+    const node = selectedNode();
+    const groupIds = movableGroupIds(node);
+    const visible = !!node && hasMesh(meshIdsFor(node), true);
+    const eligible = groupIds.length > 0 && visible;
+    if (!eligible) moveMode = false;
+    const active = moveMode && eligible;
+    $('tree-move-actions').hidden = !canExplode();
+    $('move-selected').disabled = !eligible;
+    $('move-selected').classList.toggle('is-active', active);
+    $('move-selected').setAttribute('aria-pressed', String(active));
+    $('move-selected').title = active ? 'Finish moving selected component' :
+      'Move selected component with the NX X/Y/Z axis handles';
+    $('reset-move-selected').disabled = !groupIds.some(id => moved(manualGroupOffsets.get(id)));
+    $('reset-move-all').disabled = ![...manualGroupOffsets.values()].some(moved);
+    tree.setMoveState(active ? node.id : null, explodeGroups);
+    moveGizmo?.setTarget(node ? meshIdsFor(node) : [], active);
+    const offsets = groupIds.map(id => manualGroupOffsets.get(id) || [0,0,0]);
+    if (offsets.length === 1) {
+      // Viewer basis X,Z,-Y -> original NX basis X,Y,Z.
+      const [x, y, z] = offsets[0];
+      const format = number => `${number >= 0 ? '+' : ''}${number.toFixed(2)}`;
+      $('tree-move-readout').textContent = `NX ΔX ${format(x)} · ΔY ${format(-z)} · ΔZ ${format(y)} (model units)`;
+    } else {
+      $('tree-move-readout').textContent = active ?
+        'Drag an X/Y/Z arrow (arrow keys nudge a focused handle).' :
+        'Select a component, then choose Move or its row icon.';
+    }
+  }
+  function applyManualMovement() {
+    const offsets = new Map();
+    for (const group of explodeGroups) {
+      const manual = manualGroupOffsets.get(group.id) || [0, 0, 0];
+      for (const meshId of group.meshIds) offsets.set(meshId, manual.slice());
+    }
+    viewer.setManualOffsets(offsets);
+    updateMoveActions();
+  }
+  function beginMoveSnapshot() {
+    const node = selectedNode();
+    if (!moveMode || !hasMesh(meshIdsFor(node),true)) return null;
+    const ids = movableGroupIds(node);
+    if (!ids.length) return null;
+    return new Map(ids.map(id => [id, (manualGroupOffsets.get(id) || [0,0,0]).slice()]));
+  }
+  function translateSelected(snapshot, axis, distance) {
+    const vector = MOVE_AXES[axis];
+    if (!vector || !Number.isFinite(distance)) return;
+    for (const [id, starting] of snapshot) {
+      const result = starting.map((value,i)=>value + distance*vector[i]);
+      if (moved(result)) manualGroupOffsets.set(id,result);
+      else manualGroupOffsets.delete(id);
+    }
+    applyManualMovement();
+  }
+  function resetSelectedMovement() {
+    for (const id of movableGroupIds(selectedNode())) manualGroupOffsets.delete(id);
+    applyManualMovement();
+    $('status-message').textContent = 'Selected component manual movement reset';
+  }
+  function resetAllMovement() {
+    manualGroupOffsets.clear();
+    applyManualMovement();
+    $('status-message').textContent = 'All manual movements reset · Explode state preserved';
+  }
+  function toggleMoveSelected() {
+    if (!movableGroupIds(selectedNode()).length) return;
+    moveMode = !moveMode;
+    updateMoveActions();
+    $('status-message').textContent = moveMode ? 'Move mode · Drag X, Y or Z arrows' : 'Move mode off';
   }
   function isolateOrRestore() {
     const node = selectedNode();
@@ -101,13 +188,18 @@ function setup() {
     viewer.setExplodeOffsets(calculateExplodeOffsets(explodeGroups, explodeBounds, explodeLevel, selectedOverrides));
     viewer.fit();
     updateExplodeControls();
+    updateMoveActions();
   }
   function initializeExplosion(info, meshes, perBody) {
     explodeGroups = perBody ? createExplodePlan(info.tree, meshes) : [];
     explodeBounds = viewer.bounds;
     explodeLevel = 0;
     selectedOverrides.clear();
+    manualGroupOffsets.clear();
+    moveMode = false;
+    viewer.setManualOffsets(new Map());
     updateExplodeControls();
+    updateMoveActions();
   }
   const inspector = new PartInspector({
     panel: $('inspector-panel'), toggle: $('inspector-toggle'), content: $('inspector-content'),
@@ -124,6 +216,12 @@ function setup() {
     },
     onToggleExplode: (node, exploded) => changeNodeExplosion(node, exploded ? 75 : 0),
     onToggleAll: exploded => exploded ? explodeAll() : collapseAll(),
+    onToggleMove: (node, active) => {
+      tree.selectNode(node);
+      moveMode = active;
+      updateMoveActions();
+      $('status-message').textContent = active ? `Move component: ${node.name}` : 'Move mode off';
+    },
     onSelect: node => {
       inspector.select(node);
       viewer.setSelectedMeshIds(node ? tree.descendants(node) : []);
@@ -131,6 +229,15 @@ function setup() {
       updateSelectionActions();
     },
   });
+  moveGizmo = new MoveGizmo($('move-gizmo'), viewer, {
+    onStart: beginMoveSnapshot,
+    onDrag: translateSelected,
+    onEnd: () => {
+      const node = selectedNode();
+      if (node) $('status-message').textContent = `Moved: ${node.name}`;
+    },
+  });
+  viewer.onFrame = () => moveGizmo.update();
   viewer.onHoverMesh = meshId => {
     const node = meshId ? tree.nodeForMesh(meshId) : null;
     viewer.setHoveredMeshIds(node ? tree.descendants(node) : []);
@@ -161,6 +268,8 @@ function setup() {
     explodeBounds = null;
     explodeLevel = 0;
     selectedOverrides.clear();
+    manualGroupOffsets.clear();
+    moveMode = false;
     tree.clear();
     updateExplodeControls();
     inspector.clear();
@@ -295,6 +404,9 @@ function setup() {
     componentColorEnabled = !componentColorEnabled;
     updateComponentColorMode();
   });
+  $('move-selected').addEventListener('click', toggleMoveSelected);
+  $('reset-move-selected').addEventListener('click', resetSelectedMovement);
+  $('reset-move-all').addEventListener('click', resetAllMovement);
   $('isolate-selected').addEventListener('click', isolateOrRestore);
   $('fit-selected').addEventListener('click', () => {
     const node = selectedNode();

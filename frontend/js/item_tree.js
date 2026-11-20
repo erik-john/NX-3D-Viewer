@@ -1,7 +1,7 @@
 /** NX item hierarchy and geometry visibility controls. */
 export class ItemTree {
   constructor({ panel, toggle, resizer, container, summary, note, onVisibility, onSelect,
-    onToggleExplode = () => {}, onToggleAll = () => {} }) {
+    onToggleExplode = () => {}, onToggleAll = () => {}, onToggleMove = () => {} }) {
     this.panel = panel;
     this.toggle = toggle;
     this.resizer = resizer;
@@ -12,6 +12,8 @@ export class ItemTree {
     this.onSelect = onSelect;
     this.onToggleExplode = onToggleExplode;
     this.onToggleAll = onToggleAll;
+    this.onToggleMove = onToggleMove;
+    this.moveActions = new Map();
     this.explodeActions = new Map();
     this.root = null;
     this.checkboxes = new Map();
@@ -66,6 +68,7 @@ export class ItemTree {
     this.assemblyHasComponents = false;
     this.checkboxes.clear();
     this.explodeActions.clear();
+    this.moveActions.clear();
     this.rows.clear();
     this.nodes.clear();
     this.parents.clear();
@@ -205,6 +208,40 @@ export class ItemTree {
     }
   }
 
+  // Move controls are per occurrence, not per body or prototype. The active
+  // component is represented by one highlighted icon in Item Structure.
+  setMoveState(activeNodeId, groups = []) {
+    const available = groups.length >= 2;
+    for (const [nodeId, button] of this.moveActions) {
+      const node = this.nodes.get(nodeId);
+      const ids = new Set(this.descendants(node));
+      const supported = available && groups.some(group => group.meshIds.some(id => ids.has(id)));
+      const active = supported && activeNodeId === nodeId;
+      button.disabled = !supported;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-label', `${active ? 'Stop moving' : 'Move'} component ${node.name}`);
+      button.title = !supported ? 'Separate assembly geometry required' :
+        active ? 'Finish moving this component' : `Move component ${node.name} along NX X/Y/Z`;
+    }
+  }
+
+  createMoveToggle(node) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tree-move-toggle';
+    button.disabled = true;
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-label', `Move component ${node.name}`);
+    button.title = 'Separate assembly geometry required';
+    button.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3"/></svg>';
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      if (!button.disabled) this.onToggleMove(node, button.getAttribute('aria-pressed') !== 'true');
+    });
+    return button;
+  }
+
   createExplodeToggle(callback) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -313,6 +350,11 @@ export class ItemTree {
       positionToggle.title = 'Separate component geometry required';
       this.explodeActions.set(node.id, positionToggle);
       row.append(positionToggle);
+    }
+    if (node.type === 'component') {
+      const moveToggle = this.createMoveToggle(node);
+      this.moveActions.set(node.id, moveToggle);
+      row.append(moveToggle);
     }
     li.append(row);
     if (children.length) {

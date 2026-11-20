@@ -303,6 +303,8 @@ export class Viewer {
     };
     this.geometry = [];
     this.explodeOffsets = new Map();
+    this.manualOffsets = new Map();
+    this.onFrame = null;
     this.gridBuffers = null;
     this.axisLabels = ['x', 'y', 'z'].map(axis =>
       document.getElementById(`axis-label-${axis}`));
@@ -336,6 +338,7 @@ export class Viewer {
     this.hoveredMeshIds.clear();
     this.selectedMeshIds.clear();
     this.explodeOffsets.clear();
+    this.manualOffsets.clear();
     this.geometry = meshes.map((item, index) => {
       if (item.positions.length / 3 > 65535) throw new Error('Mesh exceeds the current index limit');
       const edges = getEdges(item.indices);
@@ -378,10 +381,25 @@ export class Viewer {
     this.requestRender();
   }
 
+  // Keep manual translation independent of explosion: resetting either one never
+  // changes the other, and all render/pick/fit paths use the same final offset.
+  updateMeshOffsets() {
+    for (const part of this.geometry) {
+      const exploded = this.explodeOffsets?.get(part.meshId) || [0, 0, 0];
+      const moved = this.manualOffsets?.get(part.meshId) || [0, 0, 0];
+      part.offset = exploded.map((value, index) => value + moved[index]);
+    }
+    this.requestRender();
+  }
+
   setExplodeOffsets(offsets) {
     this.explodeOffsets = new Map(offsets || []);
-    for (const part of this.geometry) part.offset = this.explodeOffsets.get(part.meshId)?.slice() || [0, 0, 0];
-    this.requestRender();
+    this.updateMeshOffsets();
+  }
+
+  setManualOffsets(offsets) {
+    this.manualOffsets = new Map(offsets || []);
+    this.updateMeshOffsets();
   }
 
   getVisibleBounds() {
@@ -744,6 +762,7 @@ export class Viewer {
     }
     this.renderAxisLabels(matrix, bounds);
     this.renderCompass();
+    this.onFrame?.();
   }
 
   renderAxisLabels(matrix, bounds) {
