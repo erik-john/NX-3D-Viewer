@@ -14,7 +14,7 @@ html = html.replace('<link rel="stylesheet" href="/css/style.css">',
 logo = base64.b64encode((front/'assets/nx-cube-logo.png').read_bytes()).decode('ascii')
 html = html.replace('/assets/nx-cube-logo.png', 'data:image/png;base64,'+logo)
 modules = []
-for name in ['geometry.js','picking.js','viewer.js','item_tree.js','inspector.js',
+for name in ['geometry.js','picking.js','plane_measure.js','measurement_ui.js','viewer.js','item_tree.js','inspector.js',
              'assembly_explode.js','component_colors.js','component_move.js']:
     code = (front/'js'/name).read_text(encoding='utf-8')
     code = re.sub(r'^import .*?;\s*$', '', code, flags=re.M)

@@ -143,7 +143,7 @@ fakeCanvas.events.pointerleave();
 assert.equal(hovers.at(-1),null,'leave clears hover');
 
 const app = readFileSync(resolve(root,'frontend/js/app.js'),'utf8');
-assert.match(app, /viewer\.onSelectMesh = meshId/);
+assert.match(app, /viewer\.onSelectMesh = \(meshId, x, y\)/);
 assert.match(app, /tree\.selectMesh\(meshId\)/);
 assert.match(app, /viewer\.setSelectedMeshIds\(node \? tree\.descendants\(node\)/);
 console.log('MS25 mesh picking IDs, cropped projection, tree sync, and selection safeguards passed.');

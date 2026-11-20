@@ -13,7 +13,7 @@ function makeElement() {
   const listeners = new Map();
   const classes = new Set();
   return {
-    hidden: false, disabled: false, textContent: '', className: '',
+    hidden: false, disabled: false, textContent: '', className: '', style: {},
     dataset: {}, tagName: 'DIV',
     addEventListener: (name, fn) => listeners.set(name, fn),
     trigger: (name) => { assert.ok(listeners.has(name), `missing ${name}`); return listeners.get(name)(); },
@@ -35,6 +35,8 @@ const ids = [
   'tree-move-actions','move-selected','reset-move-selected','reset-move-all','tree-move-readout','move-gizmo',
   'tree-opacity-actions',
   'reset-transparency-all','component-opacity-slider','component-opacity-value',
+  'measurement-panel','measurement-summary','measurement-detail','measurement-clear','measurement-fit','measurement-overlay',
+  'measurement-line','measurement-point-a','measurement-point-b','measurement-arc','measure-planes-toggle',
 ];
 const elems = Object.fromEntries(ids.map(id => [id, makeElement()]));
 elems['loading-overlay'].hidden = true;
@@ -43,7 +45,9 @@ const viewButtons = ['iso', 'front', 'top', 'right'].map(v => {
   const el = makeElement(); el.dataset.view = v; return el;
 });
 class FakeViewer {
-  constructor() { this.meshes = []; this.geometry = []; this.showGrid = true; this.showAxes = true; this.wireframe = false; }
+  constructor() { this.canvas=elems['viewer-canvas']; this.meshes = []; this.geometry = []; this.showGrid = true; this.showAxes = true; this.wireframe = false; }
+  setMeasureFaces() {}
+  setHoveredMeshIds() {}
   setScene(meshes) { this.meshes = meshes; this.geometry = meshes.map(mesh=>({...mesh, meshId:mesh.meshId || 'root',visible:true})); this.bounds={min:[0,0,0],max:[0,0,0],size:[0,0,0],center:[0,0,0]}; }
   setView(view) { this.view = view; }
   fit() {}
@@ -90,6 +94,7 @@ const context = {
   buildComponentColors: () => ({ available: false, colors: new Map() }),
   MOVE_AXES: { X:[1,0,0], Y:[0,0,-1], Z:[0,1,0] },
   MoveGizmo: class { constructor() {} setTarget() {} update() {} },
+  MeasurementUI: class { constructor() { this.faces=[]; } setModelUnits() {} setActive() {} update() {} select() {} },
   Viewer: class extends FakeViewer { constructor(...args) { super(...args); viewer = this; } },
   parseSTL: () => [fakeMesh],
   fetch,

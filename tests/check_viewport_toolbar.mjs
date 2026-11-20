@@ -19,7 +19,7 @@ for(const view of ['iso','front','top','right']) {
 }
 assert.ok(viewport.includes('id="fit-button"'));
 assert.match(viewport, /class="viewport-view-tools" role="group" aria-label="View and appearance controls"/);
-assert.equal((viewport.match(/class=\"viewport-view-button/g)||[]).length,6);
+assert.equal((viewport.match(/class=\"viewport-view-button/g)||[]).length,7);
 assert.ok(viewport.includes('id="component-color-toggle"'));
 assert.ok(viewport.includes('aria-label="Color components by type"'));
 assert.ok(!viewport.includes('viewport-mouse-'));

@@ -18,7 +18,21 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Isolate a selected component with one click, restore its previous visibility, and fit the camera to only the selected geometry.
 - Move a selected assembly component along NX X/Y/Z with draggable 3D axis arrows; reset the selected component or all manual movements without disturbing Explode positions.
 - Adjust transparency directly from 0% (original solid) to 100% (maximum glass-like transparency) for the selected assembly component; use the adjacent Solid All icon to reset every component without changing NX geometry.
+- Use the Measure icon in the View toolbar: one recognized circular face or cylinder displays **diameter**; two round features with parallel center axes display **center distance**; two planar faces display **both face angle and distance** (parallel plane separation or closest finite-face clearance).
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
+
+## Surface measurement
+
+Click **Measure** in the right-side View toolbar, then choose surfaces in the 3D viewport:
+
+- **One circular planar face or cylindrical wall:** show its fitted **diameter**, with an on-screen circular guide. A single ordinary planar face waits for a second selection.
+- **Two circular faces with parallel axes:** show the **3D distance between their circle centers**.
+- **Two cylindrical surfaces (or a circle and cylinder) with parallel axes:** show the **shortest perpendicular centerline spacing**, independent of the clicked position along the cylinder.
+- **Two parallel planar faces:** show their supporting-plane separation, with the **∥** symbol and oriented normal angle **0° or 180°**.
+- **Two perpendicular planar faces:** show **⊥ 90.00°** plus the nearest selected-face clearance. Other nonparallel planar faces show the acute plane angle with **∠** and the nearest selected-face clearance.
+- **Nonparallel round-feature axes or incompatible surface pairs:** show an unsupported selection message rather than an incorrect measurement.
+
+Clicking the same surface again keeps one selection. A new click after two selections starts a new pair; **Clear** starts over. **Fit** frames the selected measurable patches and their guide points while keeping the current camera angle. Measurements are STL approximations, not exact NX CAD B-rep calculations. Regular, complete circles/cylinders are required for a reliable diameter or center-axis estimate. Results follow component Move and Explode offsets; hidden selected surfaces pause measurement.
 
 ## Requirements
 
@@ -173,9 +187,19 @@ Selecting a part, component, or body either in the left **Item Structure** panel
 
 All dimensions and mesh statistics describe the tessellated visualization; they are not precise CAD feature or mass-property measurements. Attributes and units not reported by NX are not invented.
 
+## Distance, center spacing & angle measurement
+
+The **Measure** icon selects one or two mesh-based surfaces and draws a measurement guide in the 3D viewport. For parallel flat surfaces (normals near 0° or 180°, allowing 0.5° mesh tolerance), the readout includes the **∥** parallel symbol, the oriented normal angle, and the separation between the *infinite supporting planes* (not necessarily the shortest distance between finite patches). For two perpendicular planes, the readout includes **⊥ 90°**; for other nonparallel planes, it includes **∠** and the acute unoriented angle. Both also report the **nearest finite-face clearance** calculated from the selected triangulated patches, not the meaningless separation of intersecting infinite planes. For dense faces the nearest-clearance search is localized around the selected triangles; treat it as an estimate.
+
+For circular faces with parallel axes, the readout reports 3D circle-center distance. For cylinders, which have no unique center point along their length, the readout reports perpendicular shortest distance between parallel axes (bolt/bearing centerline spacing). When selecting two incompatible surfaces or nonparallel center axes, no false numeric result is displayed.
+
+Units appear as `mm` or `in` when reported by NX, otherwise **model units**. **Clear** starts a new measurement; **Fit** centers and zooms to selected measurement faces and guide endpoints without resetting camera orientation; clicking **Measure** again exits measurement mode. Rotate, pan, zoom, Move, and Explode continue to work without altering NX `.prt` files.
+
+**Accuracy limits:** Surfaces are inferred from STL triangles, not exact analytic NX CAD faces. A true gear pitch-point or pitch-circle clearance cannot be recovered reliably from an STL mesh alone; the angle and nearest finite-face gap are not exact gear pitch measurements. Faceted cylinders, incomplete arcs, unusual geometry, and near-parallel tolerance can affect results. Do not use these estimates as certified manufacturing measurements; exact CAD geometry and production metrology require later NX Open/B-rep work.
+
 ## Supported scope
 
-The NX-to-browser workflow displays **tessellated surfaces**, not editable CAD solids or exact NX B-rep geometry. Both standalone parts and assembly occurrences are considered by the exporter, but a model that contains missing or unloaded component geometry will report an error rather than silently show incorrectly positioned components. The item hierarchy comes from NX Open; it is not inferred from a combined STL. Per-body visibility requires separate body exports. When a file uses combined STL fallback, individual components cannot be picked reliably; clicking the model selects the whole part instead. Selection identifies the exported mesh body/component, not analytic NX faces or edges.
+The NX-to-browser workflow displays **tessellated surfaces**, not editable CAD solids or exact NX B-rep geometry. Both standalone parts and assembly occurrences are considered by the exporter, but a model that contains missing or unloaded component geometry will report an error rather than silently show incorrectly positioned components. The item hierarchy comes from NX Open; it is not inferred from a combined STL. Per-body visibility requires separate body exports. When a file uses combined STL fallback, individual components cannot be picked reliably; clicking the model selects the whole part instead. Normal selection identifies an exported mesh body/component. Measurement mode estimates planar regions from STL triangles rather than identifying exact analytic NX faces or edges.
 
 The browser currently accepts up to **1,000,000 STL triangles** or **256 MB** of STL data. The **OPEN NX FILES** command currently accepts `.prt` files only. Siemens NX `.jt` and `.chr` files are not supported.
 

@@ -1,5 +1,6 @@
 import { boundsFor } from './geometry.js';
 import { encodePickId, decodePickColor, pickMatrix } from './picking.js';
+import { rayForViewport, hitMeshGroup, measurementSurface } from './plane_measure.js';
 
 const PI = Math.PI;
 const TAU = 2 * PI;
@@ -323,6 +324,8 @@ export class Viewer {
       opacity: gl.getUniformLocation(this.lines, 'uOpacity'),
     };
     this.geometry = [];
+    this.measureFaces = [];
+    this.measureBuffers = [];
     this.explodeOffsets = new Map();
     this.manualOffsets = new Map();
     this.onFrame = null;
@@ -357,6 +360,7 @@ export class Viewer {
       if (item.creaseColor) gl.deleteBuffer(item.creaseColor);
       if (item.glassCreaseColor) gl.deleteBuffer(item.glassCreaseColor);
     }
+    this.setMeasureFaces([]);
     this.hoveredMeshIds.clear();
     this.selectedMeshIds.clear();
     this.explodeOffsets.clear();
@@ -384,6 +388,9 @@ export class Viewer {
         pickId: index + 1,
         pickColor: encodePickId(index + 1),
         visible: true,
+        sourcePositions: item.positions,
+        sourceIndices: item.indices,
+        measureIndex: null,
       };
     });
     this.bounds = boundsFor(meshes);
@@ -579,6 +586,59 @@ export class Viewer {
     return id && this.geometry[id - 1]?.visible ? this.geometry[id - 1].meshId : null;
   }
 
+  // Find a planar disk, cylindrical wall, or ordinary planar patch in STL.
+  pickSurface(clientX, clientY, meshId = null) {
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height || clientX < rect.left || clientY < rect.top ||
+        clientX >= rect.right || clientY >= rect.bottom) return null;
+    const id = meshId || this.pickMesh(clientX, clientY);
+    if (!id) return null;
+    const {eye} = this.cameraMatrix(rect.width, rect.height);
+    const ray = rayForViewport(eye, this.target,
+      clientX - rect.left, clientY - rect.top, rect.width, rect.height);
+    if (!ray) return null;
+    return measurementSurface(hitMeshGroup(this.geometry, id, ray));
+  }
+
+  // Semi-transparent selected surface overlays, not permanent recoloring of solids.
+  // Dispose old GL buffers when selection changes or a new NX file is opened.
+  setMeasureFaces(faces) {
+    const gl = this.gl;
+    for (const item of this.measureBuffers || []) {
+      gl.deleteBuffer(item.fillPosition); gl.deleteBuffer(item.fillColor);
+      gl.deleteBuffer(item.edgePosition); gl.deleteBuffer(item.edgeColor);
+    }
+    this.measureFaces = [...(faces || [])];
+    this.measureBuffers = this.measureFaces.map((face, index) => {
+      const palette = index ? [0.58, 0.27, 0.89] : [0.08, 0.51, 0.94];
+      const fill = new Float32Array(face.positions.length / 3 * 4);
+      for(let i=0;i<fill.length;i+=4) fill.set([...palette,0.20],i);
+      // Weld shared edges and draw only the patch boundary; no triangle wireframe.
+      const weld=Math.max(Math.max(...face.part.bounds.size)*1e-7,1e-8);
+      const borders = new Map(), data = face.positions;
+      const key=p=>p.map(v=>Math.round(v/weld)).join(',');
+      for(let t=0;t<data.length;t+=9) {
+        const points=Array.from({length:3},(_,j)=>Array.from(data.subarray(t+j*3,t+j*3+3)));
+        for(let edge=0;edge<3;edge++) {
+          const a=points[edge],b=points[(edge+1)%3],ka=key(a),kb=key(b);
+          const k=ka<kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+          if(!borders.has(k)) borders.set(k,{a,b,count:0});
+          borders.get(k).count++;
+        }
+      }
+      const edgeVertices=[];
+      for(const border of borders.values()) if(border.count===1) edgeVertices.push(...border.a,...border.b);
+      const edges=new Float32Array(edgeVertices);
+      const edgeColors=new Float32Array(edges.length/3*4);
+      for(let i=0;i<edgeColors.length;i+=4) edgeColors.set([...palette,0.94],i);
+      return {part:face.part,fillPosition:createBuffer(gl,face.positions),
+        fillColor:createBuffer(gl,fill),fillCount:face.positions.length/3,
+        edgePosition:createBuffer(gl,edges),edgeColor:createBuffer(gl,edgeColors),
+        edgeCount:edges.length/3};
+    });
+    this.requestRender();
+  }
+
   updateGrid() {
     const gl = this.gl;
     if (this.gridBuffers) {
@@ -659,6 +719,55 @@ export class Viewer {
     this.requestRender();
   }
 
+
+  // Focus on the measured finite patches, not the entire assembly. Retain the
+  // current camera orientation and include their current Move/Explode offsets.
+  fitMeasureFaces(faces, guidePoints=[]) {
+    const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+    let count=0;
+    for(const face of faces || []) {
+      if(!face?.part?.visible)continue;
+      const positions=face.positions;
+      const offset=face.part.offset || [0,0,0];
+      if(positions?.length) {
+        for(let i=0;i+2<positions.length;i+=3) {
+          for(let k=0;k<3;k++) {
+            const value=positions[i+k]+offset[k];
+            min[k]=Math.min(min[k],value);max[k]=Math.max(max[k],value);
+          }
+          count++;
+        }
+      } else {
+        const point=face.localCenter || face.localPoint || face.point;
+        if(!point)continue;
+        const center=(face.localCenter || face.localPoint) ? point.map((v,i)=>v+offset[i]) : point;
+        const radius=face.radius || 0;
+        for(let k=0;k<3;k++) {
+          min[k]=Math.min(min[k],center[k]-radius);
+          max[k]=Math.max(max[k],center[k]+radius);
+        }
+        count++;
+      }
+    }
+    // An infinite supporting-plane guide may extend outside the bounded
+    // selected patch. Keep the measurement endpoints visible too.
+    for(const point of guidePoints) {
+      if(!point || point.some(v=>!Number.isFinite(v)))continue;
+      for(let k=0;k<3;k++) {
+        min[k]=Math.min(min[k],point[k]);max[k]=Math.max(max[k],point[k]);
+      }
+      count++;
+    }
+    if(!count)return false;
+    const center=min.map((v,i)=>(v+max[i])/2);
+    const size=min.map((v,i)=>Math.max(1e-6,max[i]-v));
+    const padding=Math.max(...size)*0.16;
+    const paddedMin=min.map(v=>v-padding),paddedMax=max.map(v=>v+padding);
+    this.fit({min:paddedMin,max:paddedMax,center,
+      size:paddedMin.map((v,i)=>paddedMax[i]-v)});
+    return true;
+  }
+
   attachControls() {
     const canvas = this.canvas;
     let drag = null;
@@ -684,7 +793,7 @@ export class Viewer {
               this.lastHoverPickAt = Date.now();
               const id = this.pickMesh(...pendingHover);
               this.onHoverMesh?.(id);
-              this.canvas.style.cursor = id ? 'pointer' : 'grab';
+              this.canvas.style.cursor = this.measureActive ? 'crosshair' : id ? 'pointer' : 'grab';
             }
           });
           // Picking redraws mesh vertices. Cap hover samples to ~12 Hz;
@@ -714,14 +823,14 @@ export class Viewer {
     canvas.addEventListener('pointerup', event => {
       const click = drag && event.button === 0 && !drag.pan && !drag.moved;
       drag = null;
-      if (click) this.onSelectMesh?.(this.pickMesh(event.clientX, event.clientY));
+      if (click) this.onSelectMesh?.(this.pickMesh(event.clientX, event.clientY), event.clientX, event.clientY);
     });
     for (const type of ['pointercancel', 'lostpointercapture']) {
       canvas.addEventListener(type, () => { drag = null; });
     }
     canvas.addEventListener('pointerleave', () => {
       pendingHover = null;
-      this.canvas.style.cursor = 'grab';
+      this.canvas.style.cursor = this.measureActive ? 'crosshair' : 'grab';
       this.onHoverMesh?.(null);
     });
     canvas.addEventListener('wheel', event => {
@@ -810,6 +919,16 @@ export class Viewer {
         if (part.creaseCount) this.renderLines(part.creasePosition, part.glassCreaseColor || part.creaseColor,
           part.creaseCount, matrix, gl.LINES, part.offset, Math.max(0.58, part.opacity ?? 1));
       }
+    }
+    if (this.measureBuffers?.length) {
+      // Keep both selected planes inspectable even when one lies inside glass.
+      gl.disable(gl.DEPTH_TEST);
+      for (const item of this.measureBuffers) {
+        if (!item.part.visible) continue;
+        this.renderLines(item.fillPosition, item.fillColor, item.fillCount, matrix, gl.TRIANGLES, item.part.offset);
+        if (item.edgeCount) this.renderLines(item.edgePosition, item.edgeColor, item.edgeCount, matrix, gl.LINES, item.part.offset);
+      }
+      gl.enable(gl.DEPTH_TEST);
     }
     if (this.showAxes) {
       this.renderLines(this.gridBuffers.outlinePosition,

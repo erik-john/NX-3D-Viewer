@@ -1,3 +1,77 @@
+Milestone: 39 — Dual Plane Angle/Gap & Fit Measurement Faces
+
+Changes
+- Extend the existing Measure result for two nonparallel planar STL patches: display the acute face angle (including perpendicular ⊥ 90°) and the nearest clearance between the selected finite planar mesh patches together, instead of angle alone. Parallel faces retain ∥ 0°/180° with infinite-supporting-plane separation.
+- The nearest-patch clearance is calculated from triangulated selected faces (vertex/triangle, edge/edge and segment/triangle proximity); estimate stays local to a bounded triangle neighborhood for very large tessellations. Move/Explode offsets are included so the distance changes with manual component repositioning. A meshless legacy case is explicitly described as picked-point distance, not plane clearance.
+- Add Fit beside Clear in the measurement panel: center/zoom to the selected highlighted surface geometry and measurement guide endpoints while preserving the camera orientation; disabled for empty or hidden selections. Support one or two surfaces, including previously implemented diameter and center-spacing selection.
+- Reuse the existing Measure View icon, geometry selection, overlays, and components; preserve assembly interactions, glass/color modes, offline server port 8888 and branch-specific .gitignore.
+- No algorithm can infer a true gear pitch-circle point or exact gear tooth clearance from STL alone. Nearest-face clearance is an approximation, not NX analytic CAD/B-rep or certified metrology.
+
+Checks
+- 58 Python tests, 24 JavaScript checks including finite perpendicular/45° patches, moved patches and intersecting faces; Chromium simulated-GPU measurement check for dual value display, Fit/rotation preservation, 50 mm parallel gap and offset updates, plus browser regressions for diameter, centerlines, selection, explode, move, transparency and sidebar resizing.
+- Actual Siemens NX 1855 workstation and WebGL rendering still need verification. Full source ZIP is Windows CRLF and excludes .gitignore, uploads and caches.
+
+Suggested commits
+- dev: feat(measure): show plane angle and face clearance with fit action
+- main: feat(measure): release dual plane values and fit view
+
+Milestone: 38 — Center Distance & Parallel/Perpendicular Measurement Indicators
+
+Changes
+- Extend the existing single Measure mode without adding new toolbar icons: one circular/cylindrical feature reports diameter; a second round feature with a parallel axis reports center distance.
+- Between two circular planar faces, measure the 3D distance between fitted circle centers. Between parallel cylindrical axes (or a cylinder and circular feature), report the shortest perpendicular centerline spacing, independent of which height on a curved cylinder was clicked. Do not issue a numeric result for nonparallel round-feature axes.
+- For two parallel planar faces, display a parallel symbol (∥), the oriented normal angle 0° or 180°, plus the supporting-plane separation. For perpendicular planar faces display ⊥ and 90°; preserve ∠ for other acute plane angles.
+- Preserve one vs two surface selection logic, diameter overlay, Move/Explode offset updates, hidden-feature handling, and existing camera/component interactions. STL-only approximations remain clearly labelled.
+- Preserve Python backend, NX conversion, offline port 8888, workspace, and branch-specific .gitignore; source ZIP keeps Windows CRLF.
+
+Checks
+- 58 Python unit tests, 23 JavaScript checks, Chromium tests for cylinders and center spacing (60mm -> 72mm after Move), opposite-face normals ∥ 180°, ⊥ 90°, previous circle Ø20, circle-center 64.031mm, plane distances and 45° angle.
+- Siemens NX 1855 workstation and real GPU validation remain required; browser interactions used synthetic geometry and simulated WebGL.
+
+Suggested commits
+- dev: feat(measure): add round-feature center distance and plane relation symbols
+- main: feat(measure): release center spacing and angle indicators
+
+Milestone: 37 — Single-Surface Circular Diameter & Two-Surface Measurement
+
+Changes
+- Extend the existing MS36 Measure tool. One recognized circular planar face or cylindrical surface immediately displays its fitted mesh diameter, with an on-screen diameter line and circular outline. Normal flat faces still await a second click.
+- Two planar surfaces continue to report supporting-plane separation (parallel, including anti-parallel normals) or the acute unoriented angle (nonparallel). A pair containing a cylindrical wall is explicitly unsupported rather than showing a false plane measurement.
+- Distinguish one vs two surfaces in the panel; ignore duplicate clicks on the same identified patch; Clear resets both. Three clicks start a new measurement after the previous pair.
+- Recognize closed circular perimeter rings and connected cylinder sides from STL triangle adjacency and radius/normal consistency. Reject polygonal square faces, partial arcs, and insufficiently regular/complete curved surfaces. Diameter is approximate, not NX B-rep exact.
+- Keep selection surfaces, overlays, and diameter guides synchronized with Move/Explode visual offsets, visibility, and camera changes; no NX source file edits or backend changes.
+- Preserve the existing right-hand Measure toolbar icon, split sidebar, steel/glass/color appearance, offline Python server port 8888, and branch-specific .gitignore.
+
+Checks
+- 58 Python tests; 22 JavaScript regression checks including circle/cylinder geometry, squares and incomplete arcs, circular-face plane separation, standard angle/distance, and existing viewer behavior.
+- Chromium simulated-WebGL interaction verified one disk click -> Ø20 mm, duplicate click ignored, two disks -> 50 mm separation, one cylinder -> Ø20 mm, Clear, and overlay. Existing distance/angle browser test and standard component UI browser tests passed.
+- NX 1855 and actual WebGL shader rendering need final verification on the user's Windows workstation. Measurements remain STL approximations.
+- Full source ZIP uses Windows CRLF, includes test sources for dev, and excludes .gitignore, uploads and local caches.
+
+Suggested commits
+- dev: feat(measure): add single-face circle and cylinder diameter recognition
+- main: feat(measure): release diameter measurements
+
+Milestone: 36 — Automatic Planar-Face Distance & Angle Measurement
+
+Changes
+- Add a Measure icon in the existing right-hand View toolbar; clicking it enters a dedicated two-face selection mode without changing the split sidebar or normal component selection.
+- Pick a clicked visible mesh via the depth-tested selection pass, raycast its triangles to locate the hit facet, and grow a connected coplanar region (reject single curved facets). Support both separate body meshes and combined-STL fallback where planar patches exist.
+- Highlight selected planar regions independently in blue and purple, with a viewport measurement guide and a Clear action. Selecting another face after completing a pair begins a new measurement.
+- For parallel/anti-parallel planes (within 0.5 degrees) show absolute normal-plane separation; for nonparallel planes show the acute unoriented angle. Units come from NX (mm/in) when reported, otherwise display model units.
+- Preserve NX source geometry and camera controls; measurements follow Move and Explode offset changes. Hiding a selected component pauses the result rather than presenting hidden geometry.
+- Measurements use STL planar patches and supporting planes, NOT exact NX CAD B-rep faces or finite-face minimum distances. Curved tessellated surfaces are not selectable as valid planes.
+- Keep port 8888, steel/glass/color rendering, file Workspace, component controls, branch-specific .gitignore and Windows CRLF policy unchanged.
+
+Checks
+- 58 Python tests and 21 JavaScript checks, including new geometric cases for 0/180 parallel normals, 45/90 angle, connected planar patches, curved-facet rejection, manual offsets, rays and projection.
+- Chromium simulated-GPU integration checks for two clicks -> 50 mm, manual displacement -> 70 mm, two sloped planes -> 45 degrees, Clear, and mode toggle. Previous NX viewer/browser interaction tests rechecked.
+- Siemens NX 1855 and real GPU face highlighting require final workstation verification. No NX Open/backend changes.
+
+Suggested commits
+- dev: feat(measure): add STL planar distance and angle measurement
+- main: feat(measure): release planar face measurement
+
 Milestone: 35 — Clear Glass Rendering Refinement
 
 Changes

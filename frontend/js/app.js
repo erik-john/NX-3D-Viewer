@@ -6,6 +6,7 @@ import { FileWorkspace } from './workspace.js';
 import { createExplodePlan, calculateExplodeOffsets, selectionGroupIds } from './assembly_explode.js';
 import { buildComponentColors } from './component_colors.js';
 import { MoveGizmo, MOVE_AXES } from './component_move.js';
+import { MeasurementUI } from './measurement_ui.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
@@ -29,6 +30,8 @@ function setup() {
   const componentOpacities = new Map(); // meshId -> opacity, per occurrence
   let moveMode = false;
   let moveGizmo = null;
+  let measureMode = false;
+  let measurement = null;
   let isolated = null; // { nodeId, previous: Map(meshId -> prior visible) }
   let componentColorEnabled = false;
   let componentColors = { available: false, colors: new Map() };
@@ -271,12 +274,42 @@ function setup() {
       if (node) $('status-message').textContent = `Moved: ${node.name}`;
     },
   });
-  viewer.onFrame = () => moveGizmo.update();
+  measurement = new MeasurementUI(viewer, {
+    panel: $('measurement-panel'), summary: $('measurement-summary'),
+    detail: $('measurement-detail'), clear: $('measurement-clear'), fit: $('measurement-fit'),
+    overlay: $('measurement-overlay'), line: $('measurement-line'),
+    pointA: $('measurement-point-a'), pointB: $('measurement-point-b'),
+    arc: $('measurement-arc'),
+  });
+  function updateMeasureButton() {
+    const button = $('measure-planes-toggle');
+    button.disabled = !viewer.geometry.length;
+    button.classList.toggle('active', measureMode);
+    button.setAttribute('aria-pressed', String(measureMode));
+    button.title = measureMode ? 'Exit measurement' : 'Measure diameter, center spacing, or planar distance/angle';
+    viewer.measureActive = measureMode;
+    viewer.canvas.classList.toggle('is-measuring', measureMode);
+    viewer.canvas.style.cursor = measureMode ? 'crosshair' : 'grab';
+  }
+  function setMeasureMode(active) {
+    measureMode = !!active && !!viewer.geometry.length;
+    if (measureMode && moveMode) { moveMode = false; updateMoveActions(); }
+    measurement.setActive(measureMode);
+    viewer.setHoveredMeshIds([]);
+    updateMeasureButton();
+    if (measureMode) $('status-message').textContent = 'Measurement: select a round surface for diameter, two round surfaces for center distance, or two planes';
+  }
+  viewer.onFrame = () => { moveGizmo.update(); measurement.update(); };
   viewer.onHoverMesh = meshId => {
-    const node = meshId ? tree.nodeForMesh(meshId) : null;
+    const node = !measureMode && meshId ? tree.nodeForMesh(meshId) : null;
     viewer.setHoveredMeshIds(node ? tree.descendants(node) : []);
   };
-  viewer.onSelectMesh = meshId => {
+  viewer.onSelectMesh = (meshId, x, y) => {
+    if (measureMode) {
+      measurement.select(viewer.pickSurface(x, y, meshId));
+      $('status-message').textContent = measurement.statusText();
+      return;
+    }
     if (!meshId) tree.selectNode(null);
     else if (!tree.selectMesh(meshId)) tree.selectNode(null);
   };
@@ -295,6 +328,7 @@ function setup() {
   function clearScene() {
     isolated = null;
     viewer.setScene([]);
+    setMeasureMode(false);
     componentOpacities.clear();
     viewer.setMeshOpacities(componentOpacities);
     componentColors = { available: false, colors: new Map() };
@@ -385,6 +419,8 @@ function setup() {
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
       const { meshes, perBody } = await loadGeometry(info);
       viewer.setScene(meshes);
+      measurement.setModelUnits(info.nx?.units);
+      updateMeasureButton();
       const structure = info.tree || { id: 'root', name: info.name, type: 'part', children: [] };
       componentColors = perBody ? buildComponentColors(structure, meshes) :
         { available: false, colors: new Map() };
@@ -435,6 +471,7 @@ function setup() {
     button.addEventListener('click', () => setCameraView(button.dataset.view));
   }
   $('fit-button').addEventListener('click', () => viewer.fit());
+  $('measure-planes-toggle').addEventListener('click', () => setMeasureMode(!measureMode));
   $('component-color-toggle').addEventListener('click', () => {
     if (!componentColors.available) return;
     componentColorEnabled = !componentColorEnabled;
