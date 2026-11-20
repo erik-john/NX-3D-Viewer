@@ -23,7 +23,62 @@ function setup() {
   let explodeBounds = null;
   let explodeLevel = 0;
   const selectedOverrides = new Map();
+  let isolated = null; // { nodeId, previous: Map(meshId -> prior visible) }
   const canExplode = () => explodeGroups.length >= 2;
+
+  function selectedNode() {
+    return tree.nodes.get(tree.selectedId) || null;
+  }
+  function meshIdsFor(node) {
+    if (!node) return [];
+    // Combined STL fallback only supports whole-model framing, never isolation.
+    return !tree.visibilityEnabled ? (node === tree.root ? ['root'] : []) : tree.descendants(node);
+  }
+  function hasMesh(ids, visibleOnly = false) {
+    const wanted = new Set(ids);
+    return viewer.geometry.some(part => wanted.has(part.meshId) && (!visibleOnly || part.visible));
+  }
+  function applyVisibility(map) {
+    for (const [id, visible] of map) viewer.setMeshVisible(id, visible);
+    tree.setVisibilityFromMeshes(map);
+  }
+  function updateSelectionActions() {
+    $('tree-selection-actions').hidden = !tree.root;
+    const node = selectedNode();
+    const ids = meshIdsFor(node);
+    const canIsolate = !!(tree.visibilityEnabled && node && node !== tree.root &&
+      ['component', 'body'].includes(node.type) && hasMesh(ids));
+    // Restore stays available after clearing selection or selecting the assembly.
+    const shouldRestore = !!isolated && (!canIsolate || isolated.nodeId === node.id);
+    $('isolate-selected').disabled = !canIsolate && !isolated;
+    $('isolate-selected').classList.toggle('is-active', shouldRestore);
+    $('isolate-selected').setAttribute('aria-pressed', String(shouldRestore));
+    $('isolate-selected-label').textContent = shouldRestore ? 'Restore' : 'Isolate';
+    $('isolate-selected').title = shouldRestore ? 'Restore previous component visibility' :
+      'Show only the selected component';
+    $('fit-selected').disabled = !hasMesh(ids, true);
+  }
+  function isolateOrRestore() {
+    const node = selectedNode();
+    const ids = meshIdsFor(node);
+    const validTarget = node && node !== tree.root && tree.visibilityEnabled &&
+      ['component', 'body'].includes(node.type) && hasMesh(ids);
+    if (!validTarget && !isolated) return;
+    if (!validTarget || isolated?.nodeId === node.id) {
+      applyVisibility(isolated.previous);
+      isolated = null;
+      $('status-message').textContent = 'Previous component visibility restored';
+    } else {
+      // Switching isolated items uses the original pre-isolation visibility snapshot.
+      const previous = isolated?.previous || new Map(viewer.geometry.map(part =>
+        [part.meshId, part.visible]));
+      isolated = { nodeId: node.id, previous };
+      const selectedIds = new Set(ids);
+      applyVisibility(new Map([...previous.keys()].map(id => [id, selectedIds.has(id)])));
+      $('status-message').textContent = `Isolated: ${node.name}`;
+    }
+    updateSelectionActions();
+  }
 
   function updateExplodeControls() {
     tree.setExplodeState(explodeGroups, explodeLevel, selectedOverrides);
@@ -46,13 +101,20 @@ function setup() {
   const tree = new ItemTree({
     panel: $('tree-panel'), toggle: $('tree-toggle'), resizer: $('tree-resizer'),
     container: $('model-tree'), summary: $('tree-summary'), note: $('tree-note'),
-    onVisibility: (meshId, visible) => viewer.setMeshVisible(meshId, visible),
+    onVisibility: (meshId, visible) => {
+      viewer.setMeshVisible(meshId, visible);
+      // A manual visibility change takes ownership of the current visibility state.
+      // Do not later overwrite it with a stale pre-isolation snapshot.
+      if (isolated) isolated = null;
+      updateSelectionActions();
+    },
     onToggleExplode: (node, exploded) => changeNodeExplosion(node, exploded ? 75 : 0),
     onToggleAll: exploded => exploded ? explodeAll() : collapseAll(),
     onSelect: node => {
       inspector.select(node);
       viewer.setSelectedMeshIds(node ? tree.descendants(node) : []);
       $('status-message').textContent = node ? `Selected: ${node.name}` : 'Selection cleared';
+      updateSelectionActions();
     },
   });
   viewer.onHoverMesh = meshId => {
@@ -76,6 +138,7 @@ function setup() {
   }
 
   function clearScene() {
+    isolated = null;
     viewer.setScene([]);
     explodeGroups = [];
     explodeBounds = null;
@@ -84,6 +147,7 @@ function setup() {
     tree.clear();
     updateExplodeControls();
     inspector.clear();
+    updateSelectionActions();
     setCameraView('iso');
     $('empty-state').hidden = false;
   }
@@ -165,6 +229,7 @@ function setup() {
       setCameraView('iso');
       initializeExplosion(info, meshes, perBody);
       inspector.show(info, meshes, { perBody, gridSize: viewer.gridSize });
+      updateSelectionActions();
       $('empty-state').hidden = true;
       $('status-message').textContent = `${info.name} loaded · Drag to rotate · Scroll to zoom`;
     } catch (error) {
@@ -203,6 +268,13 @@ function setup() {
     button.addEventListener('click', () => setCameraView(button.dataset.view));
   }
   $('fit-button').addEventListener('click', () => viewer.fit());
+  $('isolate-selected').addEventListener('click', isolateOrRestore);
+  $('fit-selected').addEventListener('click', () => {
+    const node = selectedNode();
+    if (node && viewer.fitMeshIds(meshIdsFor(node))) {
+      $('status-message').textContent = `Fit selected: ${node.name}`;
+    }
+  });
   $('viewer-canvas').addEventListener('dblclick', () => viewer.fit());
   window.addEventListener('keydown', event => {
     if (event.altKey || event.ctrlKey || event.metaKey ||

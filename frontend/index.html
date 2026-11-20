@@ -41,6 +41,17 @@
           </div>
           <div class="tree-content" id="tree-content">
             <p class="tree-summary" id="tree-summary">No NX file loaded</p>
+            <div class="tree-selection-actions" id="tree-selection-actions" role="group" aria-label="Selected item controls" hidden>
+              <button type="button" id="isolate-selected" class="tree-action-button" disabled aria-pressed="false"
+                title="Show only the selected component">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 20 8v8l-8 4-8-4V8z"/><path d="m4 8 8 4 8-4M12 12v8"/></svg>
+                <span id="isolate-selected-label">Isolate</span>
+              </button>
+              <button type="button" id="fit-selected" class="tree-action-button" disabled title="Fit the selected item in the 3D view">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/><path d="M8 8h8v8H8z"/></svg>
+                <span>Fit Selected</span>
+              </button>
+            </div>
             <div class="tree-entries" id="model-tree" role="tree" aria-label="NX component hierarchy"></div>
             <p class="tree-note" id="tree-note" hidden></p>
           </div>

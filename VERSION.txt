@@ -1,3 +1,24 @@
+Milestone: 29 — Isolate Selected & Fit Selected
+
+Changes
+- Add an Isolate / Restore action and a Fit Selected action above the Item Structure tree.
+- Isolate a selected NX component/body without changing the underlying mesh buffers, transforms or source CAD files.
+- Preserve every mesh's prior visibility when isolation starts, including previously hidden components; Restore returns to those exact visibility settings.
+- Selecting a different component and clicking Isolate switches the isolated target while retaining the original visibility snapshot.
+- A manual checkbox change ends isolation, retaining the user's latest visibility settings; Restore stays accessible after clearing selection or selecting the root.
+- Fit Selected uses visible geometry bounds including current explode offsets, preserves camera yaw/pitch, and does not change component visibility.
+- Disable unsupported per-component operations for combined STL; whole-model Fit remains available.
+- Preserve single explode toggles, existing NX rendering/picking, workspace, port 8888, and Windows CRLF policy.
+
+Checks
+- Run all Python and JavaScript checks, including selected-only camera tests.
+- Run Chromium integration covering isolate, restore, manual visibility, selection changes, exploded fit, and combined-STL fallback with mocked NX/WebGL responses.
+- Verify actual NX assembly rendering on the Windows workstation before production promotion.
+
+Suggested commits
+- dev: feat(assembly): add isolate and fit selected actions
+- main: feat(assembly): release isolate and fit selected actions
+
 Milestone: 28 — Single Assembly Explode Toggles
 
 Changes

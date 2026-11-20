@@ -204,6 +204,17 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .tree-content { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
 .tree-summary { margin: 0; padding: 14px 17px; color: #4c6572; font-size: 13px;
   border-bottom: 1px solid #e4eaed; overflow-wrap: anywhere; }
+.tree-selection-actions { display: flex; align-items: center; gap: 6px; padding: 9px 11px;
+  border-bottom: 1px solid #e4eaed; background: #f9fbfb; }
+.tree-selection-actions[hidden] { display: none; }
+.tree-action-button { display: inline-flex; flex: 1; align-items: center; justify-content: center;
+  gap: 6px; min-width: 0; height: 31px; padding: 0 7px; border-radius: 6px;
+  border: 1px solid #cddbdc; background: #fff; color: #3d6470;
+  font-size: 11px; font-weight: 700; white-space: nowrap; }
+.tree-action-button:hover:not(:disabled) { border-color: #70b8aa; color: #006d66; background: #edf8f5; }
+.tree-action-button:disabled { opacity: .42; cursor: not-allowed; }
+.tree-action-button.is-active { background: #def3ec; color: #087b70; border-color: #77bfae; }
+.tree-action-button svg { flex: none; }
 .tree-entries { flex: 1; overflow: auto; padding: 10px 8px 20px 10px; font-size: 14px;
   scrollbar-color: #cbd7de transparent; scrollbar-width: thin; }
 .tree-entries ul { list-style: none; margin: 0; padding: 0 0 0 15px;

@@ -150,6 +150,20 @@ export class ItemTree {
     this.onSelect(node || null);
   }
 
+  // Reflect programmatic visibility changes in every checkbox, including parents.
+  // Only leaf/body checkboxes are authoritative; parent checkboxes are derived.
+  setVisibilityFromMeshes(visibility) {
+    for (const node of this.nodes.values()) {
+      if (node.type !== 'body') continue;
+      const checkbox = this.checkboxes.get(node.id);
+      if (checkbox && visibility.has(node.meshId || node.id)) {
+        checkbox.checked = visibility.get(node.meshId || node.id);
+        checkbox.indeterminate = false;
+      }
+    }
+    this.updateAncestors();
+  }
+
   updateAncestors() {
     if (!this.root) return;
     const walk = node => {

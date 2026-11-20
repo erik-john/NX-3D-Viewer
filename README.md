@@ -14,6 +14,7 @@ A local browser-based 3D viewer for Siemens NX part geometry. It runs on your co
 - Inspect model dimensions, geometry counts, part details, NX units, and available NX attributes in the white right Part Inspector panel.
 - Click a component directly in the 3D viewport to select it and synchronize Item Structure and Part Inspector. Hover over a visible component for a temporary teal highlight.
 - Expand/collapse components, select items, and show/hide individual bodies when separate body geometry is available.
+- Isolate a selected component with one click, restore its previous visibility, and fit the camera to only the selected geometry.
 - Use a local Python server and bundled frontend code, without external JavaScript packages or a cloud service.
 
 ## Requirements
@@ -97,8 +98,19 @@ Use the **Fit icon** (or **F**) after rotating or zooming to show the entire mod
 - Click the disclosure arrows to browse nested NX components and bodies. Click an item name to select it and highlight its geometry. Clicking a component in the viewport selects and reveals the corresponding Item Structure entry.
 - Use the checkboxes to show or hide whole components or individual bodies when separate NX body geometry is available.
 - Click the single position toggle beside a component's visibility checkbox to **Explode** it; click the same highlighted toggle to **Reset** it. On the assembly row, the toggle explodes or resets **all** components. Hover over the icon to see the current action.
+- Select a component or body, then use **Isolate** above the tree to show just that item, or **Fit Selected** to center and zoom to its visible geometry. Click **Restore** to return to the visibility state that existed before isolation. The Restore action remains available if the selection is cleared.
 
 The panel shows the hierarchy reported by NX Open. If NX can only export a combined STL, the model still displays, but individual visibility controls are disabled rather than presenting an inaccurate result.
+
+## Isolate and Fit Selected
+
+The **Isolate** and **Fit Selected** actions appear immediately above the hierarchy in Item Structure whenever a model is loaded. First select an item in the tree or click a component in the 3D viewport:
+
+- **Isolate:** temporarily hide all other displayed geometry and show only the selected component or body. Select a different component and choose Isolate again to switch the isolated item.
+- **Restore:** use the same Isolate button when it reads Restore to bring back the *original* visibility state, including any components that were hidden before isolation. Restore is also available after clearing selection.
+- **Fit Selected:** center and zoom the camera around the selected visible geometry without changing the current camera angle. An exploded component is framed in its *displaced* position.
+
+These commands change the visualization only. Using the visibility checkboxes manually during isolation ends the isolation session and keeps your manual changes. Whole-model **Fit** remains on the 3D canvas toolbar. If NX provides a combined STL, individual isolation and per-component fitting are unavailable; the full model can still be fitted.
 
 ## Assembly explosion
 

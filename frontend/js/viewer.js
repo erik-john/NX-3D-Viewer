@@ -369,14 +369,28 @@ export class Viewer {
   }
 
   getVisibleBounds() {
-    const parts = this.geometry.filter(part => part.visible);
-    if (!parts.length) return this.bounds;
+    return this.boundsForParts(this.geometry.filter(part => part.visible)) || this.bounds;
+  }
+
+  boundsForParts(parts) {
+    if (!parts.length) return null;
     const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
     for (const part of parts) for (let i=0; i<3; i++) {
       min[i] = Math.min(min[i], part.bounds.min[i] + part.offset[i]);
       max[i] = Math.max(max[i], part.bounds.max[i] + part.offset[i]);
     }
     return { min, max, center: min.map((v,i)=>(v+max[i])/2), size: min.map((v,i)=>max[i]-v) };
+  }
+
+  // Frame only the *visible* selected meshes, at their exploded positions.
+  // This leaves the camera orientation untouched and does not modify geometry.
+  fitMeshIds(ids) {
+    const selected = new Set(ids || []);
+    const bounds = this.boundsForParts(this.geometry.filter(part =>
+      part.visible && selected.has(part.meshId)));
+    if (!bounds) return false;
+    this.fit(bounds);
+    return true;
   }
 
   setMeshVisible(meshId, visible) {
@@ -536,7 +550,7 @@ export class Viewer {
     this.fit();
   }
 
-  fit() {
+  fit(overrideBounds = null) {
     if (this.geometry.length === 0) {
       this.target = [0, 0, 0];
       this.distance = EMPTY_VIEW_DISTANCE;
@@ -544,7 +558,7 @@ export class Viewer {
       return;
     }
 
-    const { min, max, center, size } = this.getVisibleBounds();
+    const { min, max, center, size } = overrideBounds || this.getVisibleBounds();
     this.target = center.slice();
     const rect = this.canvas.getBoundingClientRect();
     const aspect = Math.max(0.3, rect.width / Math.max(1, rect.height));

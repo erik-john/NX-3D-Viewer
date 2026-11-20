@@ -31,6 +31,7 @@ const ids = [
   'empty-state', 'loading-overlay', 'loading-title', 'loading-detail',
   'viewer-workspace', 'open-nx-button', 'import-message', 'fit-button',
   'inspector-panel', 'inspector-toggle', 'inspector-content',
+  'tree-selection-actions','isolate-selected','isolate-selected-label','fit-selected',
 ];
 const elems = Object.fromEntries(ids.map(id => [id, makeElement()]));
 elems['loading-overlay'].hidden = true;
@@ -39,12 +40,13 @@ const viewButtons = ['iso', 'front', 'top', 'right'].map(v => {
   const el = makeElement(); el.dataset.view = v; return el;
 });
 class FakeViewer {
-  constructor() { this.meshes = []; this.showGrid = true; this.showAxes = true; this.wireframe = false; }
-  setScene(meshes) { this.meshes = meshes; this.bounds={min:[0,0,0],max:[0,0,0],size:[0,0,0],center:[0,0,0]}; }
+  constructor() { this.meshes = []; this.geometry = []; this.showGrid = true; this.showAxes = true; this.wireframe = false; }
+  setScene(meshes) { this.meshes = meshes; this.geometry = meshes.map(mesh=>({...mesh, meshId:mesh.meshId || 'root',visible:true})); this.bounds={min:[0,0,0],max:[0,0,0],size:[0,0,0],center:[0,0,0]}; }
   setView(view) { this.view = view; }
   fit() {}
   requestRender() {}
-  setMeshVisible(id, visible) { this.lastVisible = [id, visible]; }
+  setMeshVisible(id, visible) { this.lastVisible = [id, visible]; this.geometry.filter(p=>p.meshId===id).forEach(p=>p.visible=visible); }
+  fitMeshIds() { return true; }
   setExplodeOffsets(offsets) { this.explodeOffsets=offsets; }
 }
 let viewer;
@@ -64,10 +66,11 @@ class FakeInspector {
   select(node) { this.selected = node; }
 }
 class FakeTree {
-  constructor() { this.root = null; this.clears = 0; FakeTree.instance = this; }
-  clear() { this.root = null; this.clears += 1; }
-  show(root, options) { this.root = root; this.options = options; }
+  constructor() { this.root = null; this.nodes = new Map(); this.selectedId=null; this.visibilityEnabled=false; this.clears = 0; FakeTree.instance = this; }
+  clear() { this.root = null; this.nodes.clear(); this.selectedId=null; this.clears += 1; }
+  show(root, options) { this.root = root; this.nodes.set(root.id,root); this.visibilityEnabled=options.visibilityEnabled; this.options = options; }
   setExplodeState() {}
+  setVisibilityFromMeshes() {}
 }
 const context = {
   ItemTree: FakeTree,
