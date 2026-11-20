@@ -1,4 +1,4 @@
-"""Export an NX part and its component-occurrence hierarchy as STL geometry."""
+"""Export NX-loaded PRT/JT geometry and component hierarchy as STL."""
 
 import io
 import json
@@ -96,8 +96,32 @@ def build_structure(part):
         for index, child in enumerate(root_component.GetChildren()):
             root['children'].append(component_node(child, 'root_c' + str(index + 1)))
     if not all_bodies:
-        raise RuntimeError('No solid or sheet bodies were found in the selected NX part.')
+        raise RuntimeError('No NX solid or sheet bodies were found. JT may contain only facets, or referenced JT geometry may be missing.')
     return root, all_bodies, leaf_bodies
+
+
+def unloaded_components(load_status):
+    """Read NX Open PartLoadStatus if NX reports unresolved component parts."""
+    if load_status is None:
+        return []
+    try:
+        count = min(25, max(0, int(load_status.NumberUnloadedParts)))
+    except Exception:
+        return []
+    result = []
+    for index in range(count):
+        try:
+            name = str(load_status.GetPartName(index))
+        except Exception:
+            name = 'component ' + str(index + 1)
+        try:
+            reason = str(load_status.GetStatusDescription(index))
+        except Exception:
+            reason = ''
+        # User-facing errors must not contain arbitrary multi-line NX diagnostics.
+        label = (name + (': ' + reason if reason else '')).replace('\r', ' ').replace('\n', ' ')
+        result.append(label[:220])
+    return result
 
 
 def get_part_information(part):
@@ -161,7 +185,7 @@ def export(input_path, output_path, manifest_path=None, stage_path=None):
     import NXOpen
     record_stage(stage_path, 'initializing NX session')
     session = NXOpen.Session.GetSession()
-    record_stage(stage_path, 'opening NX part')
+    record_stage(stage_path, 'opening NX part' if input_path.lower().endswith('.prt') else 'opening NX JT file')
     opened = session.Parts.OpenBaseDisplay(input_path)
     if isinstance(opened, tuple):
         part = next((item for item in opened if hasattr(item, 'Bodies')), None)
@@ -170,7 +194,13 @@ def export(input_path, output_path, manifest_path=None, stage_path=None):
         part, load_status = opened, None
     try:
         if part is None:
-            raise RuntimeError('NX could not open the selected part.')
+            raise RuntimeError('NX could not open the selected PRT/JT file. Check the JT translator and referenced files.')
+        # An NX part can load partially while referenced JT components fail.
+        # Do not silently display an incomplete JT assembly.
+        if input_path.lower().endswith('.jt'):
+            missing = unloaded_components(load_status)
+            if missing:
+                raise RuntimeError('JT referenced components could not be loaded: ' + ' | '.join(missing))
         record_stage(stage_path, 'reading NX body and component structure')
         root, bodies, leaves = build_structure(part)
         # The combined STL is the complete fallback if an individual export fails.
@@ -211,7 +241,7 @@ def export(input_path, output_path, manifest_path=None, stage_path=None):
 def main():
     args = journal_arguments()
     if len(args) not in (2, 3, 4):
-        raise RuntimeError('Expected PRT input, STL output, hierarchy JSON and optional progress log.')
+        raise RuntimeError('Expected PRT/JT input, STL output, hierarchy JSON and optional progress log.')
     paths = [os.path.abspath(value.strip('"')) for value in args]
     stage_path = paths[3] if len(paths) == 4 else None
     try:

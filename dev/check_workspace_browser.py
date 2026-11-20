@@ -47,10 +47,19 @@ window.fetch = async (url, options={}) => {
     window.__uploads[name] = await options.body.arrayBuffer();
     window.__files.push({path:name,name:name.split('/').pop(),type:'file',canOpen:name.endsWith('.prt'),size:options.body.size});
     result={ok:true,path:name};status=201;
-  } else if (path.startsWith('/api/workspace?') && options.method === 'DELETE') {
+  } else if (path.startsWith('/api/workspace/delete-plan?')) {
     const name = decodeURIComponent(path.split('?path=')[1]);
-    window.__files = window.__files.filter(item=>item.path !== name && !item.path.startsWith(name+'/'));
-    result = {ok:true,path:name};
+    const item = window.__files.find(entry=>entry.path===name);
+    const companion = item.type==='folder' ? name+'.jt' :
+       name.toLowerCase().endsWith('.jt') ? name.slice(0,-3) : '';
+    const related = window.__files.find(entry=>entry.path.toLowerCase()===companion.toLowerCase());
+    result = {ok:true,path:name,package:!!related,
+      items:[{path:name,type:item.type},...(related?[{path:related.path,type:related.type}]:[])]};
+  } else if (path==='/api/workspace/delete-package' && options.method === 'POST') {
+    const reviewed = JSON.parse(options.body);
+    window.__files = window.__files.filter(item=>!reviewed.expectedPaths.some(name=>
+       item.path===name || item.path.startsWith(name+'/')));
+    result = {ok:true,deleted:reviewed.expectedPaths};
   } else if (path === '/api/workspace/open') {
     result={ok:false,error:'Simulated NX unavailable'};status=500;
   } else if (path === '/api/health') {
@@ -129,8 +138,11 @@ with sync_playwright() as playwright:
     assert page.locator('#import-message').is_visible()
     page.locator('#workspace-button').click()
     page.get_by_role('button',name='⬡ fastener.prt').click()
-    page.once('dialog', lambda dialog: dialog.accept())
     page.locator('#workspace-delete').click()
+    assert page.locator('#workspace-jt-wizard').is_visible()
+    page.locator('#jt-wizard-next').click()
+    page.locator('#jt-wizard-next').click()
+    page.locator('#jt-wizard-next').click()
     page.wait_for_function('window.__files.length === 5')
     assert 'fastener.prt' not in page.locator('#workspace-file-list').inner_text()
     # Simulate browser folder drop with nested geometry and an empty directory.

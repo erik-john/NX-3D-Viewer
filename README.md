@@ -4,7 +4,7 @@ A local, browser-based viewer for Siemens NX geometry. NX converts supported CAD
 
 ## Features
 
-- Open **NX `.prt`** and basic **JT `.jt`** files; manage uploads, folders, and ZIP archives in **Workspace**.
+- Open **NX `.prt`** and **JT `.jt`** files; manage uploads, folders, ZIP archives, and linked JT packages in **Workspace**.
 - Explore parts and assemblies with the **Item Structure** tree and **Part Inspector**.
 - Rotate, pan, zoom, fit, and use isometric/front/top/right views.
 - Select, highlight, show/hide, isolate, explode, move, and color individual components when separate meshes are available.
@@ -35,7 +35,7 @@ A local, browser-based viewer for Siemens NX geometry. NX converts supported CAD
 | Format / capability | Current scope |
 | --- | --- |
 | **PRT** | Single parts and assemblies via Siemens NX; separate-body controls when exportable. |
-| **JT** | Basic `.jt` opening/conversion path implemented; **real NX 1855 JT conversion still needs workstation validation**. Linked JT assemblies are a later milestone. |
+| **JT** | Standalone JT and externally linked JT opening via NX. Keep referenced component files in their expected relative folders; Workspace guides upload of parent JT files with companion folders and reviews related files for deletion as a package. Standalone JT can be declared explicitly. Full JT assembly compatibility depends on NX. |
 | **CHR / STEP** | Not directly supported in the viewer yet. |
 | **Measurements** | Approximate results from **STL triangles**, not certified CAD dimensions or exact gear pitch geometry. |
 | **Deployment** | Runs locally on `127.0.0.1:8888`; uploaded files persist under `uploads/`. |
@@ -45,7 +45,7 @@ A local, browser-based viewer for Siemens NX geometry. NX converts supported CAD
 | Problem | Check |
 | --- | --- |
 | `run_journal.exe` not found | Set `NX_RUN_JOURNAL` to its full path (example: `C:\Program Files\Siemens\NX1855\NXBIN\run_journal.exe`) and restart. |
-| NX/JT conversion fails | Confirm NX licensing, JT import capability, and required component/reference files. Check logs in `%TEMP%\NX_3D_Viewer\logs`. |
+| NX/JT conversion fails | Restore referenced component files (often a folder matching the parent JT filename). Confirm NX JT support and check `%TEMP%\NX_3D_Viewer\logs`. |
 | Individual component actions unavailable | NX may have supplied a **combined STL** rather than separate meshes. |
 | Inaccurate measurement | Measurements use tessellated STL; use NX CAD/metrology for exact values. |
 | Page does not open | Check that the Python server is running and **port 8888** is available. |

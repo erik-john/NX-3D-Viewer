@@ -400,8 +400,8 @@ function setup() {
     $('import-message').hidden = true;
     clearScene();
     $('empty-state').hidden = true;
-    showLoading('Opening NX file', workspacePath ? `Preparing uploads/${workspacePath}` : 'Select a part file on the server computer; NX will prepare the geometry.');
-    $('status-message').textContent = workspacePath ? `Opening uploads/${workspacePath}…` : 'Choose an NX part file on this computer…';
+    showLoading('Opening CAD file', workspacePath ? `Preparing uploads/${workspacePath}` : 'Select a .prt or .jt file on this computer; NX will prepare the geometry.');
+    $('status-message').textContent = workspacePath ? `Opening uploads/${workspacePath}…` : 'Choose an NX part or JT file on this computer…';
     try {
       const result = await fetch(workspacePath ? '/api/workspace/open' : '/api/open', {
         method: 'POST', cache: 'no-store',
@@ -411,7 +411,7 @@ function setup() {
       const info = await result.json();
       if (info.cancelled) {
         $('empty-state').hidden = false;
-        $('status-message').textContent = 'NX file selection cancelled · No model loaded';
+        $('status-message').textContent = 'File selection cancelled · No model loaded';
         return;
       }
       if (!result.ok || !info.ok) throw new Error(info.error || 'NX could not open this file.');
@@ -439,7 +439,7 @@ function setup() {
       clearScene();
       $('import-message').textContent = error.message;
       $('import-message').hidden = false;
-      $('status-message').textContent = 'Unable to open NX part';
+      $('status-message').textContent = 'Unable to open CAD file';
     } finally {
       finishLoading();
       button.disabled = false;

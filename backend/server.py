@@ -13,10 +13,10 @@ from urllib.parse import urlsplit
 
 try:
     from . import workspace
-    from .nx_service import choose_prt_file, convert_prt, find_nx_journal
+    from .nx_service import choose_prt_file, convert_prt, convert_jt, find_nx_journal
 except ImportError:
     import workspace
-    from nx_service import choose_prt_file, convert_prt, find_nx_journal
+    from nx_service import choose_prt_file, convert_prt, convert_jt, find_nx_journal
 
 HOST = "127.0.0.1"
 PORT = 8888
@@ -99,6 +99,14 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                 return self.send_json(200, workspace.listing())
             except (OSError, ValueError) as error:
                 return self.workspace_error(error)
+        if path == '/api/workspace/delete-plan':
+            try:
+                params = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                if set(params) != {'path'} or len(params['path']) != 1:
+                    raise workspace.WorkspaceError('Specify one workspace file path.')
+                return self.send_json(200, workspace.deletion_plan(params['path'][0]))
+            except (OSError, ValueError) as error:
+                return self.workspace_error(error)
         if path.startswith("/api/models/"):
             name = path[len("/api/models/"):]
             if not name or "/" in name or "\\" in name or not name.endswith(".stl"):
@@ -157,7 +165,11 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         if self.export_directory is None:
             raise RuntimeError("Model export directory unavailable.")
         nx_journal = find_nx_journal()
-        output = convert_prt(selection, self.export_directory, nx_journal)
+        source = Path(selection)
+        if source.suffix.lower() == '.jt':
+            output = convert_jt(selection, self.export_directory, nx_journal)
+        else:
+            output = convert_prt(selection, self.export_directory, nx_journal)
         tree, geometry_mode, files, warning, nx_info = self.prepare_structure(output, Path(selection).name)
         source = Path(selection)
         file_info = {'path': str(source)}
@@ -211,6 +223,17 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                 return self.send_error_json(500, str(error))
             finally:
                 EXPORT_LOCK.release()
+        if path == '/api/workspace/delete-package':
+            if EXPORT_LOCK.locked():
+                return self.send_error_json(409, 'File changes are unavailable while NX is opening a model.')
+            try:
+                payload = self.read_json()
+                return self.send_json(200, workspace.delete_package(
+                    payload.get('path'), payload.get('expectedPaths')))
+            except workspace.WorkspaceDependencyWarning as error:
+                return self.send_json(409, {'ok': False, 'code': 'JT_DEPENDENCY', 'error': str(error)})
+            except (OSError, ValueError) as error:
+                return self.workspace_error(error)
         if path in ('/api/workspace/upload', '/api/workspace/folder', '/api/workspace/extract'):
             if EXPORT_LOCK.locked():
                 return self.send_error_json(409, 'File changes are unavailable while NX is opening a model.')
@@ -244,9 +267,13 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             return self.send_error_json(409, 'File changes are unavailable while NX is opening a model.')
         try:
             params = parse_qs(parsed.query, keep_blank_values=True)
-            if list(params.keys()) != ['path'] or len(params['path']) != 1:
+            if (set(params) - {'path', 'force'} or len(params.get('path', [])) != 1 or
+                    params.get('force', []) not in ([], ['1'])):
                 raise workspace.WorkspaceError('Specify one workspace file path.')
-            return self.send_json(200, workspace.delete(params['path'][0]))
+            return self.send_json(200, workspace.delete(
+                params['path'][0], force=params.get('force') == ['1']))
+        except workspace.WorkspaceDependencyWarning as error:
+            return self.send_json(409, {'ok': False, 'error': str(error), 'code': 'JT_DEPENDENCY'})
         except (OSError, ValueError) as error:
             return self.workspace_error(error)
 

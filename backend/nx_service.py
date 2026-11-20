@@ -1,4 +1,4 @@
-"""Resolve a local Siemens NX installation and convert a selected part to STL."""
+"""Resolve Siemens NX and convert native PRT or JT geometry to STL."""
 
 import json
 import math
@@ -309,6 +309,7 @@ def find_nx_journal():
 
 
 def choose_prt_file():
+    """Open a source CAD file; retained name for the existing server interface."""
     from tkinter import Tk, filedialog
 
     root = Tk()
@@ -318,17 +319,67 @@ def choose_prt_file():
         root.update()
         return filedialog.askopenfilename(
             parent=root,
-            title="Open Siemens NX Part",
-            filetypes=[("Siemens NX Part", "*.prt")],
+            title="Open Siemens NX PRT or JT File",
+            filetypes=[("NX part and JT", "*.prt *.jt"), ("NX Part", "*.prt"),
+                       ("JT Visualization File", "*.jt")],
         )
     finally:
         root.destroy()
 
 
 def convert_prt(input_path, output_dir, journal_exe=None):
+    """Preserve the existing native-part conversion entry point."""
+    return _convert_nx(input_path, output_dir, journal_exe, '.prt')
+
+
+def convert_jt(input_path, output_dir, journal_exe=None):
+    """Open a JT through NX and export any loaded NX solid/sheet bodies as STL.
+
+    JT import requires an installed, licensed NX with JT support. An external
+    reference must be resolved by NX in its original relative directory.
+    """
+    return _convert_nx(input_path, output_dir, journal_exe, '.jt')
+
+
+def _check_jt_header(source):
+    """Reject obvious wrong files before an expensive NX process is launched."""
+    with source.open('rb') as stream:
+        header = stream.read(90)
+    if not re.match(rb'^Version\s+\d+\.\d+\s+JT\b', header):
+        raise ValueError('This .jt file does not have a recognizable JT file header.')
+
+
+def _jt_load_failure(source, details, diagnostic):
+    """Give actionable JT recovery steps without exposing NX journal tracebacks."""
+    folder = source.parent / source.stem
+    filename = source.name
+    # Treat a same-stem folder as a common layout, not a mandatory JT property.
+    if folder.is_dir():
+        advice = ('Check that the companion folder "' + folder.name + '/" contains '
+                  'the original referenced JT files and filenames.')
+    else:
+        advice = ('If this JT uses external components, restore its companion folder '
+                  '"' + folder.name + '/" next to "' + filename + '" and upload '
+                  'the referenced .jt files inside it.')
+    match = re.search(r'JT referenced components could not be loaded:\s*(.+)',
+                      details, flags=re.IGNORECASE)
+    if match:
+        # NX itself identified unloaded parts, which is more reliable than folder heuristics.
+        reported = match.group(1).splitlines()[0][:550]
+        problem = 'NX reported unloaded JT components: ' + reported + '. '
+    else:
+        problem = ('NX could not load exportable geometry from JT file "' + filename + '". '
+                   'The JT may have missing references, unsupported facet-only geometry, '
+                   'or an NX translator issue. ')
+    return problem + advice + ' Diagnostic log: ' + str(diagnostic)
+
+
+def _convert_nx(input_path, output_dir, journal_exe, extension):
     source = Path(input_path).resolve()
-    if source.suffix.lower() != ".prt" or not source.is_file():
-        raise ValueError("Select an existing Siemens NX .prt file.")
+    if source.suffix.lower() != extension or not source.is_file():
+        raise ValueError('Select an existing Siemens NX ' + extension + ' file.')
+    if extension == '.jt':
+        _check_jt_header(source)
     if not JOURNAL.is_file():
         raise FileNotFoundError("NX export journal is missing.")
 
@@ -391,7 +442,9 @@ def convert_prt(input_path, output_dir, journal_exe=None):
 
     if error_path.is_file():
         details = error_path.read_text(encoding="utf-8", errors="replace").strip()
-        raise RuntimeError("NX could not export this part: " + details[-1500:] + "." + suffix)
+        if extension == '.jt':
+            raise RuntimeError(_jt_load_failure(source, details, diagnostic))
+        raise RuntimeError("NX could not export this CAD file: " + details[-1500:] + "." + suffix)
     # NX may exit with a nonzero status during shutdown even after a complete export.
     # Only accept a completed journal and a usable, validated manifest with geometry.
     # A valid collection of separate body meshes can be rendered without a combined STL.
@@ -412,10 +465,14 @@ def convert_prt(input_path, output_dir, journal_exe=None):
                 details += "; body geometry: " + manifest_info["reason"]
         if not manifest_info["valid"]:
             details += "; hierarchy: " + manifest_info["reason"]
+        if extension == '.jt' and not usable_geometry:
+            raise RuntimeError(_jt_load_failure(source, details, diagnostic))
         raise RuntimeError("NX conversion failed: " + details[-1500:] + "." + suffix)
     if not usable_geometry:
+        if extension == '.jt':
+            raise RuntimeError(_jt_load_failure(source, stl_info['reason'], diagnostic))
         raise RuntimeError("NX completed without usable STL geometry: " + stl_info["reason"] +
-                           ". Check that the part contains loaded solid bodies." + suffix)
+                           ". Check that NX can load solid or sheet geometry from the file." + suffix)
     if manifest_info["present"] and not manifest_info["valid"]:
         raise RuntimeError("NX produced an invalid hierarchy manifest: " + manifest_info["reason"] +
                            "." + suffix)
