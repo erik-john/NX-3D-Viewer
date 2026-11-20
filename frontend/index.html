@@ -31,24 +31,69 @@
 
     <main class="main-content">
       <section class="workspace" aria-label="Model workspace" id="viewer-workspace">
-        <aside class="tree-panel" id="tree-panel" aria-label="NX item structure">
-          <div class="tree-heading">
-            <div class="tree-heading-copy">
-              <span class="tree-eyebrow">NX MODEL</span>
-              <h2>Item Structure</h2>
-            </div>
-            <button type="button" class="tree-collapse" id="tree-toggle" aria-label="Collapse item structure panel" title="Collapse panel" aria-expanded="true">‹</button>
-          </div>
+        <aside class="tree-panel" id="tree-panel" aria-label="NX model controls and component structure">
           <div class="tree-content" id="tree-content">
-            <p class="tree-summary" id="tree-summary">No NX file loaded</p>
-            <div class="tree-entries" id="model-tree" role="tree" aria-label="NX component hierarchy"></div>
-            <p class="tree-note" id="tree-note" hidden></p>
+            <section class="sidebar-controls" id="sidebar-controls" aria-label="Component controls">
+              <div class="tree-heading">
+                <button type="button" class="tree-collapse" id="tree-toggle" aria-label="Collapse left panel" title="Collapse panel" aria-expanded="true">‹</button>
+              </div>
+              <div class="tree-selection-actions" id="tree-selection-actions" role="group" aria-label="Selected item controls" hidden>
+                <button type="button" id="isolate-selected" class="tree-action-button" disabled aria-pressed="false"
+                  title="Show only the selected component">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 20 8v8l-8 4-8-4V8z"/><path d="m4 8 8 4 8-4M12 12v8"/></svg>
+                  <span id="isolate-selected-label">Isolate</span>
+                </button>
+                <button type="button" id="fit-selected" class="tree-action-button" disabled title="Fit the selected item in the 3D view">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/><path d="M8 8h8v8H8z"/></svg>
+                  <span>Fit Selected</span>
+                </button>
+              </div>
+              <div class="tree-opacity-actions" id="tree-opacity-actions" role="group" aria-label="Component transparency" hidden>
+                <label class="tree-opacity-label" for="component-opacity-slider">Transparency
+                  <output id="component-opacity-value" for="component-opacity-slider">0%</output>
+                </label>
+                <div class="tree-opacity-slider-row">
+                  <input type="range" id="component-opacity-slider" min="0" max="100" step="1" value="0" disabled
+                    aria-label="Selected component transparency: 0 percent solid, 100 percent glass"/>
+                  <button type="button" id="reset-transparency-all" class="tree-opacity-reset" disabled
+                    aria-label="Solid All" title="Solid All — restore solid appearance for all components">
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z"/>
+                      <path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>
+                      <path d="M17.8 4.2 21 4v3.2"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="tree-move-actions" id="tree-move-actions" role="group" aria-label="Manual component movement" hidden>
+                <div class="tree-move-buttons">
+                  <button type="button" id="move-selected" class="tree-action-button" disabled aria-pressed="false" title="Move selected component along NX X, Y or Z">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3"/></svg>
+                    <span>Move</span>
+                  </button>
+                  <button type="button" id="reset-move-selected" class="tree-action-button" disabled title="Reset only the selected component manual movement">Reset Selected</button>
+                  <button type="button" id="reset-move-all" class="tree-action-button" disabled title="Reset all manual movements (preserve Explode positions)">Reset All</button>
+                </div>
+                <div class="tree-move-readout" id="tree-move-readout">Select a component, then drag an X/Y/Z axis arrow.</div>
+              </div>
+            </section>
+            <div class="sidebar-splitter" id="sidebar-splitter" role="separator"
+              aria-label="Resize controls and structure areas" aria-orientation="horizontal"
+              aria-controls="sidebar-controls sidebar-structure" tabindex="0"
+              title="Drag to resize controls and structure; double-click to reset"></div>
+            <section class="sidebar-structure" id="sidebar-structure" aria-label="Assembly structure">
+              <p class="tree-summary" id="tree-summary">No NX file loaded</p>
+              <div class="tree-entries" id="model-tree" role="tree" aria-label="NX component hierarchy"></div>
+              <p class="tree-note" id="tree-note" hidden></p>
+            </section>
           </div>
         </aside>
         <div class="tree-resizer" id="tree-resizer" role="separator" aria-label="Resize item structure panel" aria-orientation="vertical" tabindex="0"></div>
         <div class="viewport" id="viewer-viewport">
         <canvas id="viewer-canvas" aria-label="Interactive 3D model viewer" tabindex="0"></canvas>
-        <div class="viewport-view-tools" role="group" aria-label="Camera views">
+        <svg id="move-gizmo" class="move-gizmo"
+          role="group" aria-label="Selected component movement axes" hidden></svg>
+        <div class="viewport-view-tools" role="group" aria-label="View and appearance controls">
         <span class="viewport-tools-caption" aria-hidden="true">VIEW</span>
         <button type="button" class="viewport-view-button active" data-view="iso"
           aria-label="Isometric view" title="Isometric view (1)" aria-pressed="true">
@@ -71,8 +116,39 @@
           aria-label="Fit model to view" title="Fit model to view (F)">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><path d="M8.5 8.5h7v7h-7z"/></svg>
         </button>
+        <div class="viewport-tool-divider" aria-hidden="true"></div>
+        <button type="button" class="viewport-view-button" id="component-color-toggle"
+          aria-label="Color components by type" title="Color components by type" aria-pressed="false" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 2.8 19.8 7.4v9.1L12 21.1l-7.8-4.6V7L12 2.8Z"/>
+            <path d="M4.2 7.4 12 12l7.8-4.6M12 12v9.1"/>
+            <path d="M12 2.8v9.2"/>
+            <circle cx="7.7" cy="11.3" r="1.5" fill="#D77C64" stroke="none"/>
+            <circle cx="16.3" cy="11.3" r="1.5" fill="#5D9DC8" stroke="none"/>
+            <circle cx="12" cy="16.1" r="1.5" fill="#58A99A" stroke="none"/>
+          </svg>
+        </button>
+        <div class="viewport-tool-divider" aria-hidden="true"></div>
+        <button type="button" class="viewport-view-button" id="measure-planes-toggle"
+          aria-label="Measure diameter, center distance, and plane distance or angle" title="Measure diameter, center spacing, or planar distance/angle" aria-pressed="false" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 19h18M4 15l6-10 3 2-6 10M12 6l8 8M16 8l4-2M17 18l3-4"/>
+            <path d="M6 11l2 1M10 15l3 1"/>
+          </svg>
+        </button>
         </div>
-        <div class="reference-axis-labels" aria-hidden="true">
+        <div class="measurement-panel" id="measurement-panel" hidden aria-live="polite">
+          <div class="measurement-heading"><span id="measurement-summary">Distance &amp; Angle</span>
+            <span class="measurement-actions"><button type="button" id="measurement-fit" title="Fit selected measurement surfaces" aria-label="Fit measurement surfaces" disabled>Fit</button><button type="button" id="measurement-clear" title="Clear selected measurement surfaces" aria-label="Clear measurement" disabled>Clear</button></span></div>
+          <p id="measurement-detail">Select one round surface for diameter, two round surfaces for center spacing, or two planes.</p>
+        </div>
+        <svg id="measurement-overlay" class="measurement-overlay" aria-hidden="true" hidden>
+          <line id="measurement-line" x1="0" y1="0" x2="0" y2="0"/>
+          <path id="measurement-arc" d="" hidden/>
+          <circle id="measurement-point-a" cx="0" cy="0" r="5"/>
+          <circle id="measurement-point-b" cx="0" cy="0" r="5"/>
+        </svg>
+<div class="reference-axis-labels" aria-hidden="true">
           <span class="axis-label axis-label-x" id="axis-label-x">X</span>
           <span class="axis-label axis-label-y" id="axis-label-y">Y</span>
           <span class="axis-label axis-label-z" id="axis-label-z">Z</span>

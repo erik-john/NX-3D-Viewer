@@ -1,3 +1,294 @@
+Milestone: 39 — Dual Plane Angle/Gap & Fit Measurement Faces
+
+Changes
+- Extend the existing Measure result for two nonparallel planar STL patches: display the acute face angle (including perpendicular ⊥ 90°) and the nearest clearance between the selected finite planar mesh patches together, instead of angle alone. Parallel faces retain ∥ 0°/180° with infinite-supporting-plane separation.
+- The nearest-patch clearance is calculated from triangulated selected faces (vertex/triangle, edge/edge and segment/triangle proximity); estimate stays local to a bounded triangle neighborhood for very large tessellations. Move/Explode offsets are included so the distance changes with manual component repositioning. A meshless legacy case is explicitly described as picked-point distance, not plane clearance.
+- Add Fit beside Clear in the measurement panel: center/zoom to the selected highlighted surface geometry and measurement guide endpoints while preserving the camera orientation; disabled for empty or hidden selections. Support one or two surfaces, including previously implemented diameter and center-spacing selection.
+- Reuse the existing Measure View icon, geometry selection, overlays, and components; preserve assembly interactions, glass/color modes, offline server port 8888 and branch-specific .gitignore.
+- No algorithm can infer a true gear pitch-circle point or exact gear tooth clearance from STL alone. Nearest-face clearance is an approximation, not NX analytic CAD/B-rep or certified metrology.
+
+Checks
+- 58 Python tests, 24 JavaScript checks including finite perpendicular/45° patches, moved patches and intersecting faces; Chromium simulated-GPU measurement check for dual value display, Fit/rotation preservation, 50 mm parallel gap and offset updates, plus browser regressions for diameter, centerlines, selection, explode, move, transparency and sidebar resizing.
+- Actual Siemens NX 1855 workstation and WebGL rendering still need verification. Full source ZIP is Windows CRLF and excludes .gitignore, uploads and caches.
+
+Suggested commits
+- dev: feat(measure): show plane angle and face clearance with fit action
+- main: feat(measure): release dual plane values and fit view
+
+Milestone: 38 — Center Distance & Parallel/Perpendicular Measurement Indicators
+
+Changes
+- Extend the existing single Measure mode without adding new toolbar icons: one circular/cylindrical feature reports diameter; a second round feature with a parallel axis reports center distance.
+- Between two circular planar faces, measure the 3D distance between fitted circle centers. Between parallel cylindrical axes (or a cylinder and circular feature), report the shortest perpendicular centerline spacing, independent of which height on a curved cylinder was clicked. Do not issue a numeric result for nonparallel round-feature axes.
+- For two parallel planar faces, display a parallel symbol (∥), the oriented normal angle 0° or 180°, plus the supporting-plane separation. For perpendicular planar faces display ⊥ and 90°; preserve ∠ for other acute plane angles.
+- Preserve one vs two surface selection logic, diameter overlay, Move/Explode offset updates, hidden-feature handling, and existing camera/component interactions. STL-only approximations remain clearly labelled.
+- Preserve Python backend, NX conversion, offline port 8888, workspace, and branch-specific .gitignore; source ZIP keeps Windows CRLF.
+
+Checks
+- 58 Python unit tests, 23 JavaScript checks, Chromium tests for cylinders and center spacing (60mm -> 72mm after Move), opposite-face normals ∥ 180°, ⊥ 90°, previous circle Ø20, circle-center 64.031mm, plane distances and 45° angle.
+- Siemens NX 1855 workstation and real GPU validation remain required; browser interactions used synthetic geometry and simulated WebGL.
+
+Suggested commits
+- dev: feat(measure): add round-feature center distance and plane relation symbols
+- main: feat(measure): release center spacing and angle indicators
+
+Milestone: 37 — Single-Surface Circular Diameter & Two-Surface Measurement
+
+Changes
+- Extend the existing MS36 Measure tool. One recognized circular planar face or cylindrical surface immediately displays its fitted mesh diameter, with an on-screen diameter line and circular outline. Normal flat faces still await a second click.
+- Two planar surfaces continue to report supporting-plane separation (parallel, including anti-parallel normals) or the acute unoriented angle (nonparallel). A pair containing a cylindrical wall is explicitly unsupported rather than showing a false plane measurement.
+- Distinguish one vs two surfaces in the panel; ignore duplicate clicks on the same identified patch; Clear resets both. Three clicks start a new measurement after the previous pair.
+- Recognize closed circular perimeter rings and connected cylinder sides from STL triangle adjacency and radius/normal consistency. Reject polygonal square faces, partial arcs, and insufficiently regular/complete curved surfaces. Diameter is approximate, not NX B-rep exact.
+- Keep selection surfaces, overlays, and diameter guides synchronized with Move/Explode visual offsets, visibility, and camera changes; no NX source file edits or backend changes.
+- Preserve the existing right-hand Measure toolbar icon, split sidebar, steel/glass/color appearance, offline Python server port 8888, and branch-specific .gitignore.
+
+Checks
+- 58 Python tests; 22 JavaScript regression checks including circle/cylinder geometry, squares and incomplete arcs, circular-face plane separation, standard angle/distance, and existing viewer behavior.
+- Chromium simulated-WebGL interaction verified one disk click -> Ø20 mm, duplicate click ignored, two disks -> 50 mm separation, one cylinder -> Ø20 mm, Clear, and overlay. Existing distance/angle browser test and standard component UI browser tests passed.
+- NX 1855 and actual WebGL shader rendering need final verification on the user's Windows workstation. Measurements remain STL approximations.
+- Full source ZIP uses Windows CRLF, includes test sources for dev, and excludes .gitignore, uploads and local caches.
+
+Suggested commits
+- dev: feat(measure): add single-face circle and cylinder diameter recognition
+- main: feat(measure): release diameter measurements
+
+Milestone: 36 — Automatic Planar-Face Distance & Angle Measurement
+
+Changes
+- Add a Measure icon in the existing right-hand View toolbar; clicking it enters a dedicated two-face selection mode without changing the split sidebar or normal component selection.
+- Pick a clicked visible mesh via the depth-tested selection pass, raycast its triangles to locate the hit facet, and grow a connected coplanar region (reject single curved facets). Support both separate body meshes and combined-STL fallback where planar patches exist.
+- Highlight selected planar regions independently in blue and purple, with a viewport measurement guide and a Clear action. Selecting another face after completing a pair begins a new measurement.
+- For parallel/anti-parallel planes (within 0.5 degrees) show absolute normal-plane separation; for nonparallel planes show the acute unoriented angle. Units come from NX (mm/in) when reported, otherwise display model units.
+- Preserve NX source geometry and camera controls; measurements follow Move and Explode offset changes. Hiding a selected component pauses the result rather than presenting hidden geometry.
+- Measurements use STL planar patches and supporting planes, NOT exact NX CAD B-rep faces or finite-face minimum distances. Curved tessellated surfaces are not selectable as valid planes.
+- Keep port 8888, steel/glass/color rendering, file Workspace, component controls, branch-specific .gitignore and Windows CRLF policy unchanged.
+
+Checks
+- 58 Python tests and 21 JavaScript checks, including new geometric cases for 0/180 parallel normals, 45/90 angle, connected planar patches, curved-facet rejection, manual offsets, rays and projection.
+- Chromium simulated-GPU integration checks for two clicks -> 50 mm, manual displacement -> 70 mm, two sloped planes -> 45 degrees, Clear, and mode toggle. Previous NX viewer/browser interaction tests rechecked.
+- Siemens NX 1855 and real GPU face highlighting require final workstation verification. No NX Open/backend changes.
+
+Suggested commits
+- dev: feat(measure): add STL planar distance and angle measurement
+- main: feat(measure): release planar face measurement
+
+Milestone: 35 — Clear Glass Rendering Refinement
+
+Changes
+- Improve the WebGL glass material from nearly-white translucent steel to cool, slightly smoky technical glass with a clearer center, specular glint and stronger angle-dependent silhouette.
+- Reduce the visual opacity buildup from front and back faces of closed STL parts without culling possibly inconsistent imported CAD winding. Opaque steel at 0% remains unchanged.
+- Use a perceptual 0–100% Transparency-to-alpha curve so internal components become visible earlier; preserve the current selected part's slider setting and the adjacent Solid All icon.
+- Add subtle blue-gray glass crease lines and dispose of their GL buffers whenever the scene reloads.
+- Preserve component selection/highlights, color mode, geometry positions, Move, Explode, Isolate/Fit, inspector, sidebar resizing and NX files. No backend or NX exporter changes.
+- No true physical refraction; this remains a fast CAD inspection visualization on STL meshes. Real GPU and NX 1855 workstation visual check required.
+
+Checks
+- Python and JavaScript regression suites plus Chromium simulated-assembly interactions and original steel rendering assertions.
+- Source ZIP uses Windows CRLF for text files and excludes uploads, .gitignore and generated caches. Port 8888 unchanged.
+
+Suggested commits
+- dev: fix(viewer): improve clear glass material and interior visibility
+- main: fix(viewer): release glass rendering refinement
+
+Milestone: 34 — Simplified Glass Transparency Controls
+
+Changes
+- Replace the Transparent/Solid Selected button and 10–90% opacity control with one direct 0–100% Transparency slider, paired with an icon-only Solid All button.
+- 0% keeps the original steel appearance; 100% shows a highly transparent but still visible glass-like component. The slider reads back the currently selected component's saved value automatically; no activation button is required.
+- Each NX component occurrence retains its own transparency, including repeated parts; changing selection never alters other components. Solid All resets everything.
+- Add cool glass tint and angle-dependent edge highlights in the WebGL shader, retaining correct depth-aware blending, original steel colors at 0%, and picking/movement/explode compatibility.
+- Original NX .prt and STL geometry are never modified. Combined-STL fallback keeps individual transparency disabled. Port 8888, split sidebar, Windows CRLF and branch-specific .gitignore policy unchanged.
+
+Checks
+- Full Python and Node regression tests, updated component-transparency tests and Chromium interactions with simulated assembly data.
+- Verify appearance with a real NX 1855 assembly and GPU on the Windows workstation before promoting to main.
+
+Suggested commits
+- dev: refactor(viewer): simplify component transparency and add glass shading
+- main: refactor(viewer): release glass transparency slider
+
+Milestone: 33 — Component Transparency
+
+Changes
+- Add a Selected Component Transparent/Solid Selected toggle, per-component opacity slider (10–90%, default 35%), and Solid All action in the upper resizable controls area; keep component tree rows uncluttered.
+- Keep per-mesh/occurrence transparency independent: repeated NX parts can have different opacities, and multiple bodies inside the selected occurrence change together.
+- Render opaque meshes first and translucent meshes back-to-front using WebGL blending with depth test retained and depth writes disabled only for the transparent pass; fade crease edges to match.
+- Preserve original NX mesh data, movement, Explode, picking, color mode, selection, visibility, Isolate and Fit. New part loading clears transparency.
+- Increase the default upper control area height so its expanded controls can be seen, retaining vertical and horizontal resizing and independent scrolling.
+- Combined-STL fallback and standalone part files do not expose individual component transparency.
+- Port 8888, Windows CRLF, root uploads exclusion and branch-specific .gitignore policy unchanged.
+
+Checks
+- Python and Node regression suites; additional MS33 Node tests for independent per-mesh alpha, render-state setup and UI location.
+- Chromium interaction with simulated NX assemblies: opacity slider, transparency toggle, per-occurrence independence, reset, Explode compatibility and new model reset.
+- Chromium's real WebGL software driver may be unavailable in headless test environments; licensed NX 1855 and real GPU rendering must still be verified on Windows before promotion to main.
+
+Suggested commits
+- dev: feat(viewer): add per-component transparency controls
+- main: feat(viewer): release component transparency
+
+Milestone: 32 — Vertically Split Controls & Structure Sidebar
+
+Changes
+- Divide the left sidebar into an untitled upper controls area and lower component-structure area, with a horizontal drag handle between them.
+- Keep Isolate / Restore, Fit Selected, Move Selected, Reset Selected and Reset All in the upper area; keep the assembly hierarchy, visibility checkboxes, Explode toggles and row Move icons in the lower area.
+- Resize upper and lower areas vertically by dragging the divider or by focusing it and using Up/Down (Shift for larger steps); double-click to restore the default split.
+- Keep existing horizontal left-sidebar resizing and collapse/expand functionality. Upper controls and lower hierarchy scroll independently; the viewport and Part Inspector remain unchanged.
+- Preserve all MS31 geometry, selection, moving, exploding, coloring, isolation, and workspace logic; no backend or NX exporter changes.
+- Port 8888, root uploads exclusion and Windows CRLF policy remain unchanged.
+
+Checks
+- Python, Node JavaScript, and Chromium interaction checks for both splitter axes, tree scrolling, controls, component selection and actions.
+- Actual licensed NX 1855 behavior must still be verified on Windows before production promotion.
+
+Suggested commits
+- dev: refactor(ui): split sidebar into resizable controls and structure areas
+- main: refactor(ui): release resizable split sidebar
+
+Milestone: 31 — Manual NX Component Movement (X/Y/Z)
+
+Changes
+- Add a Move toggle beside each component in Item Structure, plus Move Selected, Reset Selected, and Reset All commands above the tree.
+- Show interactive NX X/Y/Z (red/green/blue) axis arrows at the currently selected visible component; drag an arrow to translate the component in model units. Focus an arrow and use arrow keys to nudge it (Shift for larger steps).
+- Display the selected component's translation in NX model coordinates, correctly transforming between NX (X,Y,Z) and viewer (X,Z,-Y).
+- Store per-occurrence manual translations separately from Explode displacements. Both compose in rendering, crease lines, depth picking and camera Fit. Reset manual positions preserves Explode settings; resetting Explode preserves manual positions.
+- Keep component colors, hover/selection, Item Structure, Isolate/Restore, Fit, visibility and mouse orbit/pan unaffected. Handle dragging does not orbit the camera.
+- Hide a handle when its axis points too closely toward the camera; rotating the view restores a usable drag axis.
+- Combined-STL fallback and standalone parts do not expose unsupported manual moves. Starting another part clears prior manual transforms.
+- No NX exporter, backend, source .prt, upload, or network changes. Port 8888 and Windows CRLF policy remain unchanged.
+
+Checks
+- 58 Python tests, 18 JavaScript checks, including projection, axis calibration and composed mesh offsets.
+- Chromium integration with simulated NX geometry and GPU: actual SVG pointer dragging, NX-axis keyboard nudge, independent component movement, reset, Explode interactions, selection, combined-STL fallback and prior regression scenarios.
+- Actual licensed NX 1855 assembly behavior must be verified on Windows before promoting to main.
+
+Suggested commits
+- dev: feat(assembly): add interactive per-component axis movement
+- main: feat(assembly): release manual NX component movement
+
+Milestone: 30 — Component Color Mode
+
+Changes
+- Add a single multicolor cube toggle beneath Fit in the 3D workspace View icon group.
+- Switch between the existing steel material and per-component colors without changing source geometry or NX .prt files.
+- Group repeated occurrences (and multiple bodies) of the same NX prototype under one color. Separate source parts, including different bolt sizes, receive different colors.
+- Export a stable prototype partKey to the NX assembly manifest, preferring the source .prt path and falling back to the prototype name.
+- For older manifests, use conservative normalized component names as a best-effort fallback.
+- Preserve hover/selection highlighting, Item Structure, Explode, Isolate, Fit Selected, and visibility controls.
+- Disable component colors when a standalone part or combined STL does not support reliable independent coloring.
+- Keep port 8888, original steel appearance when mode is off, and Windows CRLF.
+
+Checks
+- 58 Python tests and 17 JavaScript checks, including grouping, repeated occurrences, bolt sizes, 24 different type colors, and combined STL fallback.
+- Chromium integration for color toggle, original steel restoration, selection, explosion and fallback, plus existing selection/explode/isolate tests.
+- Real NX 1855 assembly rendering and prototype metadata remain to be checked on Windows before promotion to main.
+
+Suggested commits
+- dev: feat(viewer): add prototype-based assembly color mode
+- main: feat(viewer): release assembly color toggle
+
+Milestone: 29 — Isolate Selected & Fit Selected
+
+Changes
+- Add an Isolate / Restore action and a Fit Selected action above the Item Structure tree.
+- Isolate a selected NX component/body without changing the underlying mesh buffers, transforms or source CAD files.
+- Preserve every mesh's prior visibility when isolation starts, including previously hidden components; Restore returns to those exact visibility settings.
+- Selecting a different component and clicking Isolate switches the isolated target while retaining the original visibility snapshot.
+- A manual checkbox change ends isolation, retaining the user's latest visibility settings; Restore stays accessible after clearing selection or selecting the root.
+- Fit Selected uses visible geometry bounds including current explode offsets, preserves camera yaw/pitch, and does not change component visibility.
+- Disable unsupported per-component operations for combined STL; whole-model Fit remains available.
+- Preserve single explode toggles, existing NX rendering/picking, workspace, port 8888, and Windows CRLF policy.
+
+Checks
+- Run all Python and JavaScript checks, including selected-only camera tests.
+- Run Chromium integration covering isolate, restore, manual visibility, selection changes, exploded fit, and combined-STL fallback with mocked NX/WebGL responses.
+- Verify actual NX assembly rendering on the Windows workstation before production promotion.
+
+Suggested commits
+- dev: feat(assembly): add isolate and fit selected actions
+- main: feat(assembly): release isolate and fit selected actions
+
+Milestone: 28 — Single Assembly Explode Toggles
+
+Changes
+- Remove the floating Assembly / Explode panel from the 3D viewport, including the separation slider and action buttons.
+- Replace each separate Explode and Reset icon with one stateful position toggle beside the visibility checkbox in Item Structure.
+- The assembly toggle explodes all or resets all; component toggles explode or restore only their own occurrence groups.
+- The icon, tooltip, and aria-pressed state reflect whether a row is exploded, including partly exploded parent groups.
+- Keep visibility checkboxes and selection independent from explosion; combined-STL fallback keeps toggles disabled.
+- Preserve the non-destructive geometry displacement, camera Fit, mesh picking, NX file loading, port 8888, and Windows CRLF.
+
+Checks
+- Test both states of assembly and component toggles, mixed/partially exploded assemblies, nested components, scene reload, and combined-STL fallback.
+- Run Python and JavaScript checks and Chromium interaction test in dev branch before promotion to main.
+
+Suggested commits
+- dev: refactor(assembly): replace explode controls with tree toggles
+- main: refactor(assembly): release single-toggle explode controls
+
+MS27 — Assembly Tree Explode Controls
+
+Changes
+- Add Explode and Reset icons immediately beside the visibility checkbox on each component row.
+- Add Explode All and Reset All icons on the assembly root row, beside its visibility checkbox.
+- Keep the existing Assembly / Explode viewport panel and separation slider unchanged.
+- Reuse MS26 component occurrence grouping, per-component overrides, and Collapse All restoration.
+- Direct row actions do not change the current selected item or the visibility checkbox.
+- Disable unavailable actions for a combined STL or any component without separate mesh geometry.
+- Update the action icon states after every explode, reset, and slider adjustment.
+- No geometry, NX converter, upload storage, or API changes. Port 8888 and Windows CRLF remain unchanged.
+
+Checks
+- Tree-row actions for root and components, nested assembly rows, no body-row action icons.
+- Visibility and selection remain independent; tree controls reflect viewport controls and reset state.
+- Combined STL fallback safely disables unsupported controls.
+- Run existing Python/JavaScript suites and browser interaction checks on the dev branch.
+
+Git commits
+- dev: feat(assembly): add explode and reset actions to item structure
+- main: feat(assembly): release inline tree explode controls
+
+Milestone: 26 — Non-destructive Assembly Explosion
+
+Changes
+- Added Explode All and Collapse All, a 0–100% separation slider, Explode Selected and Reset Selected.
+- Assembly grouping uses NX component occurrence IDs and separate body mesh IDs from the current assembly tree.
+- World-space offsets apply consistently to solid rendering, GPU picking and mechanical crease lines.
+- Fit camera uses the actual displaced geometry bounds, keeping exploded parts in view.
+- Preserve all original STL vertex buffers, assembly transforms, file data and visibility/selection controls.
+- Explode tools are disabled for combined STL fallback or assemblies without two component mesh groups.
+- No changes to backend APIs, NX conversion, port 8888 or Windows CRLF source policy.
+
+Checks
+- Verify explode/collapse returns the exact original mesh positions and does not modify source files.
+- Verify selected components, GPU picking, visibility and camera Fit while exploded.
+- Real NX assemblies and GPU WebGL must still be confirmed on the user's workstation.
+
+Suggested Git commits
+- dev: feat(assembly): add non-destructive explode and collapse controls
+- main: feat(assembly): release assembly explode controls
+
+Milestone: 25 — 3D Component Picking and Selection
+
+Changes
+- Add 1-pixel offscreen WebGL ID picking for visible NX mesh chunks, honoring depth and component visibility.
+- Click geometry to select its parent component occurrence in Item Structure; update Part Inspector and status.
+- Selecting an Item Structure node highlights its displayed geometry; picking an item automatically expands the tree path and scrolls it into view.
+- Add subtle teal hover highlight and stronger blue selected-component highlight, preserving steel surface lighting.
+- Preserve existing left-drag rotation, Shift+left/right-drag pan, wheel zoom, and camera views; avoid selection during drag.
+- Clicking the empty viewport clears selection; a new file load clears selection and hover state.
+- For combined STL fallback, picking selects the entire model only, not individual components.
+- Port remains 8888. Source uses Windows CRLF. No .gitignore or uploads files included.
+
+Verification
+- Run full Python + JavaScript tests, including picking ID encode/decode, 1-pixel picking matrix and tree synchronization.
+- Test on real NX assembly with repeated components, occlusion, hidden bodies and combined STL fallback.
+- WebGL GPU picking and real NX component selection require Windows workstation confirmation.
+
+Suggested commits
+- dev: feat(viewer): add 3D component picking and synchronized selection
+- main: feat(viewer): release assembly component selection
+
 Milestone: 24 — Workspace Modal Layout Refinement
 
 Changes

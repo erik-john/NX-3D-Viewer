@@ -3,6 +3,10 @@ import { parseSTL } from './stl.js';
 import { ItemTree } from './item_tree.js';
 import { PartInspector } from './inspector.js';
 import { FileWorkspace } from './workspace.js';
+import { createExplodePlan, calculateExplodeOffsets, selectionGroupIds } from './assembly_explode.js';
+import { buildComponentColors } from './component_colors.js';
+import { MoveGizmo, MOVE_AXES } from './component_move.js';
+import { MeasurementUI } from './measurement_ui.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
@@ -18,18 +22,297 @@ function setup() {
     $('status-message').textContent = 'Unable to start 3D renderer';
     return;
   }
+  let explodeGroups = [];
+  let explodeBounds = null;
+  let explodeLevel = 0;
+  const selectedOverrides = new Map();
+  const manualGroupOffsets = new Map();
+  const componentOpacities = new Map(); // meshId -> opacity, per occurrence
+  let moveMode = false;
+  let moveGizmo = null;
+  let measureMode = false;
+  let measurement = null;
+  let isolated = null; // { nodeId, previous: Map(meshId -> prior visible) }
+  let componentColorEnabled = false;
+  let componentColors = { available: false, colors: new Map() };
+  const canExplode = () => explodeGroups.length >= 2;
+
+  function updateComponentColorMode() {
+    const active = componentColors.available && componentColorEnabled;
+    const button = $('component-color-toggle');
+    button.disabled = !componentColors.available;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+    button.title = !componentColors.available ? 'Component colors require separate assembly geometry' :
+      active ? 'Restore original steel appearance' : 'Color components by type';
+    viewer.setComponentColorMode(active);
+  }
+
+  function selectedNode() {
+    return tree.nodes.get(tree.selectedId) || null;
+  }
+  function meshIdsFor(node) {
+    if (!node) return [];
+    // Combined STL fallback only supports whole-model framing, never isolation.
+    return !tree.visibilityEnabled ? (node === tree.root ? ['root'] : []) : tree.descendants(node);
+  }
+  function hasMesh(ids, visibleOnly = false) {
+    const wanted = new Set(ids);
+    return viewer.geometry.some(part => wanted.has(part.meshId) && (!visibleOnly || part.visible));
+  }
+  function applyVisibility(map) {
+    for (const [id, visible] of map) viewer.setMeshVisible(id, visible);
+    tree.setVisibilityFromMeshes(map);
+    updateMoveActions();
+  }
+  // 0 = unchanged steel, 100 = clear glass with a thin visible silhouette.
+  // A perceptual curve opens up the interior sooner than linear alpha; its
+  // exact inverse keeps the selected component's saved slider value stable.
+  const GLASS_ALPHA = 0.045;
+  const transparencyToAlpha = value => GLASS_ALPHA + (1 - GLASS_ALPHA) *
+    Math.pow(1 - Math.min(100, Math.max(0, value)) / 100, 2);
+  const alphaToTransparency = alpha => {
+    const remaining = Math.min(1, Math.max(0, (alpha - GLASS_ALPHA) / (1 - GLASS_ALPHA)));
+    return Math.round(100 * (1 - Math.sqrt(remaining)));
+  };
+  function transparencyTarget() {
+    const node = selectedNode();
+    if (!tree.visibilityEnabled || node?.type !== 'component') return null;
+    const ids = meshIdsFor(node);
+    return ids.length && hasMesh(ids) ? { node, ids } : null;
+  }
+  function updateTransparencyActions() {
+    const target = transparencyTarget();
+    const slider = $('component-opacity-slider');
+    const currentAlpha = target ?
+      (componentOpacities.get(target.ids.find(id => componentOpacities.has(id))) ?? 1) : 1;
+    const current = Math.max(0, Math.min(100, alphaToTransparency(currentAlpha)));
+    $('tree-opacity-actions').hidden = !tree.root || !tree.visibilityEnabled;
+    $('reset-transparency-all').disabled = componentOpacities.size === 0;
+    slider.disabled = !target;
+    slider.value = String(current);
+    $('component-opacity-value').textContent = `${current}%`;
+  }
+  function applyTransparency() {
+    viewer.setMeshOpacities(componentOpacities);
+    updateTransparencyActions();
+  }
+  function updateSelectionActions() {
+    $('tree-selection-actions').hidden = !tree.root;
+    const node = selectedNode();
+    const ids = meshIdsFor(node);
+    const canIsolate = !!(tree.visibilityEnabled && node && node !== tree.root &&
+      ['component', 'body'].includes(node.type) && hasMesh(ids));
+    // Restore stays available after clearing selection or selecting the assembly.
+    const shouldRestore = !!isolated && (!canIsolate || isolated.nodeId === node.id);
+    $('isolate-selected').disabled = !canIsolate && !isolated;
+    $('isolate-selected').classList.toggle('is-active', shouldRestore);
+    $('isolate-selected').setAttribute('aria-pressed', String(shouldRestore));
+    $('isolate-selected-label').textContent = shouldRestore ? 'Restore' : 'Isolate';
+    $('isolate-selected').title = shouldRestore ? 'Restore previous component visibility' :
+      'Show only the selected component';
+    $('fit-selected').disabled = !hasMesh(ids, true);
+    updateMoveActions();
+    updateTransparencyActions();
+  }
+
+  // Manual moves are per assembly occurrence, independent of explode offsets.
+  // STL vertices, prototype files, and original NX component transforms stay intact.
+  function movableGroupIds(node) {
+    if (!tree.visibilityEnabled || !node || node.type !== 'component' || !canExplode()) return [];
+    return selectionGroupIds(explodeGroups, node, target => tree.descendants(target));
+  }
+  function moved(offset) {
+    return !!offset && offset.some(value => Math.abs(value) > 1e-8);
+  }
+  function updateMoveActions() {
+    const node = selectedNode();
+    const groupIds = movableGroupIds(node);
+    const visible = !!node && hasMesh(meshIdsFor(node), true);
+    const eligible = groupIds.length > 0 && visible;
+    if (!eligible) moveMode = false;
+    const active = moveMode && eligible;
+    $('tree-move-actions').hidden = !canExplode();
+    $('move-selected').disabled = !eligible;
+    $('move-selected').classList.toggle('is-active', active);
+    $('move-selected').setAttribute('aria-pressed', String(active));
+    $('move-selected').title = active ? 'Finish moving selected component' :
+      'Move selected component with the NX X/Y/Z axis handles';
+    $('reset-move-selected').disabled = !groupIds.some(id => moved(manualGroupOffsets.get(id)));
+    $('reset-move-all').disabled = ![...manualGroupOffsets.values()].some(moved);
+    tree.setMoveState(active ? node.id : null, explodeGroups);
+    moveGizmo?.setTarget(node ? meshIdsFor(node) : [], active);
+    const offsets = groupIds.map(id => manualGroupOffsets.get(id) || [0,0,0]);
+    if (offsets.length === 1) {
+      // Viewer basis X,Z,-Y -> original NX basis X,Y,Z.
+      const [x, y, z] = offsets[0];
+      const format = number => `${number >= 0 ? '+' : ''}${number.toFixed(2)}`;
+      $('tree-move-readout').textContent = `NX ΔX ${format(x)} · ΔY ${format(-z)} · ΔZ ${format(y)} (model units)`;
+    } else {
+      $('tree-move-readout').textContent = active ?
+        'Drag an X/Y/Z arrow (arrow keys nudge a focused handle).' :
+        'Select a component, then choose Move or its row icon.';
+    }
+  }
+  function applyManualMovement() {
+    const offsets = new Map();
+    for (const group of explodeGroups) {
+      const manual = manualGroupOffsets.get(group.id) || [0, 0, 0];
+      for (const meshId of group.meshIds) offsets.set(meshId, manual.slice());
+    }
+    viewer.setManualOffsets(offsets);
+    updateMoveActions();
+  }
+  function beginMoveSnapshot() {
+    const node = selectedNode();
+    if (!moveMode || !hasMesh(meshIdsFor(node),true)) return null;
+    const ids = movableGroupIds(node);
+    if (!ids.length) return null;
+    return new Map(ids.map(id => [id, (manualGroupOffsets.get(id) || [0,0,0]).slice()]));
+  }
+  function translateSelected(snapshot, axis, distance) {
+    const vector = MOVE_AXES[axis];
+    if (!vector || !Number.isFinite(distance)) return;
+    for (const [id, starting] of snapshot) {
+      const result = starting.map((value,i)=>value + distance*vector[i]);
+      if (moved(result)) manualGroupOffsets.set(id,result);
+      else manualGroupOffsets.delete(id);
+    }
+    applyManualMovement();
+  }
+  function resetSelectedMovement() {
+    for (const id of movableGroupIds(selectedNode())) manualGroupOffsets.delete(id);
+    applyManualMovement();
+    $('status-message').textContent = 'Selected component manual movement reset';
+  }
+  function resetAllMovement() {
+    manualGroupOffsets.clear();
+    applyManualMovement();
+    $('status-message').textContent = 'All manual movements reset · Explode state preserved';
+  }
+  function toggleMoveSelected() {
+    if (!movableGroupIds(selectedNode()).length) return;
+    moveMode = !moveMode;
+    updateMoveActions();
+    $('status-message').textContent = moveMode ? 'Move mode · Drag X, Y or Z arrows' : 'Move mode off';
+  }
+  function isolateOrRestore() {
+    const node = selectedNode();
+    const ids = meshIdsFor(node);
+    const validTarget = node && node !== tree.root && tree.visibilityEnabled &&
+      ['component', 'body'].includes(node.type) && hasMesh(ids);
+    if (!validTarget && !isolated) return;
+    if (!validTarget || isolated?.nodeId === node.id) {
+      applyVisibility(isolated.previous);
+      isolated = null;
+      $('status-message').textContent = 'Previous component visibility restored';
+    } else {
+      // Switching isolated items uses the original pre-isolation visibility snapshot.
+      const previous = isolated?.previous || new Map(viewer.geometry.map(part =>
+        [part.meshId, part.visible]));
+      isolated = { nodeId: node.id, previous };
+      const selectedIds = new Set(ids);
+      applyVisibility(new Map([...previous.keys()].map(id => [id, selectedIds.has(id)])));
+      $('status-message').textContent = `Isolated: ${node.name}`;
+    }
+    updateSelectionActions();
+  }
+
+  function updateExplodeControls() {
+    tree.setExplodeState(explodeGroups, explodeLevel, selectedOverrides);
+  }
+  function applyExplosion() {
+    viewer.setExplodeOffsets(calculateExplodeOffsets(explodeGroups, explodeBounds, explodeLevel, selectedOverrides));
+    viewer.fit();
+    updateExplodeControls();
+    updateMoveActions();
+  }
+  function initializeExplosion(info, meshes, perBody) {
+    explodeGroups = perBody ? createExplodePlan(info.tree, meshes) : [];
+    explodeBounds = viewer.bounds;
+    explodeLevel = 0;
+    selectedOverrides.clear();
+    manualGroupOffsets.clear();
+    moveMode = false;
+    viewer.setManualOffsets(new Map());
+    updateExplodeControls();
+    updateMoveActions();
+  }
   const inspector = new PartInspector({
     panel: $('inspector-panel'), toggle: $('inspector-toggle'), content: $('inspector-content'),
   });
   const tree = new ItemTree({
     panel: $('tree-panel'), toggle: $('tree-toggle'), resizer: $('tree-resizer'),
     container: $('model-tree'), summary: $('tree-summary'), note: $('tree-note'),
-    onVisibility: (meshId, visible) => viewer.setMeshVisible(meshId, visible),
+    onVisibility: (meshId, visible) => {
+      viewer.setMeshVisible(meshId, visible);
+      // A manual visibility change takes ownership of the current visibility state.
+      // Do not later overwrite it with a stale pre-isolation snapshot.
+      if (isolated) isolated = null;
+      updateSelectionActions();
+    },
+    onToggleExplode: (node, exploded) => changeNodeExplosion(node, exploded ? 75 : 0),
+    onToggleAll: exploded => exploded ? explodeAll() : collapseAll(),
+    onToggleMove: (node, active) => {
+      tree.selectNode(node);
+      moveMode = active;
+      updateMoveActions();
+      $('status-message').textContent = active ? `Move component: ${node.name}` : 'Move mode off';
+    },
     onSelect: node => {
       inspector.select(node);
-      $('status-message').textContent = `Selected: ${node.name}`;
+      viewer.setSelectedMeshIds(node ? tree.descendants(node) : []);
+      $('status-message').textContent = node ? `Selected: ${node.name}` : 'Selection cleared';
+      updateSelectionActions();
     },
   });
+  moveGizmo = new MoveGizmo($('move-gizmo'), viewer, {
+    onStart: beginMoveSnapshot,
+    onDrag: translateSelected,
+    onEnd: () => {
+      const node = selectedNode();
+      if (node) $('status-message').textContent = `Moved: ${node.name}`;
+    },
+  });
+  measurement = new MeasurementUI(viewer, {
+    panel: $('measurement-panel'), summary: $('measurement-summary'),
+    detail: $('measurement-detail'), clear: $('measurement-clear'), fit: $('measurement-fit'),
+    overlay: $('measurement-overlay'), line: $('measurement-line'),
+    pointA: $('measurement-point-a'), pointB: $('measurement-point-b'),
+    arc: $('measurement-arc'),
+  });
+  function updateMeasureButton() {
+    const button = $('measure-planes-toggle');
+    button.disabled = !viewer.geometry.length;
+    button.classList.toggle('active', measureMode);
+    button.setAttribute('aria-pressed', String(measureMode));
+    button.title = measureMode ? 'Exit measurement' : 'Measure diameter, center spacing, or planar distance/angle';
+    viewer.measureActive = measureMode;
+    viewer.canvas.classList.toggle('is-measuring', measureMode);
+    viewer.canvas.style.cursor = measureMode ? 'crosshair' : 'grab';
+  }
+  function setMeasureMode(active) {
+    measureMode = !!active && !!viewer.geometry.length;
+    if (measureMode && moveMode) { moveMode = false; updateMoveActions(); }
+    measurement.setActive(measureMode);
+    viewer.setHoveredMeshIds([]);
+    updateMeasureButton();
+    if (measureMode) $('status-message').textContent = 'Measurement: select a round surface for diameter, two round surfaces for center distance, or two planes';
+  }
+  viewer.onFrame = () => { moveGizmo.update(); measurement.update(); };
+  viewer.onHoverMesh = meshId => {
+    const node = !measureMode && meshId ? tree.nodeForMesh(meshId) : null;
+    viewer.setHoveredMeshIds(node ? tree.descendants(node) : []);
+  };
+  viewer.onSelectMesh = (meshId, x, y) => {
+    if (measureMode) {
+      measurement.select(viewer.pickSurface(x, y, meshId));
+      $('status-message').textContent = measurement.statusText();
+      return;
+    }
+    if (!meshId) tree.selectNode(null);
+    else if (!tree.selectMesh(meshId)) tree.selectNode(null);
+  };
   let selectedView = 'iso';
 
   function setCameraView(view) {
@@ -43,9 +326,24 @@ function setup() {
   }
 
   function clearScene() {
+    isolated = null;
     viewer.setScene([]);
+    setMeasureMode(false);
+    componentOpacities.clear();
+    viewer.setMeshOpacities(componentOpacities);
+    componentColors = { available: false, colors: new Map() };
+    viewer.setComponentColors(componentColors.colors);
+    updateComponentColorMode();
+    explodeGroups = [];
+    explodeBounds = null;
+    explodeLevel = 0;
+    selectedOverrides.clear();
+    manualGroupOffsets.clear();
+    moveMode = false;
     tree.clear();
+    updateExplodeControls();
     inspector.clear();
+    updateSelectionActions();
     setCameraView('iso');
     $('empty-state').hidden = false;
   }
@@ -121,11 +419,20 @@ function setup() {
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
       const { meshes, perBody } = await loadGeometry(info);
       viewer.setScene(meshes);
-      tree.show(info.tree || { id: 'root', name: info.name, type: 'part', children: [] }, {
+      measurement.setModelUnits(info.nx?.units);
+      updateMeasureButton();
+      const structure = info.tree || { id: 'root', name: info.name, type: 'part', children: [] };
+      componentColors = perBody ? buildComponentColors(structure, meshes) :
+        { available: false, colors: new Map() };
+      viewer.setComponentColors(componentColors.colors);
+      updateComponentColorMode();
+      tree.show(structure, {
         visibilityEnabled: perBody, warning: info.warning || '',
       });
       setCameraView('iso');
+      initializeExplosion(info, meshes, perBody);
       inspector.show(info, meshes, { perBody, gridSize: viewer.gridSize });
+      updateSelectionActions();
       $('empty-state').hidden = true;
       $('status-message').textContent = `${info.name} loaded · Drag to rotate · Scroll to zoom`;
     } catch (error) {
@@ -139,12 +446,64 @@ function setup() {
     }
   }
 
+  function explodeAll() {
+    if (!canExplode()) return;
+    explodeLevel = explodeLevel > 0 ? explodeLevel : 60;
+    selectedOverrides.clear();
+    applyExplosion();
+  }
+  function collapseAll() {
+    if (!canExplode()) return;
+    explodeLevel = 0;
+    selectedOverrides.clear();
+    applyExplosion();
+  }
+  function changeNodeExplosion(node, amount) {
+    if (!canExplode()) return;
+    const ids = selectionGroupIds(explodeGroups, node, target => tree.descendants(target));
+    if (!ids.length) return;
+    for (const id of ids) selectedOverrides.set(id, amount);
+    applyExplosion();
+  }
   $('open-nx-button').addEventListener('click', () => openNXPart());
   new FileWorkspace(path => openNXPart(path));
   for (const button of document.querySelectorAll('[data-view]')) {
     button.addEventListener('click', () => setCameraView(button.dataset.view));
   }
   $('fit-button').addEventListener('click', () => viewer.fit());
+  $('measure-planes-toggle').addEventListener('click', () => setMeasureMode(!measureMode));
+  $('component-color-toggle').addEventListener('click', () => {
+    if (!componentColors.available) return;
+    componentColorEnabled = !componentColorEnabled;
+    updateComponentColorMode();
+  });
+  $('component-opacity-slider').addEventListener('input', () => {
+    const target = transparencyTarget();
+    if (!target) return;
+    const amount = Number($('component-opacity-slider').value);
+    if (!Number.isFinite(amount) || amount < 0 || amount > 100) return;
+    for (const id of target.ids) {
+      if (amount === 0) componentOpacities.delete(id);
+      else componentOpacities.set(id, transparencyToAlpha(amount));
+    }
+    applyTransparency();
+    $('status-message').textContent = `Transparency ${Math.round(amount)}%: ${target.node.name}`;
+  });
+  $('reset-transparency-all').addEventListener('click', () => {
+    componentOpacities.clear();
+    applyTransparency();
+    $('status-message').textContent = 'All components restored to solid appearance';
+  });
+  $('move-selected').addEventListener('click', toggleMoveSelected);
+  $('reset-move-selected').addEventListener('click', resetSelectedMovement);
+  $('reset-move-all').addEventListener('click', resetAllMovement);
+  $('isolate-selected').addEventListener('click', isolateOrRestore);
+  $('fit-selected').addEventListener('click', () => {
+    const node = selectedNode();
+    if (node && viewer.fitMeshIds(meshIdsFor(node))) {
+      $('status-message').textContent = `Fit selected: ${node.name}`;
+    }
+  });
   $('viewer-canvas').addEventListener('dblclick', () => viewer.fit());
   window.addEventListener('keydown', event => {
     if (event.altKey || event.ctrlKey || event.metaKey ||

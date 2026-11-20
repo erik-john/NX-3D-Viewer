@@ -1,6 +1,7 @@
 /** NX item hierarchy and geometry visibility controls. */
 export class ItemTree {
-  constructor({ panel, toggle, resizer, container, summary, note, onVisibility, onSelect }) {
+  constructor({ panel, toggle, resizer, container, summary, note, onVisibility, onSelect,
+    onToggleExplode = () => {}, onToggleAll = () => {}, onToggleMove = () => {} }) {
     this.panel = panel;
     this.toggle = toggle;
     this.resizer = resizer;
@@ -9,10 +10,20 @@ export class ItemTree {
     this.note = note;
     this.onVisibility = onVisibility;
     this.onSelect = onSelect;
+    this.onToggleExplode = onToggleExplode;
+    this.onToggleAll = onToggleAll;
+    this.onToggleMove = onToggleMove;
+    this.moveActions = new Map();
+    this.explodeActions = new Map();
     this.root = null;
     this.checkboxes = new Map();
     this.rows = new Map();
     this.selectedId = null;
+    this.nodes = new Map();
+    this.parents = new Map();
+    this.meshNodes = new Map();
+    this.nestedLists = new Map();
+    this.disclosures = new Map();
     this.expanded = new Set();
     this.toggle.addEventListener('click', () => this.setCollapsed(!panel.classList.contains('is-collapsed')));
     this.resizer.addEventListener('pointerdown', event => {
@@ -41,7 +52,68 @@ export class ItemTree {
       const width = panel.getBoundingClientRect().width + (event.key === 'ArrowRight' ? 20 : -20);
       panel.style.setProperty('--tree-width', `${Math.max(210, Math.min(470, width))}px`);
     });
+    this.setupVerticalSplitter();
     this.clear();
+  }
+
+  setupVerticalSplitter() {
+    const panel = this.panel;
+    const divider = panel.querySelector?.('#sidebar-splitter');
+    const content = panel.querySelector?.('#tree-content');
+    if (!divider || !content) return;
+    const DEFAULT_HEIGHT = 278;
+    const MIN_CONTROLS = 54;
+    const MIN_STRUCTURE = 94;
+    let preferredHeight = DEFAULT_HEIGHT;
+    const bounds = () => {
+      const space = Math.max(0, content.getBoundingClientRect().height - divider.offsetHeight);
+      const max = Math.max(0, space - MIN_STRUCTURE);
+      return { min: Math.min(MIN_CONTROLS, max), max };
+    };
+    const apply = () => {
+      if (panel.classList.contains('is-collapsed') || !content.getBoundingClientRect().height) return;
+      const { min, max } = bounds();
+      const height = Math.max(min, Math.min(max, preferredHeight));
+      panel.style.setProperty('--controls-height', `${height}px`);
+      divider.setAttribute('aria-valuemin', String(Math.round(min)));
+      divider.setAttribute('aria-valuemax', String(Math.round(max)));
+      divider.setAttribute('aria-valuenow', String(Math.round(height)));
+    };
+    const setHeight = height => { preferredHeight = height; apply(); };
+    divider.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || panel.classList.contains('is-collapsed')) return;
+      event.preventDefault();
+      const startY = event.clientY;
+      const startHeight = panel.querySelector('#sidebar-controls').getBoundingClientRect().height;
+      divider.classList.add('is-resizing');
+      const move = e => setHeight(startHeight + e.clientY - startY);
+      const stop = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', stop);
+        window.removeEventListener('pointercancel', stop);
+        divider.classList.remove('is-resizing');
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', stop);
+      window.addEventListener('pointercancel', stop);
+    });
+    divider.addEventListener('keydown', event => {
+      const step = event.shiftKey ? 40 : 16;
+      if (event.key === 'ArrowUp') setHeight(preferredHeight - step);
+      else if (event.key === 'ArrowDown') setHeight(preferredHeight + step);
+      else if (event.key === 'Home') setHeight(bounds().min);
+      else if (event.key === 'End') setHeight(bounds().max);
+      else return;
+      event.preventDefault();
+    });
+    divider.addEventListener('dblclick', () => setHeight(DEFAULT_HEIGHT));
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(apply).observe(content);
+    } else {
+      window.addEventListener('resize', apply);
+    }
+    this.applyVerticalSize = apply;
+    apply();
   }
 
   setCollapsed(collapsed) {
@@ -50,12 +122,21 @@ export class ItemTree {
     this.toggle.setAttribute('aria-expanded', String(!collapsed));
     this.toggle.setAttribute('aria-label', collapsed ? 'Expand item structure panel' : 'Collapse item structure panel');
     this.toggle.title = collapsed ? 'Expand panel' : 'Collapse panel';
+    if (!collapsed) this.applyVerticalSize?.();
   }
 
   clear() {
     this.root = null;
+    this.assemblyHasComponents = false;
     this.checkboxes.clear();
+    this.explodeActions.clear();
+    this.moveActions.clear();
     this.rows.clear();
+    this.nodes.clear();
+    this.parents.clear();
+    this.meshNodes.clear();
+    this.nestedLists.clear();
+    this.disclosures.clear();
     this.expanded.clear();
     this.selectedId = null;
     this.container.replaceChildren();
@@ -75,6 +156,7 @@ export class ItemTree {
       for (const child of node.children || []) count(child);
     };
     count(root);
+    this.assemblyHasComponents = totals.components > 0;
     this.summary.textContent = `${totals.components} components · ${totals.bodies} bodies`;
     this.note.textContent = warning || (!visibilityEnabled && totals.bodies ?
       'The structure is available; individual visibility is unavailable for this file.' : '');
@@ -88,6 +170,63 @@ export class ItemTree {
   descendants(node) {
     if (node.type === 'body') return [node.meshId || node.id];
     return (node.children || []).flatMap(child => this.descendants(child));
+  }
+
+  // For a body hit, select its enclosing component occurrence where available.
+  nodeForMesh(meshId) {
+    if (!this.root) return null;
+    if (meshId === 'root' && !this.visibilityEnabled) return this.root;
+    let node = this.meshNodes.get(meshId);
+    if (!node) return null;
+    let candidate = node;
+    while (node) {
+      if (node.type === 'component') return node;
+      node = this.parents.get(node.id);
+    }
+    return candidate;
+  }
+
+  selectMesh(meshId) {
+    const node = this.nodeForMesh(meshId);
+    if (node) this.selectNode(node);
+    return node;
+  }
+
+  selectNode(node) {
+    if (this.selectedId) this.rows.get(this.selectedId)?.classList.remove('is-selected');
+    this.selectedId = node?.id || null;
+    if (node) {
+      let parent = this.parents.get(node.id);
+      while (parent) {
+        const list = this.nestedLists.get(parent.id);
+        if (list) {
+          list.hidden = false;
+          const item = list.parentElement;
+          item?.setAttribute('aria-expanded', 'true');
+          const disclosure = this.disclosures.get(parent.id);
+          if (disclosure) disclosure.textContent = '▾';
+        }
+        parent = this.parents.get(parent.id);
+      }
+      const row = this.rows.get(node.id);
+      row?.classList.add('is-selected');
+      row?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }
+    this.onSelect(node || null);
+  }
+
+  // Reflect programmatic visibility changes in every checkbox, including parents.
+  // Only leaf/body checkboxes are authoritative; parent checkboxes are derived.
+  setVisibilityFromMeshes(visibility) {
+    for (const node of this.nodes.values()) {
+      if (node.type !== 'body') continue;
+      const checkbox = this.checkboxes.get(node.id);
+      if (checkbox && visibility.has(node.meshId || node.id)) {
+        checkbox.checked = visibility.get(node.meshId || node.id);
+        checkbox.indeterminate = false;
+      }
+    }
+    this.updateAncestors();
   }
 
   updateAncestors() {
@@ -109,7 +248,105 @@ export class ItemTree {
     walk(this.root);
   }
 
-  createNode(node, depth) {
+  // Each assembly/component row has one position toggle, independent of visibility.
+  // A partially exploded parent is active and clicking it resets its group.
+  setExplodeState(groups = [], level = 0, overrides = new Map()) {
+    const available = groups.length >= 2;
+    for (const [nodeId, button] of this.explodeActions) {
+      const node = this.nodes.get(nodeId);
+      const meshIds = new Set(node === this.root ? [] : this.descendants(node));
+      const relevant = node === this.root ? groups : groups.filter(group =>
+        group.meshIds.some(id => meshIds.has(id)));
+      const enabled = available && relevant.length > 0;
+      const moved = enabled && relevant.some(group => (overrides.get(group.id) ?? level) > 0);
+      const isRoot = node === this.root;
+      const action = moved ? 'Reset' : 'Explode';
+      const label = isRoot ? `${action} all components` : `${action} component ${node.name}`;
+      button.disabled = !enabled;
+      button.classList.toggle('is-active', moved);
+      button.setAttribute('aria-pressed', String(moved));
+      button.setAttribute('aria-label', label);
+      button.title = enabled ? label : 'Separate component geometry required';
+    }
+  }
+
+  // Move controls are per occurrence, not per body or prototype. The active
+  // component is represented by one highlighted icon in Item Structure.
+  setMoveState(activeNodeId, groups = []) {
+    const available = groups.length >= 2;
+    for (const [nodeId, button] of this.moveActions) {
+      const node = this.nodes.get(nodeId);
+      const ids = new Set(this.descendants(node));
+      const supported = available && groups.some(group => group.meshIds.some(id => ids.has(id)));
+      const active = supported && activeNodeId === nodeId;
+      button.disabled = !supported;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-label', `${active ? 'Stop moving' : 'Move'} component ${node.name}`);
+      button.title = !supported ? 'Separate assembly geometry required' :
+        active ? 'Finish moving this component' : `Move component ${node.name} along NX X/Y/Z`;
+    }
+  }
+
+  createMoveToggle(node) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tree-move-toggle';
+    button.disabled = true;
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-label', `Move component ${node.name}`);
+    button.title = 'Separate assembly geometry required';
+    button.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3"/></svg>';
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      if (!button.disabled) this.onToggleMove(node, button.getAttribute('aria-pressed') !== 'true');
+    });
+    return button;
+  }
+
+  createExplodeToggle(callback) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tree-explode-toggle';
+    button.disabled = true;
+    button.setAttribute('aria-pressed', 'false');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [state, paths] of Object.entries({
+      explode: ['M8 8 3 3', 'M3 7V3h4', 'm16 16 5 5', 'M17 21h4v-4',
+        'M13 11 21 3', 'M17 3h4v4', 'M11 13 3 21', 'M3 17v4h4'],
+      reset: ['M3 3h5v5', 'M3 3l7 7', 'M21 3h-5v5', 'M21 3l-7 7',
+        'M3 21h5v-5', 'm3 21 7-7', 'M21 21h-5v-5', 'm-3 21-7-7'],
+    })) {
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', `icon-${state}`);
+      for (const d of paths) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        group.append(path);
+      }
+      svg.append(group);
+    }
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', '17');
+    svg.setAttribute('height', '17');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.8');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    button.append(svg);
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      if (!button.disabled) callback(button.getAttribute('aria-pressed') !== 'true');
+    });
+    return button;
+  }
+
+  createNode(node, depth, parent = null) {
+    this.nodes.set(node.id, node);
+    if (parent) this.parents.set(node.id, parent);
+    if (node.type === 'body') this.meshNodes.set(node.meshId || node.id, node);
     const children = node.children || [];
     const li = document.createElement('li');
     li.className = 'tree-item';
@@ -136,12 +373,7 @@ export class ItemTree {
     label.className = 'tree-label';
     label.title = node.name;
     label.textContent = node.name;
-    label.addEventListener('click', () => {
-      if (this.selectedId) this.rows.get(this.selectedId)?.classList.remove('is-selected');
-      this.selectedId = node.id;
-      row.classList.add('is-selected');
-      this.onSelect(node);
-    });
+    label.addEventListener('click', () => this.selectNode(node));
     row.append(label);
     const leafIds = this.descendants(node);
     if (leafIds.length) {
@@ -169,11 +401,28 @@ export class ItemTree {
       this.checkboxes.set(node.id, check);
       row.append(check);
     }
+    // Assembly-wide actions on the root, per-occurrence actions on components.
+    // Body rows retain their existing visibility checkbox only.
+    if ((depth === 0 && this.assemblyHasComponents) || node.type === 'component') {
+      const isRoot = depth === 0;
+      const positionToggle = this.createExplodeToggle(exploded =>
+        isRoot ? this.onToggleAll(exploded) : this.onToggleExplode(node, exploded));
+      positionToggle.setAttribute('aria-label', isRoot ?
+        'Explode all components' : `Explode component ${node.name}`);
+      positionToggle.title = 'Separate component geometry required';
+      this.explodeActions.set(node.id, positionToggle);
+      row.append(positionToggle);
+    }
+    if (node.type === 'component') {
+      const moveToggle = this.createMoveToggle(node);
+      this.moveActions.set(node.id, moveToggle);
+      row.append(moveToggle);
+    }
     li.append(row);
     if (children.length) {
       const nested = document.createElement('ul');
       nested.setAttribute('role', 'group');
-      for (const child of children) nested.append(this.createNode(child, depth + 1));
+      for (const child of children) nested.append(this.createNode(child, depth + 1, node));
       const open = depth === 0;
       nested.hidden = !open;
       li.setAttribute('aria-expanded', String(open));
@@ -183,6 +432,8 @@ export class ItemTree {
         li.setAttribute('aria-expanded', String(!nested.hidden));
         disclosure.textContent = nested.hidden ? '▸' : '▾';
       });
+      this.nestedLists.set(node.id, nested);
+      this.disclosures.set(node.id, disclosure);
       li.append(nested);
     }
     return li;
