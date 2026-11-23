@@ -727,7 +727,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 
 
-/* Workspace camera tools: the header is reserved for file and future commands. */
+/* In-view camera shortcuts for common model display actions. */
 
 .viewport-view-tools {
 
@@ -1047,7 +1047,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 
 
-/* one selection-following transparency slider and an adjacent Solid All icon. */
+/* Selection-following transparency with a full-solid reset action. */
 
 .tree-opacity-actions { display: flex; flex-direction: column; gap: 6px; padding: 10px 11px;
 
@@ -1083,7 +1083,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 
 
-/* face-to-face measurement, beside the existing viewport view tools. */
+/* Measurement mode highlighting and overlays. */
 
 #measure-planes-toggle.active { background:#e6efff; color:#2260aa; border-color:#8cb4ea; }
 
@@ -1125,17 +1125,21 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 #measurement-detail { margin:6px 0 0; color:#577082; font-size:11px; line-height:1.45; }
 
+.measurement-overlay [hidden] { display:none; }
+
 .measurement-overlay { position:absolute; inset:0; width:100%; height:100%; z-index:4;
 
-  overflow:visible; pointer-events:none; }
+  overflow:hidden; pointer-events:none; }
 
 #measurement-line { stroke:#138a65; stroke-width:2.7; stroke-dasharray:6 5; }
 
-#measurement-point-a { fill:#187cdd; stroke:white; stroke-width:2; }
+#measurement-point-a { fill:#187cdd; stroke:white; stroke-width:1.5; }
 
-#measurement-point-b { fill:#8c51cb; stroke:white; stroke-width:2; }
+#measurement-point-b { fill:#8c51cb; stroke:white; stroke-width:1.5; }
 
-#measurement-arc { fill:none; stroke:#8249c5; stroke-width:2.7; }
+#measurement-center { fill:#0d938e; stroke:white; stroke-width:1.5; }
+
+#measurement-arc { display:none; }
 
 .measurement-overlay[data-kind="angle"] #measurement-line { stroke:#8249c5; stroke-width:1.4; stroke-dasharray:4 5; }
 
@@ -1143,13 +1147,13 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 
 
-/* diameter readout and circular overlay. */
+/* Diameter readout and geometry-attached guide. */
 
 .measurement-panel[data-kind="diameter"] { border-color:#70a6d6; }
 
-.measurement-overlay[data-kind="diameter"] #measurement-line { stroke:#128db1; stroke-width:2.2; stroke-dasharray:none; }
+.measurement-overlay[data-kind="diameter"] #measurement-line { stroke:#128db1; stroke-width:2.2; stroke-dasharray:5 4; }
 
-.measurement-overlay[data-kind="diameter"] #measurement-arc { stroke:#187cdd; stroke-width:2.5; stroke-dasharray:5 3; }
+.measurement-overlay[data-kind="diameter"] #measurement-center { stroke:#fff; }
 
 
 
@@ -1261,3 +1265,136 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 .jt-wizard-actions button.workspace-danger:hover { background:#a33d3c; }
 
+
+/* Product workspace: action ribbon / structure / viewport / information. */
+.app-header.toolbar { height: 78px; min-height: 78px; gap: 0; }
+.app-brand { flex-basis: 229px; padding-left: 8px; }
+.brand-logo { width: 50px; height: 50px; }
+.brand-title { font-size: 17px; }
+.brand-subtitle { font-size: 10px; }
+.toolbar-scroll { gap: 8px; padding-inline: 8px; scrollbar-width: thin; }
+.toolbar-group { gap: 6px; }
+.app-header .tool-button { min-width: auto; font-size: 11px; padding-inline: 10px; height: 37px; }
+.app-header .toolbar-divider { height: 37px; }
+.header-action-cluster { display: inline-flex; align-items: center; gap: 5px; flex: none; height: 100%; }
+.header-population { flex: none; display: inline-flex; align-items: center; }
+.header-population:has(>[hidden]) { display: none; }
+.header-action { border: 1px solid #cbdcdd; color: #315664; background: #fff;
+  border-radius: 7px; padding: 0 10px; height: 37px; font-size: 12px; font-weight: 700;
+  white-space: nowrap; }
+.header-action:hover:not(:disabled), .header-action.is-active { color: #006e67; background: #e4f4ef; border-color: #77b9ab; }
+.header-action:disabled { color: #899ba4; background: #f4f6f6; cursor: not-allowed; }
+.app-header .viewport-view-tools { position: static; display: inline-flex; flex-direction: row; flex: none;
+  gap: 2px; align-items: center; padding: 0; border: 0; background: transparent;
+  border-radius: 0; box-shadow: none; backdrop-filter: none; }
+.app-header .viewport-view-button { width: 37px; height: 37px; border-radius: 7px; }
+.app-header .viewport-view-button svg { width: 20px; height: 20px; }
+.app-header .viewport-tool-divider { height: 27px; width: 1px; margin: 0 2px; }
+.app-header .viewport-tools-caption { margin: 0 4px 0 2px; font-size: 10px; }
+.app-header .tree-selection-actions, .app-header .tree-move-actions { padding: 0; border: 0; background: transparent; }
+.app-header .tree-selection-actions { gap: 4px; }
+.app-header .tree-action-button { flex: none; font-size: 11px; min-width: auto; height: 37px; }
+.app-header .tree-move-actions { gap: 0; }
+.app-header .tree-move-buttons { gap: 3px; }
+.app-header #reset-move-selected, .app-header #reset-move-all { font-size: 10px; }
+.app-header .tree-move-readout { display: none; }
+.app-header .tree-opacity-actions { padding: 0 5px; gap: 4px; border: 0; background: transparent;
+  min-width: 120px; width: 140px; }
+.app-header .tree-opacity-slider-row { gap: 5px; }
+.app-header .tree-opacity-reset { height: 26px; width: 26px; }
+.tree-panel { --tree-width: 295px; }
+.tree-content { overflow: hidden; }
+.tree-heading { justify-content: space-between; min-height: 50px; padding-inline: 14px 9px; }
+.tree-title { margin: 0; color: #233f4a; font-size: 16px; font-weight: 750; }
+.tree-panel.is-collapsed .tree-title { display: none; }
+.tree-panel.is-collapsed .tree-heading { justify-content: center; }
+.inspector-heading { min-height: 50px; }
+.inspector-section.is-selected-info { border: 1px solid #b5d8d0; background: #f3faf8;
+  padding: 11px; border-radius: 8px; margin: 8px 0 15px; }
+@media (max-width: 780px) {
+  .app-brand { flex-basis: 65px; padding: 0 6px; }
+  .brand-copy { display: none; }
+  .toolbar-scroll { gap: 5px; }
+  .app-header .viewport-view-tools { flex-direction: row; padding: 0; }
+  .app-header .viewport-view-button { width: 35px; height: 35px; }
+}
+.app-header #reset-move-selected:disabled,
+.app-header #reset-move-all:disabled { display: none; }
+
+/* Compact header controls and floating dropdowns. */
+.app-header.toolbar { overflow: hidden; }
+.toolbar-scroll { overflow-x: hidden; scrollbar-width: none; gap: 8px; }
+.toolbar-scroll::-webkit-scrollbar { display: none; }
+.app-header .header-action { padding-inline: 9px; }
+.app-header .header-menu-trigger { white-space: nowrap; }
+.header-menu-trigger span { color: #5b8b90; margin-left: 2px; }
+#component-opacity-value { font: inherit; font-variant-numeric: tabular-nums; color: #0b7975; margin-left: 3px; }
+.header-measure-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; padding: 0 !important; }
+.header-measure-button svg { display: block; }
+.header-measure-button.active { background: #e6efff; color: #2260aa; border-color: #8cb4ea; }
+.header-menu-layer { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
+.header-menu { position: fixed; top: 78px; left: 0; min-width: 193px; max-width: min(300px, calc(100vw - 16px));
+  max-height: calc(100dvh - 94px); overflow: auto; padding: 7px; background: #ffffff;
+  border: 1px solid #c8d8dd; border-radius: 10px; box-shadow: 0 12px 32px #1b4a5a32;
+  pointer-events: auto; }
+.header-menu[hidden] { display: none !important; }
+.header-menu-heading { font-size: 10px; font-weight: 760; letter-spacing: .055em; color: #617987; padding: 7px 9px 4px; }
+.header-menu-divider { height: 1px; background: #e0e8eb; margin: 7px 3px; }
+.header-menu-item { display: flex; justify-content: space-between; align-items: center; gap: 18px;
+  width: 100%; min-height: 33px; border: 1px solid transparent; border-radius: 6px;
+  padding: 5px 9px; background: transparent; color: #29485a; text-align: left;
+  font-size: 12px; font-weight: 600; white-space: nowrap; }
+.header-menu-item:not(:disabled):hover, .header-menu-item.active,
+.header-menu-item[aria-pressed="true"] { background: #e6f4f1; color: #076c66; }
+.header-menu-item:disabled { color: #94a5ae; cursor: not-allowed; }
+.header-menu-shortcut { font-size: 10px; font-weight: 600; color: #7e9198; }
+.header-menu .tree-selection-actions, .header-menu .tree-move-actions { display: flex; padding: 4px; border: 0; background: transparent; }
+.header-menu .tree-selection-actions[hidden], .header-menu .tree-move-actions[hidden],
+.header-menu .tree-opacity-actions[hidden] { display: none; }
+.header-menu .tree-selection-actions { flex-direction: column; align-items: stretch; }
+.header-menu .tree-move-actions { flex-direction: column; align-items: stretch; }
+.header-menu .tree-move-buttons { flex-direction: column; align-items: stretch; }
+.header-menu .tree-action-button { width: 100%; height: 34px; flex: none; justify-content: flex-start; }
+.header-menu #reset-move-selected:disabled, .header-menu #reset-move-all:disabled { display: none; }
+.header-menu .tree-move-readout { display: block; padding: 6px; font-size: 10px; color: #69808c; }
+.header-menu .tree-opacity-actions { display: flex; flex-direction: column; gap: 11px; min-width: 208px;
+  padding: 8px 9px 4px; border: 0; background: transparent; }
+.header-menu .tree-opacity-label { font-size: 11px; }
+.header-menu #component-opacity-slider { width: 100%; flex: none; }
+.header-menu #reset-transparency-all { border-top: 1px solid #e0e8eb; border-radius: 0; margin-top: 2px; }
+#viewer-viewport .viewport-view-tools { z-index: 7; }
+@media (max-width: 1220px) {
+  .app-brand { flex-basis: 196px; }
+  .brand-logo { width: 43px; height: 43px; }
+  .brand-title { font-size: 15px; }
+  .brand-subtitle { font-size: 9px; }
+  .toolbar-scroll { gap: 5px; padding-inline: 5px; }
+  .app-header .tool-button { padding-inline: 8px; }
+  .app-header .header-action { padding-inline: 7px; font-size: 11px; }
+}
+@media (max-width: 1070px) {
+  .app-brand { flex-basis: 60px; }
+  .brand-copy { display: none; }
+  .header-annotations { display: none; }
+}
+@media (max-width: 740px) {
+  .toolbar-scroll { gap: 4px; }
+  .app-header .tool-button { font-size: 10px; padding-inline: 6px; }
+  .app-header .header-action { font-size: 10px; padding-inline: 5px; }
+  .app-brand { flex-basis: 52px; }
+  .brand-logo { width: 40px; height: 40px; }
+  .toolbar-scroll .toolbar-divider { display: none; }
+}
+
+/* Viewer menu icons and compact keyboard hints. */
+.header-menu-label { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.header-menu-label > svg { width: 18px; height: 18px; flex: none; }
+.header-menu-label > span { white-space: nowrap; }
+.header-menu-shortcut { display: inline-flex; align-items: center; justify-content: center; font-size: 10px;
+  line-height: 1; min-width: 20px; padding: 4px; border-radius: 4px; background: #edf2f4; color: #617983; }
+.header-menu-item[aria-pressed="true"] .header-menu-shortcut { background: #d3eae5; color: #066b62; }
+.viewport-view-button { position: relative; }
+.viewport-view-shortcut { position: absolute; bottom: 2px; right: 3px; min-width: 10px;
+  font-size: 9px; font-weight: 700; line-height: 1; color: #6e8390; pointer-events: none; }
+.viewport-view-button.active .viewport-view-shortcut { color: #006f66; }
+@media (max-width: 760px) { .viewport-view-shortcut { font-size: 8px; bottom: 2px; right: 2px; } }

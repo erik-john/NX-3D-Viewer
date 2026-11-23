@@ -390,6 +390,7 @@ export class Viewer {
         visible: true,
         sourcePositions: item.positions,
         sourceIndices: item.indices,
+        analyticalFaces: item.analyticalFaces || [],
         measureIndex: null,
       };
     });

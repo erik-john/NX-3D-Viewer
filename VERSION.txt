@@ -1,3 +1,63 @@
+Measurement correction — partial cylinder recognition
+
+Changes
+- Recognize connected, reliably circular partial cylinder meshes (including 180-degree rounded ends) instead of requiring near-complete circular coverage.
+- Accept three or more distinct side-facet directions spanning at least 80 degrees, with strict circle-fit error and mesh adjacency checks. Reject two-strip and shallow chamfer-like patches.
+- Use an STL-fitted approximate diameter when NX analytical cylinder metadata is absent; prefer exact NX geometry when a unique CAD cylinder is available.
+- Preserve component movement, explode offsets, camera-linked guides, rendering, and all existing measurement actions.
+
+Checks
+- Regression for 3, 4, 6, 8, 16 facet-strip half-cylinders, single-click diameter, repeated selection, Move, NX exact matching, and unsafe narrow-strip rejection.
+- Live Siemens NX 2506 verification on the user's curved-end part is still needed. Facet-only models cannot guarantee CAD-exact measurements.
+
+--- Prior work ---
+Measurement visualization — geometry-anchored guides
+
+Changes
+- Show only the selected geometry outline, a dotted distance/angle/diameter line, and the necessary endpoint or center markers.
+- Remove decorative screen-space diameter rings and arbitrary angle arcs. Circular and partial cylindrical outlines use the selected mesh surface.
+- Keep the diameter direction fixed in the selected face coordinate system, preferring the opposing ends of a partial cylinder where available.
+- Reproject guide endpoints from live world-space coordinates every rendered frame, including camera Rotate, Pan, Zoom, Fit, view switches, manual Move, and Explode.
+- Keep markers a constant small screen size, hide guides for hidden components or points behind the camera, and clip overlays to the viewport.
+- Preserve the NX analytical diameter extraction, STL approximation fallback, viewer UI, material settings, and original branding.
+
+Checks
+- Python, JavaScript, and Chromium regression tests for diameter, circle distance, plane angle, camera, component motion, viewport resize, and visibility.
+- Siemens NX 2506 and real CAD model verification are still required on the factory workstation.
+
+--- Prior work ---
+Measurement enhancement — NX analytical cylindrical faces
+
+Changes
+- Capture cylinder radius, axis, and face bounds from native NX PRT bodies when NX Open exposes analytical surfaces.
+- Associate clicked STL facets with their matching NX cylinder only when geometric checks provide a unique, reliable match.
+- Support partial cylindrical surfaces, including half-cylinders, using NX CAD diameter rather than full-circle STL fitting.
+- Preserve approximate STL/JT measurement fallback, existing Move/Explode offsets, selected-face guides, and viewer styling.
+- If NX metadata is unavailable or body export falls back to combined geometry, retain existing measurement behavior.
+
+Checks
+- 76 Python tests, 32 JavaScript checks, and Chromium half-cylinder/Move/Explode checks passed locally.
+- Actual Siemens NX 2506 export and measurement must be verified on the factory workstation.
+- CRLF and port 8888 preserved.
+
+--- Prior work ---
+UI follow-up — Compact Header and Restored View Toolbar
+
+Changes
+- Remove redundant Select button; direct 3D and structure-tree selection remain available.
+- Combine Explode and Collapse into one state-aware toggle, with collapsed as the initial assembly state.
+- Consolidate selected-item Isolate/Restore, Fit Selected, Move, and reset actions in a Component dropdown.
+- Replace the separate transparency readout and icon with a compact Transparency percentage dropdown; retain per-component slider and Solid All reset command inside.
+- Provide a Viewer dropdown with Orientation (3D/Front/Top/Right), Fit, and Color Components sections.
+- Keep Measurement as an independent icon in the header and restore the vertical View toolbar inside the 3D viewport.
+- Preserve the original branding, steel rendering, JT and PRT conversion, workspace wizards, and product information panel.
+
+Checks
+- Python, JavaScript, and simulated Chromium component interaction tests passed locally.
+- Header checked at 900–1440 px widths without horizontal overflow. Siemens NX 2506 runtime tests remain required on Windows.
+- CRLF line endings and port 8888 preserved.
+
+--- Prior UI work ---
 MS42 UI follow-up — Structure panel horizontal scrolling
 
 Changes

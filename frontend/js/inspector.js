@@ -70,6 +70,7 @@ function section(container, heading, items, note = '') {
     block.append(text);
   }
   container.append(block);
+  return block;
 }
 
 function leafIds(node) {
@@ -134,6 +135,15 @@ export class PartInspector {
     filename.className = 'inspector-filename';
     filename.textContent = info.name || 'NX part';
     this.content.append(filename);
+    if (this.selected) {
+      const selected = this.selected;
+      const selectedBlock = section(this.content, 'Selected Item', [
+        ['Name', selected.name, true],
+        ['Type', selected.type],
+        ['Identifier', selected.id, true],
+      ]);
+      selectedBlock.className += ' is-selected-info';
+    }
     section(this.content, 'Dimensions', [
       ['X dimension', format(size[0])],
       ['Y dimension', format(size[2])],
@@ -154,7 +164,7 @@ export class PartInspector {
     ]);
     section(this.content, 'File Information', [
       ['File name', info.name],
-      ['File type', '.prt · Siemens NX Part'],
+      ['File type', (info.name || '').toLowerCase().endsWith('.jt') ? '.jt · JT Model' : '.prt · Siemens NX Part'],
       ['File size', Number.isFinite(file.size) ? `${format(file.size / 1024)} KB` : null],
       ['Last modified', file.modified || null],
       ['File location', file.path || null, true],
@@ -179,7 +189,7 @@ export class PartInspector {
           ['Triangles', integer.format(groups.reduce((sum, entry) => sum + entry.triangles, 0))],
         );
       }
-      section(this.content, 'Selected Item', rowsForSelection,
+      section(this.content, 'Selected Geometry', rowsForSelection,
         !selectedBounds && ids.length ? 'Individual mesh measurements are unavailable for combined exports.' : '');
     }
     if (Array.isArray(nx.attributes) && nx.attributes.length) {

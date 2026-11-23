@@ -2,10 +2,61 @@ import { evaluatePlanes, evaluateCircularCenters, projectPoint } from './plane_m
 
 const muAdd=(a,b)=>a.map((v,i)=>v+b[i]);
 const muScale=(a,k)=>a.map(v=>v*k);
+const muSubtract=(a,b)=>a.map((v,i)=>v-b[i]);
+const muDot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
 const muCross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const muUnit=a=>{const n=Math.hypot(...a);return n>1e-12 ? muScale(a,1/n):null;};
 const offsetSurface=face=>({...face,point:muAdd(face.localPoint,face.part.offset),
   center:face.localCenter ? muAdd(face.localCenter,face.part.offset) : null});
+
+// Pick the diameter once in the component's local coordinate system. A partial
+// cylindrical surface prefers opposite perimeter directions that actually
+// occur on its selected mesh. The guide must not change direction as the user
+// rotates, pans, zooms, or fits the camera.
+export function diameterDirection(face, matrix, width, height) {
+  if(!face.center || !face.axis || !face.radius) return null;
+  const axis=muUnit(face.axis);
+  const u=axis && muUnit(muCross(axis,Math.abs(axis[1])<0.85?[0,1,0]:[1,0,0]));
+  const v=u && muUnit(muCross(axis,u));
+  if(!v)return null;
+  const localCenter=face.localCenter || muSubtract(face.center,face.part?.offset || [0,0,0]);
+  const radial=[];
+  const points=face.positions || [];
+  const stride=Math.max(3,3*Math.ceil(points.length/3/384));
+  for(let i=0;i+2<points.length;i+=stride) {
+    const p=[points[i],points[i+1],points[i+2]];
+    const delta=muSubtract(p,localCenter);
+    const r=muUnit(muSubtract(delta,muScale(axis,muDot(delta,axis))));
+    if(r)radial.push(r);
+  }
+  const worldCenter=face.center;
+  const projectedLength=direction=>{
+    const start=projectPoint(matrix,muAdd(worldCenter,muScale(direction,face.radius)),width,height);
+    const end=projectPoint(matrix,muAdd(worldCenter,muScale(direction,-face.radius)),width,height);
+    return start&&end ? Math.hypot(start[0]-end[0],start[1]-end[1]) : 0;
+  };
+  let chosen=null,best=-1;
+  // Require near-opposite mesh directions; never confuse a partial short arc
+  // with an entire diameter. For a half-cylinder these are its two arc ends.
+  for(let i=0;i<radial.length;i++) for(let j=i+1;j<radial.length;j++) {
+    const alignment=muDot(radial[i],radial[j]);
+    if(alignment> -0.985)continue;
+    const candidate=muUnit(muSubtract(radial[i],radial[j]));
+    if(!candidate)continue;
+    const score=projectedLength(candidate);
+    if(score>best){best=score;chosen=candidate;}
+  }
+  if(chosen)return chosen;
+  // A true cylinder still has a diameter when its tessellated arc is too small
+  // to contain opposite points. Choose an initial, camera-legible orientation.
+  for(let i=0;i<32;i++) {
+    const theta=i*Math.PI/32;
+    const candidate=muAdd(muScale(u,Math.cos(theta)),muScale(v,Math.sin(theta)));
+    const score=projectedLength(candidate);
+    if(score>best){best=score;chosen=candidate;}
+  }
+  return chosen || u;
+}
 
 // A single round surface reports diameter. Two round surfaces with parallel
 // axes report center spacing; two planar faces report distance or angle.
@@ -59,7 +110,14 @@ export class MeasurementUI {
       this.lastMessage='';this.update();return;
     }
     face.localPoint=face.point.map((v,i)=>v-face.part.offset[i]);
-    if(face.center) face.localCenter=face.center.map((v,i)=>v-face.part.offset[i]);
+    if(face.center) {
+      face.localCenter=face.center.map((v,i)=>v-face.part.offset[i]);
+      const rect=this.viewer.canvas.getBoundingClientRect();
+      if(rect.width>0&&rect.height>0) {
+        const matrix=this.viewer.cameraMatrix(rect.width,rect.height).matrix;
+        face.diameterDirection=diameterDirection(face,matrix,rect.width,rect.height);
+      }
+    }
     this.faces.push(face);
     this.cachedPair=null;
     this.lastMessage='';
@@ -77,7 +135,7 @@ export class MeasurementUI {
       'Two surfaces selected · Plane distance/angle requires two planar faces';
   }
   update() {
-    const {panel,summary,detail,overlay,line,pointA,pointB,arc,clear,fit}=this.el;
+    const {panel,summary,detail,overlay,line,pointA,pointB,center,arc,clear,fit}=this.el;
     if(!this.active) {panel.hidden=true;overlay.setAttribute('hidden','');return;}
     panel.hidden=false;
     const count=this.faces.length;
@@ -100,7 +158,8 @@ export class MeasurementUI {
     if(count===1 && this.faces[0].radius) {
       const face=offsetSurface(this.faces[0]);
       summary.textContent=`⌀  ${(face.radius*2).toFixed(3)} ${this.units}`;
-      detail.textContent=face.kind==='cylinder' ?
+      detail.textContent=face.method==='nx_cad' ?
+        '1 NX analytical cylindrical face · CAD diameter' : face.kind==='cylinder' ?
         '1 cylindrical surface · mesh-fitted diameter (approximate)' :
         '1 circular planar face · mesh-fitted diameter (approximate)';
       panel.dataset.kind='diameter';
@@ -135,9 +194,10 @@ export class MeasurementUI {
     const distance=result.kind==='distance' || centerDistance;
     if(centerDistance) {
       summary.textContent=`⊙ ↔  ${result.value.toFixed(3)} ${this.units}`;
+      const method=faces.every(face=>face.method==='nx_cad') ? 'NX CAD geometry' : 'STL approximate';
       detail.textContent=result.method==='circle_centers' ?
-        '2 circular faces · center-to-center 3D distance (STL approximate)' :
-        '2 parallel cylindrical/round axes · shortest centerline spacing (STL approximate)';
+        `2 circular faces · center-to-center 3D distance (${method})` :
+        `2 parallel cylindrical/round axes · shortest centerline spacing (${method})`;
     } else if(distance) {
       summary.textContent=`∥  ${result.angle.toFixed(2)}° · ${result.value.toFixed(3)} ${this.units}`;
       detail.textContent='2 parallel planar faces · normal angle & plane separation (STL approximate)';
@@ -159,53 +219,47 @@ export class MeasurementUI {
     overlay.removeAttribute('hidden');
     overlay.setAttribute('viewBox',`0 0 ${rect.width} ${rect.height}`);
     overlay.dataset.kind=result.kind;
+    arc?.setAttribute('hidden','');
+    center?.setAttribute('hidden','');
+    pointA.removeAttribute('hidden');
+    pointB.removeAttribute('hidden');
     line.setAttribute('x1',String(from[0]));line.setAttribute('y1',String(from[1]));
     line.setAttribute('x2',String(to[0]));line.setAttribute('y2',String(to[1]));
     pointA.setAttribute('cx',String(from[0]));pointA.setAttribute('cy',String(from[1]));
     pointB.setAttribute('cx',String(to[0]));pointB.setAttribute('cy',String(to[1]));
-    if(distance) {arc.setAttribute('hidden','');}
-    else {
-      arc.removeAttribute('hidden');
-      const dx=to[0]-from[0],dy=to[1]-from[1],len=Math.hypot(dx,dy)||1;
-      const bend=Math.min(55,Math.max(14,len*0.25));
-      const mid=[(to[0]+from[0])/2 - dy/len*bend,(to[1]+from[1])/2 + dx/len*bend];
-      arc.setAttribute('d',`M ${from[0]} ${from[1]} Q ${mid[0]} ${mid[1]} ${to[0]} ${to[1]}`);
-    }
+    // Both the line and its endpoints come from current world coordinates.
+    // No camera-dependent decorative arc is drawn for a plane angle.
   }
   drawDiameter(face) {
-    const {overlay,line,pointA,pointB,arc}=this.el;
+    const {overlay,line,pointA,pointB,center,arc}=this.el;
     const rect=this.viewer.canvas.getBoundingClientRect();
     if(rect.width<=0||rect.height<=0||!face.center||!face.axis) {
       overlay.setAttribute('hidden','');return;
     }
-    const axis=muUnit(face.axis);
-    const u=axis && muUnit(muCross(axis,Math.abs(axis[1])<0.85?[0,1,0]:[1,0,0]));
-    const v=u&&muCross(axis,u);
-    if(!u||!v) {overlay.setAttribute('hidden','');return;}
     const matrix=this.viewer.cameraMatrix(rect.width,rect.height).matrix;
+    // Reuse the selected 3D face boundary as the circle/cylinder outline;
+    // do not draw an invented full 2D circle over a partial curved surface.
+    const direction=face.diameterDirection || diameterDirection(face,matrix,rect.width,rect.height);
+    if(!direction){overlay.setAttribute('hidden','');return;}
     const project=world=>projectPoint(matrix,world,rect.width,rect.height);
-    const perimeter=[];
-    for(let i=0;i<=48;i++) {
-      const angle=i*Math.PI*2/48;
-      const p=muAdd(face.center,muAdd(muScale(u,face.radius*Math.cos(angle)),muScale(v,face.radius*Math.sin(angle))));
-      const pixel=project(p);
-      if(!pixel) {overlay.setAttribute('hidden','');return;}
-      perimeter.push(pixel);
-    }
-    const option=[u,v].map(direction=>{
-      const a=project(muAdd(face.center,muScale(direction,face.radius)));
-      const b=project(muAdd(face.center,muScale(direction,-face.radius)));
-      return a&&b ? {a,b,size:Math.hypot(a[0]-b[0],a[1]-b[1])} : null;
-    }).filter(Boolean).sort((a,b)=>b.size-a.size)[0];
-    if(!option) {overlay.setAttribute('hidden','');return;}
+    const a=project(muAdd(face.center,muScale(direction,face.radius)));
+    const b=project(muAdd(face.center,muScale(direction,-face.radius)));
+    const middle=project(face.center);
+    if(!a||!b||!middle){overlay.setAttribute('hidden','');return;}
     overlay.removeAttribute('hidden');
     overlay.setAttribute('viewBox',`0 0 ${rect.width} ${rect.height}`);
     overlay.dataset.kind='diameter';
-    arc.removeAttribute('hidden');
-    arc.setAttribute('d',perimeter.map((p,i)=>`${i?'L':'M'} ${p[0]} ${p[1]}`).join(' ')+' Z');
-    line.setAttribute('x1',String(option.a[0]));line.setAttribute('y1',String(option.a[1]));
-    line.setAttribute('x2',String(option.b[0]));line.setAttribute('y2',String(option.b[1]));
-    pointA.setAttribute('cx',String(option.a[0]));pointA.setAttribute('cy',String(option.a[1]));
-    pointB.setAttribute('cx',String(option.b[0]));pointB.setAttribute('cy',String(option.b[1]));
+    arc?.setAttribute('hidden','');
+    line.setAttribute('x1',String(a[0]));line.setAttribute('y1',String(a[1]));
+    line.setAttribute('x2',String(b[0]));line.setAttribute('y2',String(b[1]));
+    // The sole marker is the geometric center, not a second floating ring.
+    pointA.setAttribute('hidden','');pointB.setAttribute('hidden','');
+    pointA.setAttribute('cx',String(a[0]));pointA.setAttribute('cy',String(a[1]));
+    pointB.setAttribute('cx',String(b[0]));pointB.setAttribute('cy',String(b[1]));
+    if(center) {
+      center.removeAttribute('hidden');
+      center.setAttribute('cx',String(middle[0]));
+      center.setAttribute('cy',String(middle[1]));
+    }
   }
 }

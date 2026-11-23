@@ -155,7 +155,11 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                     mesh_path = output.parent / name
                     if not mesh_path.is_file():
                         raise RuntimeError('NX body geometry is missing: ' + name)
-                    files.append({'id': mesh_id, 'url': '/api/models/' + name})
+                    entry = {'id': mesh_id, 'url': '/api/models/' + name}
+                    # Only per-body NX geometry can be associated with CAD faces.
+                    if isinstance(item.get('analyticalFaces'), list):
+                        entry['analyticalFaces'] = item['analyticalFaces']
+                    files.append(entry)
                     with self.asset_lock:
                         self.assets[name] = mesh_path
                 return tree, mode, files, manifest.get('warning', ''), manifest.get('partInfo', {})
