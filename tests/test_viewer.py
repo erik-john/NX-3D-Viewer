@@ -85,11 +85,16 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(parser.header_count, 1)
         self.assertEqual(parser.header_role, 'toolbar')
         self.assertIn('toolbar', parser.header_classes.split())
-        self.assertEqual(parser.header_controls, ['open-nx-button', 'workspace-button'])
-        for control in ('open-nx-button', 'iso', 'front', 'top', 'right', 'fit-button'):
+        self.assertEqual(parser.header_controls[:2], ['open-nx-button', 'workspace-button'])
+        self.assertTrue({'component-menu-toggle','header-explode','transparency-menu-toggle','viewer-menu-toggle','measure-planes-toggle'}.issubset(set(parser.header_controls)))
+        for control in ('open-nx-button', 'fit-button', 'component-color-toggle', 'measure-planes-toggle'):
             self.assertIn(control, parser.all_controls)
             self.assertEqual(parser.all_controls.count(control), 1)
         self.assertIn('class="viewport-view-tools"', html)
+        self.assertIn('id="viewer-menu"', html)
+        self.assertIn('id="fit-menu-button"', html)
+        self.assertNotIn('id="header-select"', html)
+        self.assertNotIn('id="header-unexplode"', html)
         self.assertNotIn('id="grid-button"', html)
         self.assertNotIn('id="axes-button"', html)
         self.assertNotIn('id="wire-button"', html)

@@ -18,6 +18,7 @@ function makeElement() {
     addEventListener: (name, fn) => listeners.set(name, fn),
     trigger: (name) => { assert.ok(listeners.has(name), `missing ${name}`); return listeners.get(name)(); },
     classList: { toggle: (name, value) => value ? classes.add(name) : classes.delete(name) },
+    getBoundingClientRect: () => ({left:0, bottom:50, width:110, height:30}),
     setAttribute: (key, value) => attrs.set(key, value),
     removeAttribute: (key) => attrs.delete(key),
     getAttribute: (key) => attrs.get(key),
@@ -29,8 +30,8 @@ const ids = [
   'viewer-error-text', 'status-message', 'tree-panel', 'tree-toggle',
   'tree-resizer', 'model-tree', 'tree-summary', 'tree-note',
   'empty-state', 'loading-overlay', 'loading-title', 'loading-detail',
-  'viewer-workspace', 'open-nx-button', 'import-message', 'fit-button',
-  'inspector-panel', 'inspector-toggle', 'inspector-content', 'component-color-toggle',
+  'viewer-workspace', 'open-nx-button', 'component-menu-toggle', 'header-explode', 'transparency-menu-toggle', 'viewer-menu-toggle', 'component-menu', 'transparency-menu', 'viewer-menu', 'import-message', 'fit-button',
+  'inspector-panel', 'inspector-toggle', 'inspector-content', 'component-color-toggle', 'component-color-menu-button', 'fit-menu-button',
   'tree-selection-actions','isolate-selected','isolate-selected-label','fit-selected',
   'tree-move-actions','move-selected','reset-move-selected','reset-move-all','tree-move-readout','move-gizmo',
   'tree-opacity-actions',
@@ -101,9 +102,10 @@ const context = {
   document: {
     getElementById: (id) => { assert.ok(elems[id], `missing DOM element ${id}`); return elems[id]; },
     querySelectorAll: (selector) => selector === '[data-view]' ? viewButtons : [],
+    addEventListener: () => {},
     activeElement: { tagName: 'BODY' },
   },
-  window: { addEventListener() {} },
+  window: { addEventListener() {}, innerWidth: 1280, innerHeight: 800 },
   console,
 };
 vm.runInNewContext(code, context, { filename: 'app.js' });

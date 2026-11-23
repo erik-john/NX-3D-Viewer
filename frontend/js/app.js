@@ -39,12 +39,13 @@ function setup() {
 
   function updateComponentColorMode() {
     const active = componentColors.available && componentColorEnabled;
-    const button = $('component-color-toggle');
-    button.disabled = !componentColors.available;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-pressed', String(active));
-    button.title = !componentColors.available ? 'Component colors require separate assembly geometry' :
-      active ? 'Restore original steel appearance' : 'Color components by type';
+    for (const button of [$('component-color-toggle'), $('component-color-menu-button')]) {
+      button.disabled = !componentColors.available;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.title = !componentColors.available ? 'Component colors require separate assembly geometry' :
+        active ? 'Restore original steel appearance' : 'Color components by type';
+    }
     viewer.setComponentColorMode(active);
   }
 
@@ -88,6 +89,7 @@ function setup() {
       (componentOpacities.get(target.ids.find(id => componentOpacities.has(id))) ?? 1) : 1;
     const current = Math.max(0, Math.min(100, alphaToTransparency(currentAlpha)));
     $('tree-opacity-actions').hidden = !tree.root || !tree.visibilityEnabled;
+    $('transparency-menu-toggle').disabled = !tree.root || !tree.visibilityEnabled;
     $('reset-transparency-all').disabled = componentOpacities.size === 0;
     slider.disabled = !target;
     slider.value = String(current);
@@ -99,6 +101,7 @@ function setup() {
   }
   function updateSelectionActions() {
     $('tree-selection-actions').hidden = !tree.root;
+    $('component-menu-toggle').disabled = !tree.root;
     const node = selectedNode();
     const ids = meshIdsFor(node);
     const canIsolate = !!(tree.visibilityEnabled && node && node !== tree.root &&
@@ -220,6 +223,13 @@ function setup() {
 
   function updateExplodeControls() {
     tree.setExplodeState(explodeGroups, explodeLevel, selectedOverrides);
+    const exploded = explodeLevel > 0 || [...selectedOverrides.values()].some(value => value > 0);
+    const button = $('header-explode');
+    button.disabled = !canExplode();
+    button.textContent = exploded ? 'Collapse' : 'Explode';
+    button.title = exploded ? 'Collapse all assembly components' : 'Explode all assembly components';
+    button.setAttribute('aria-pressed', String(exploded));
+    button.classList.toggle('is-active', exploded);
   }
   function applyExplosion() {
     viewer.setExplodeOffsets(calculateExplodeOffsets(explodeGroups, explodeBounds, explodeLevel, selectedOverrides));
@@ -465,18 +475,61 @@ function setup() {
     for (const id of ids) selectedOverrides.set(id, amount);
     applyExplosion();
   }
+  const headerMenus = new Map([
+    ['component-menu-toggle', 'component-menu'],
+    ['transparency-menu-toggle', 'transparency-menu'],
+    ['viewer-menu-toggle', 'viewer-menu'],
+  ]);
+  function closeHeaderMenus() {
+    for (const [triggerId, menuId] of headerMenus) {
+      $(menuId).hidden = true;
+      $(triggerId).setAttribute('aria-expanded', 'false');
+    }
+  }
+  for (const [triggerId, menuId] of headerMenus) {
+    $(triggerId).addEventListener('click', () => {
+      const trigger = $(triggerId);
+      const menu = $(menuId);
+      const wasOpen = !menu.hidden;
+      closeHeaderMenus();
+      if (wasOpen || trigger.disabled) return;
+      const anchor = trigger.getBoundingClientRect();
+      menu.hidden = false;
+      menu.style.top = `${Math.min(window.innerHeight - 25, anchor.bottom + 6)}px`;
+      const width = menu.getBoundingClientRect().width;
+      menu.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))}px`;
+      trigger.setAttribute('aria-expanded', 'true');
+    });
+  }
+  document.addEventListener('pointerdown', event => {
+    if (!event.target.closest('.header-menu, .header-menu-trigger')) closeHeaderMenus();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeHeaderMenus();
+  });
+  window.addEventListener('resize', closeHeaderMenus);
+  document.querySelectorAll('#component-menu button, #viewer-menu button, #reset-transparency-all')
+    .forEach(button => button.addEventListener('click', closeHeaderMenus));
   $('open-nx-button').addEventListener('click', () => openNXPart());
+  $('header-explode').addEventListener('click', () => {
+    const exploded = explodeLevel > 0 || [...selectedOverrides.values()].some(value => value > 0);
+    if (exploded) collapseAll();
+    else explodeAll();
+  });
   new FileWorkspace(path => openNXPart(path));
   for (const button of document.querySelectorAll('[data-view]')) {
     button.addEventListener('click', () => setCameraView(button.dataset.view));
   }
   $('fit-button').addEventListener('click', () => viewer.fit());
+  $('fit-menu-button').addEventListener('click', () => viewer.fit());
   $('measure-planes-toggle').addEventListener('click', () => setMeasureMode(!measureMode));
-  $('component-color-toggle').addEventListener('click', () => {
-    if (!componentColors.available) return;
-    componentColorEnabled = !componentColorEnabled;
-    updateComponentColorMode();
-  });
+  for (const button of [$('component-color-toggle'), $('component-color-menu-button')]) {
+    button.addEventListener('click', () => {
+      if (!componentColors.available) return;
+      componentColorEnabled = !componentColorEnabled;
+      updateComponentColorMode();
+    });
+  }
   $('component-opacity-slider').addEventListener('input', () => {
     const target = transparencyTarget();
     if (!target) return;

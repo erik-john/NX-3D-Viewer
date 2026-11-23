@@ -25,7 +25,7 @@ class BrandingTests(unittest.TestCase):
         self.assertNotIn('id="grid-button"', html)
         self.assertNotIn('id="axes-button"', html)
         self.assertNotIn('id="wire-button"', html)
-        self.assertIn('overflow-x: auto', css)
+        self.assertIn('overflow-x: hidden', css)
         self.assertNotIn('LOCAL VIEWER', html)
         self.assertNotIn('NX available', html)
     def test_local_logo_asset_is_valid(self):

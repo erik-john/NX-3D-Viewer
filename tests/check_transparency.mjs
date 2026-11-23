@@ -9,14 +9,15 @@ const app = readFileSync(resolve(root,'frontend/js/app.js'),'utf8');
 for (const id of ['tree-opacity-actions',
  'reset-transparency-all','component-opacity-slider','component-opacity-value'])
   assert.ok(html.includes(`id="${id}"`),id);
-const groupStart = html.indexOf('id="sidebar-controls"');
-const divider = html.indexOf('id="sidebar-splitter"');
-assert.ok(html.indexOf('id="tree-opacity-actions"')>groupStart &&
-  html.indexOf('id="tree-opacity-actions"')<divider,'transparency only in upper area');
+const groupStart = html.indexOf('<header');
+const groupEnd = html.indexOf('</header>');
+assert.ok(html.indexOf('id="transparency-menu-toggle"')>groupStart &&
+  html.indexOf('id="transparency-menu-toggle"')<groupEnd, 'transparency belongs in header');
+assert.ok(html.includes('id="transparency-menu"'), 'slider moves into dropdown');
 assert.ok(!html.includes('tree-transparency-toggle'),'no more component row icons');
 assert.ok(!html.includes('id="transparency-selected"'),'no redundant Transparent/Solid button');
 assert.match(html, /id="component-opacity-slider" min="0" max="100" step="1" value="0"/);
-assert.match(html, /id="reset-transparency-all" class="tree-opacity-reset"/);
+assert.match(html, /id="reset-transparency-all" class="header-menu-item"/);
 assert.ok(app.includes('alphaToTransparency'), 'selection converts saved alpha back to slider percentage');
 assert.ok(app.includes('transparencyToAlpha'), 'slider converts transparency to material alpha');
 assert.ok(app.includes('if (amount === 0) componentOpacities.delete(id)'), 'zero restores original appearance');

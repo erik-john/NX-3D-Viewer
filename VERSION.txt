@@ -1,3 +1,20 @@
+UI follow-up — Compact Header and Restored View Toolbar
+
+Changes
+- Remove redundant Select button; direct 3D and structure-tree selection remain available.
+- Combine Explode and Collapse into one state-aware toggle, with collapsed as the initial assembly state.
+- Consolidate selected-item Isolate/Restore, Fit Selected, Move, and reset actions in a Component dropdown.
+- Replace the separate transparency readout and icon with a compact Transparency percentage dropdown; retain per-component slider and Solid All reset command inside.
+- Provide a Viewer dropdown with Orientation (3D/Front/Top/Right), Fit, and Color Components sections.
+- Keep Measurement as an independent icon in the header and restore the vertical View toolbar inside the 3D viewport.
+- Preserve the original branding, steel rendering, JT and PRT conversion, workspace wizards, and product information panel.
+
+Checks
+- Python, JavaScript, and simulated Chromium component interaction tests passed locally.
+- Header checked at 900–1440 px widths without horizontal overflow. Siemens NX 2506 runtime tests remain required on Windows.
+- CRLF line endings and port 8888 preserved.
+
+--- Prior UI work ---
 MS42 UI follow-up — Structure panel horizontal scrolling
 
 Changes

@@ -12,16 +12,18 @@ const header=html.match(/<header[\s\S]*?<\/header>/)?.[0];
 const viewport=html.match(/<div class="viewport"[\s\S]*?<aside class="inspector-panel"/)?.[0];
 assert.ok(header && viewport, 'header and workspace must exist');
 assert.ok(header.includes('id="open-nx-button"'));
+assert.ok(header.includes('id="viewer-menu-toggle"'));
 assert.ok(!header.includes('data-view='));
-assert.ok(!header.includes('DISPLAY'));
 for(const view of ['iso','front','top','right']) {
   assert.ok(viewport.includes(`data-view="${view}"`), view);
 }
 assert.ok(viewport.includes('id="fit-button"'));
-assert.match(viewport, /class="viewport-view-tools" role="group" aria-label="View and appearance controls"/);
-assert.equal((viewport.match(/class=\"viewport-view-button/g)||[]).length,7);
+assert.match(viewport, /class="viewport-view-tools" role="group" aria-label="View controls and appearance"/);
+assert.equal((viewport.match(/class="viewport-view-button/g)||[]).length,6);
 assert.ok(viewport.includes('id="component-color-toggle"'));
-assert.ok(viewport.includes('aria-label="Color components by type"'));
+assert.ok(header.includes('id="measure-planes-toggle"'));
+assert.ok(html.includes('id="fit-menu-button"'));
+assert.ok(html.includes('id="component-color-menu-button"'));
 assert.ok(!viewport.includes('viewport-mouse-'));
 for(const label of ['Isometric view','Front view','Top view','Right view','Fit model to view']){
   assert.ok(viewport.includes(`aria-label="${label}"`),label);
@@ -41,4 +43,4 @@ assert.match(css, /\.inspector-row\s*\{[^}]*font-size: 13px/s);
 assert.match(css, /\.viewport-view-button\.active/);
 assert.match(css, /\.viewport-view-tools \{[^}]*position: absolute/s);
 assert.ok(!css.includes('viewport-mouse-'));
-console.log('MS18 view toolbar intact; mouse help dock absent.');
+console.log('MS43 header view controls present; original shader retained.');
