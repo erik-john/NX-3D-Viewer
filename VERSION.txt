@@ -1,3 +1,16 @@
+Measurement correction — partial cylinder recognition
+
+Changes
+- Recognize connected, reliably circular partial cylinder meshes (including 180-degree rounded ends) instead of requiring near-complete circular coverage.
+- Accept three or more distinct side-facet directions spanning at least 80 degrees, with strict circle-fit error and mesh adjacency checks. Reject two-strip and shallow chamfer-like patches.
+- Use an STL-fitted approximate diameter when NX analytical cylinder metadata is absent; prefer exact NX geometry when a unique CAD cylinder is available.
+- Preserve component movement, explode offsets, camera-linked guides, rendering, and all existing measurement actions.
+
+Checks
+- Regression for 3, 4, 6, 8, 16 facet-strip half-cylinders, single-click diameter, repeated selection, Move, NX exact matching, and unsafe narrow-strip rejection.
+- Live Siemens NX 2506 verification on the user's curved-end part is still needed. Facet-only models cannot guarantee CAD-exact measurements.
+
+--- Prior work ---
 Measurement visualization — geometry-anchored guides
 
 Changes

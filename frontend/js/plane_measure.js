@@ -218,9 +218,9 @@ function identifyCircularPlane(selection) {
     center:add(localCenter,offset),axis:selection.normal};
 }
 
-// A tessellated cylinder must contain a continuous ring of matching radii,
-// with changing facet normals and nearly complete angular coverage. We never
-// treat one triangle or a generic curved surface as a measurable cylinder.
+// Tessellated cylinders can have partial arcs, including 180-degree rounded
+// ends. Accept a connected, high-confidence circular sweep with at least three
+// different side strips, while rejecting a flat face or a two-strip chamfer.
 export function cylindricalPatch(hit) {
   if(!hit) return null;
   const {part,triangleIndex,point}=hit;
@@ -266,20 +266,37 @@ export function cylindricalPatch(hit) {
       if(visited.has(neighbor)||!isSide(neighbor)) continue;
       visited.add(neighbor);queue.push(neighbor);
     }
-    if(queue.length<10) continue;
+    if(queue.length<6) continue;
+    const uniqueNormals=[];
+    for(const id of queue) {
+      const n=normals[id];
+      if(n && !uniqueNormals.some(existing=>Math.abs(pmDot(n,existing))>0.9995))
+        uniqueNormals.push(n);
+    }
+    if(uniqueNormals.length<3) continue;
     const circlePoints=new Map();
     for(const id of queue) for(const p of triangle(part,id)) circlePoints.set(coordKey(p),p);
     const coords=[...circlePoints.values()].map(p=>[pmDot(p,basis.u),pmDot(p,basis.v)]);
     const refined=fitCircle(coords);
-    if(!refined||refined.coverage<9||refined.error>0.009||refined.maxError>0.016||
+    if(!refined||refined.coverage<3||refined.error>0.009||refined.maxError>0.016||
       Math.abs(refined.radius-radius)>radius*0.012) continue;
+    // Reject short fillets and arbitrary sloped patches. A meaningful arc
+    // must span at least 80 degrees around a common cylinder axis.
+    const angles=coords.map(p=>Math.atan2(p[1]-refined.center[1],p[0]-refined.center[0]))
+      .sort((a,b)=>a-b);
+    let largestGap=0;
+    for(let i=0;i<angles.length;i++) {
+      const next=i+1<angles.length ? angles[i+1] : angles[0]+2*Math.PI;
+      largestGap=Math.max(largestGap,next-angles[i]);
+    }
+    if(2*Math.PI-largestGap < 80*Math.PI/180) continue;
     const corrected=add(scale(basis.u,refined.center[0]),scale(basis.v,refined.center[1]));
     const offset=part.offset || [0,0,0];
     const localPoint=sub(point,offset);
     const circleCenter=add(add(corrected,scale(axis,pmDot(localPoint,axis))),offset);
     const positions=new Float32Array(queue.length*9);
     for(let i=0;i<queue.length;i++) positions.set(triangle(part,queue[i]).flat(),i*9);
-    return {kind:'cylinder',meshId:part.meshId,part,point,triangleIndex,
+    return {kind:'cylinder',method:'mesh_fit',meshId:part.meshId,part,point,triangleIndex,
       triangleIds:visited,axis,center:circleCenter,radius:refined.radius,
       faceCount:queue.length,positions};
   }
