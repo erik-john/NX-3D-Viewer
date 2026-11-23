@@ -103,6 +103,9 @@ with sync_playwright() as p:
     assert old_target != new_target, (old_target,new_target)
     assert page.locator('#measurement-overlay').is_visible()
     assert page.locator('#measurement-overlay').get_attribute('data-kind') == 'angle'
+    assert not page.locator('#measurement-arc').is_visible()
+    assert page.locator('#measurement-point-a').is_visible()
+    assert page.locator('#measurement-point-b').is_visible()
     # No stale result from replacing the test geometry.
     page.locator('#measure-planes-toggle').click()
     assert page.locator('#measurement-panel').is_hidden()

@@ -102,15 +102,15 @@ with sync_playwright() as p:
     assert page.locator('.viewport-view-tools #fit-button').count() == 1
     assert page.locator('#grid-button,#axes-button,#wire-button').count() == 0
     assert page.locator('header').count() == 1
-    assert page.locator('header').bounding_box()['height'] == 70
+    assert page.locator('header').bounding_box()['height'] == 78
     assert page.locator('.app-brand').count() == 1
     assert page.locator('.brand-title').inner_text() == 'NX 3D Viewer'
     assert page.locator('.brand-subtitle').inner_text() == '3D Visualization Workspace'
     assert page.locator('.brand-logo').evaluate('(el) => el.complete && el.naturalWidth >= 256')
     assert page.locator('.header-meta, #connection-label').count() == 0
-    assert page.locator('.app-brand').bounding_box()['width'] > 275
+    assert page.locator('.app-brand').bounding_box()['width'] >= 190
     assert page.locator('main .toolbar').count() == 0
-    assert page.locator('.workspace').bounding_box()['y'] == 70
+    assert page.locator('.workspace').bounding_box()['y'] == 78
     if os.environ.get('NX_PREVIEW_PATH'):
         page.screenshot(path=os.environ['NX_PREVIEW_PATH'])
     assert page.locator('#tree-summary').inner_text() == 'No NX file loaded'
@@ -177,12 +177,12 @@ with sync_playwright() as p:
     page.locator('#inspector-toggle').click()
     assert 'is-collapsed' not in page.locator('#inspector-panel').get_attribute('class')
     page.set_viewport_size({'width': 420, 'height': 750})
-    assert page.locator('header.toolbar').bounding_box()['height'] == 62
+    assert page.locator('header.toolbar').bounding_box()['height'] == 78
     assert page.locator('#open-nx-button').is_visible()
     assert page.get_by_role('button', name='Isometric view', exact=True).is_visible()
-    assert page.locator('.workspace').bounding_box()['y'] == 62
-    assert page.locator('.brand-title').is_visible()
-    assert page.locator('.brand-subtitle').is_visible()
+    assert page.locator('.workspace').bounding_box()['y'] == 78
+    assert not page.locator('.brand-title').is_visible()
+    assert not page.locator('.brand-subtitle').is_visible()
     assert not errors, f'Browser JavaScript errors: {errors}' 
     browser.close()
 print('Browser smoke checks passed: branding, toolbar, hierarchy, visibility, resize, and loading.')

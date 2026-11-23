@@ -37,7 +37,7 @@ const ids = [
   'tree-opacity-actions',
   'reset-transparency-all','component-opacity-slider','component-opacity-value',
   'measurement-panel','measurement-summary','measurement-detail','measurement-clear','measurement-fit','measurement-overlay',
-  'measurement-line','measurement-point-a','measurement-point-b','measurement-arc','measure-planes-toggle',
+  'measurement-line','measurement-point-a','measurement-point-b','measurement-center','measurement-arc','measure-planes-toggle',
 ];
 const elems = Object.fromEntries(ids.map(id => [id, makeElement()]));
 elems['loading-overlay'].hidden = true;

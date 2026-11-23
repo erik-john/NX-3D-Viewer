@@ -57,7 +57,10 @@ with sync_playwright() as p:
     assert page.locator('#measurement-panel').get_attribute('data-kind')=='diameter'
     assert '1 circular planar face' in page.locator('#measurement-detail').inner_text()
     assert page.locator('#measurement-overlay').get_attribute('data-kind')=='diameter'
-    assert page.locator('#measurement-arc').is_visible()
+    assert not page.locator('#measurement-arc').is_visible()
+    assert page.locator('#measurement-center').is_visible()
+    assert not page.locator('#measurement-point-a').is_visible()
+    assert not page.locator('#measurement-point-b').is_visible()
     # Same patch cannot silently count twice.
     page.mouse.click(points['a']['x'],points['a']['y'])
     assert '20.000 mm' in page.locator('#measurement-summary').inner_text()

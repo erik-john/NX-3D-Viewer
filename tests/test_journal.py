@@ -53,6 +53,29 @@ class JournalTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'assembly body position'):
             journal.bodies_for_export(part)
 
+    def test_nx_cylinder_metadata_and_safe_fallback(self):
+        class Face:
+            def __init__(self, tag):
+                self.Tag = tag
+        class CylinderBody(Body):
+            def GetFaces(self):
+                return [Face(7), Face(8), Face(9)]
+        answers = {
+            7: (16, [1, 2, 3], [0, 0, 1], [-10, -10, 0, 10, 10, 40], 10, 0, 1),
+            8: (22, [0, 0, 0], [0, 0, 1], [-10, -10, 0, 10, 10, 0], 0, 0, 1),
+            9: (16, [0, 0, 0], [0, 0, 1], [0] * 6, float('nan'), 0, 1),
+        }
+        uf = types.SimpleNamespace(Modeling=types.SimpleNamespace(AskFaceData=lambda tag: answers[tag]))
+        cylinders = journal.cylindrical_faces(CylinderBody(21), uf)
+        self.assertEqual(1, len(cylinders))
+        self.assertEqual('cylinder', cylinders[0]['type'])
+        self.assertEqual(10, cylinders[0]['radius'])
+        self.assertEqual([1, 2, 3], cylinders[0]['point'])
+        self.assertEqual([], journal.cylindrical_faces(Body(20), uf))
+        self.assertEqual([], journal.cylindrical_faces(CylinderBody(22), None))
+        uf.Modeling.AskFaceData = lambda tag: (_ for _ in ()).throw(RuntimeError('NX unsupported'))
+        self.assertEqual([], journal.cylindrical_faces(CylinderBody(21), uf))
+
     def test_inspector_part_units_and_attributes(self):
         import types
         part = types.SimpleNamespace(

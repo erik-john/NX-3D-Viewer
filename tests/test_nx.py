@@ -22,6 +22,30 @@ def triangle_stl():
 
 
 class NXServiceTests(unittest.TestCase):
+    def test_analytical_face_metadata_follows_the_correct_body(self):
+        cylinder = {'type': 'cylinder', 'point': [0, 0, 0], 'axis': [0, 0, 1],
+                    'bounds': [-5, -5, 0, 5, 5, 10], 'radius': 5}
+        with tempfile.TemporaryDirectory() as tmp:
+            stem = 'a' * 32
+            stl = Path(tmp) / (stem + '.stl')
+            stl.write_bytes(triangle_stl())
+            body_file = Path(tmp) / (stem + '_body_00001.stl')
+            body_file.write_bytes(triangle_stl())
+            stl.with_suffix('.json').write_text(json.dumps({
+                'root': {'id': 'root', 'children': [
+                    {'id': 'root_b1', 'type': 'body', 'meshId': 'root_b1', 'children': []}]},
+                'geometryMode': 'separate',
+                'meshes': [{'id': 'root_b1', 'file': body_file.name,
+                            'analyticalFaces': [cylinder]}]}))
+            handler = object.__new__(server.ViewerHandler)
+            handler.assets = {}
+            handler.asset_lock = __import__('threading').Lock()
+            tree, mode, files, warning, info = handler.prepare_structure(stl, 'Part')
+        self.assertEqual(mode, 'separate')
+        self.assertEqual(files[0]['id'], 'root_b1')
+        self.assertEqual(files[0]['analyticalFaces'], [cylinder])
+        self.assertEqual(tree['children'][0]['meshId'], 'root_b1')
+
     def test_select_existing_prt_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / 'piece.txt'

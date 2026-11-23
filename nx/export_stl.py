@@ -2,6 +2,7 @@
 
 import io
 import json
+import math
 import os
 import sys
 import traceback
@@ -158,6 +159,55 @@ def get_part_information(part):
             continue
     return information
 
+def cylindrical_faces(body, uf_session):
+    """Return analytical cylinders belonging to this positioned NX body."""
+    if uf_session is None:
+        return []
+    try:
+        faces = body.GetFaces()
+    except Exception:
+        return []
+    cylinders = []
+    modeling = getattr(uf_session, 'Modeling', None) or getattr(uf_session, 'Modl', None)
+    if modeling is None:
+        return []
+    for face in faces:
+        try:
+            # Avoid costly UF queries for planes and other known non-cylinders.
+            face_kind = getattr(face, 'SolidFaceType', None)
+            if face_kind is not None and 'cylindrical' not in str(face_kind).lower():
+                continue
+            data = modeling.AskFaceData(face.Tag)
+            # UF_MODL_ask_face_data: type, axis point, axis, bounding box,
+            # radius, secondary radius, normal orientation.
+            if int(data[0]) != 16:
+                continue
+            axis_point = [float(value) for value in data[1]]
+            axis = [float(value) for value in data[2]]
+            bounds = [float(value) for value in data[3]]
+            radius = float(data[4])
+            if (len(axis_point) != 3 or len(axis) != 3 or len(bounds) != 6 or
+                    not all(math.isfinite(value) for value in axis_point + axis + bounds) or
+                    not math.isfinite(radius) or radius <= 0 or
+                    abs(math.sqrt(sum(value * value for value in axis)) - 1) > 0.01 or
+                    any(bounds[i] > bounds[i + 3] for i in range(3))):
+                continue
+            cylinders.append({'type': 'cylinder', 'point': axis_point,
+                              'axis': axis, 'bounds': bounds, 'radius': radius})
+        except Exception:
+            # An unsupported/invalid CAD face must not break STL export.
+            continue
+    return cylinders
+
+
+def nx_uf_session():
+    try:
+        import NXOpen.UF
+        return NXOpen.UF.UFSession.GetUFSession()
+    except Exception:
+        return None
+
+
 def bodies_for_export(part):
     return build_structure(part)[1]
 
@@ -212,15 +262,23 @@ def export(input_path, output_path, manifest_path=None, stage_path=None):
         record_stage(stage_path, 'exporting separate body STL geometry')
         meshes = []
         separate_error = None
+        uf = nx_uf_session() if input_path.lower().endswith('.prt') else None
         for index, (node_id, body) in enumerate(leaves, 1):
             filename = os.path.splitext(os.path.basename(output_path))[0] + '_body_{:05d}.stl'.format(index)
             filepath = os.path.join(os.path.dirname(output_path), filename)
             try:
                 export_bodies(session, [body], filepath)
-                meshes.append({'id': node_id, 'file': filename})
+                entry = {'id': node_id, 'file': filename}
+                faces = cylindrical_faces(body, uf)
+                if faces:
+                    entry['analyticalFaces'] = faces
+                meshes.append(entry)
             except Exception as error:
                 separate_error = str(error)
                 break
+        if uf is not None and separate_error is None:
+            count = sum(len(mesh.get('analyticalFaces', [])) for mesh in meshes)
+            record_stage(stage_path, 'captured {} NX analytical cylindrical faces'.format(count))
         manifest = {
             'root': root,
             'partInfo': get_part_information(part),

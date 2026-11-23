@@ -289,7 +289,7 @@ function setup() {
     detail: $('measurement-detail'), clear: $('measurement-clear'), fit: $('measurement-fit'),
     overlay: $('measurement-overlay'), line: $('measurement-line'),
     pointA: $('measurement-point-a'), pointB: $('measurement-point-b'),
-    arc: $('measurement-arc'),
+    center: $('measurement-center'), arc: $('measurement-arc'),
   });
   function updateMeasureButton() {
     const button = $('measure-planes-toggle');
@@ -392,7 +392,8 @@ function setup() {
         const buffer = await readSTL(item.url);
         totalBytes += buffer.byteLength;
         if (totalBytes > MAX_TOTAL_STL_BYTES) throw new Error('NX geometry exceeds the 256 MB viewer limit.');
-        const meshes = parseSTL(buffer).map(mesh => ({ ...mesh, meshId: item.id }));
+        const meshes = parseSTL(buffer).map(mesh => ({ ...mesh, meshId: item.id,
+          analyticalFaces: item.analyticalFaces || [] }));
         totalTriangles += meshes.reduce((sum, mesh) => sum + mesh.indices.length / 3, 0);
         if (totalTriangles > MAX_TOTAL_TRIANGLES) throw new Error('NX geometry exceeds the 1,000,000 triangle viewer limit.');
         pieces[at] = meshes;

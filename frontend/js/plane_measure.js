@@ -209,10 +209,13 @@ function identifyCircularPlane(selection) {
   const fitted=fitCircle(projected);
   if(!fitted||fitted.coverage<9||fitted.error>0.012||fitted.maxError>0.032) return null;
   // The plane coordinate is fixed by any vertex; the fit supplies its center.
-  const depth=pmDot(selection.point,selection.normal);
-  const center=add(add(scale(basis.u,fitted.center[0]),scale(basis.v,fitted.center[1])),
+  const offset=selection.part.offset || [0,0,0];
+  const localPoint=sub(selection.point,offset);
+  const depth=pmDot(localPoint,selection.normal);
+  const localCenter=add(add(scale(basis.u,fitted.center[0]),scale(basis.v,fitted.center[1])),
     scale(selection.normal,depth));
-  return {...selection,kind:'circle',radius:fitted.radius,center,axis:selection.normal};
+  return {...selection,kind:'circle',radius:fitted.radius,
+    center:add(localCenter,offset),axis:selection.normal};
 }
 
 // A tessellated cylinder must contain a continuous ring of matching radii,
@@ -271,7 +274,9 @@ export function cylindricalPatch(hit) {
     if(!refined||refined.coverage<9||refined.error>0.009||refined.maxError>0.016||
       Math.abs(refined.radius-radius)>radius*0.012) continue;
     const corrected=add(scale(basis.u,refined.center[0]),scale(basis.v,refined.center[1]));
-    const circleCenter=add(corrected,scale(axis,pmDot(point,axis)));
+    const offset=part.offset || [0,0,0];
+    const localPoint=sub(point,offset);
+    const circleCenter=add(add(corrected,scale(axis,pmDot(localPoint,axis))),offset);
     const positions=new Float32Array(queue.length*9);
     for(let i=0;i<queue.length;i++) positions.set(triangle(part,queue[i]).flat(),i*9);
     return {kind:'cylinder',meshId:part.meshId,part,point,triangleIndex,
@@ -281,11 +286,79 @@ export function cylindricalPatch(hit) {
   return null;
 }
 
+// NX analytical cylinder data describes partial arcs even if their STL mesh
+// contains only a few flat strips. Associate a clicked facet with a unique
+// CAD face using its bounding box, radius, axis and neighboring triangles.
+const nxVector = values => [values[0],values[2],-values[1]];
+function nxBounds(values) {
+  if(!Array.isArray(values)||values.length!==6) return null;
+  const result={min:[values[0],values[2],-values[4]],
+    max:[values[3],values[5],-values[1]]};
+  return [...result.min,...result.max].every(Number.isFinite) ? result : null;
+}
+function analyticalCylinderPatch(hit) {
+  if(!hit||!Array.isArray(hit.part.analyticalFaces)||!hit.part.analyticalFaces.length) return null;
+  const {part,triangleIndex,point}=hit;
+  const {links,normals}=patchIndex(part);
+  const localPoint=sub(point,part.offset || [0,0,0]);
+  const matches=[];
+  for(const face of part.analyticalFaces) {
+    if(face?.type!=='cylinder'||!(face.radius>0)||!Array.isArray(face.point)||
+      !Array.isArray(face.axis)) continue;
+    const radius=Number(face.radius), axisPoint=nxVector(face.point),axis=normal(nxVector(face.axis));
+    const bounds=nxBounds(face.bounds);
+    if(!axis||!bounds||!Number.isFinite(radius)) continue;
+    const allowance=Math.max(radius*0.015,Math.max(...part.bounds.size)*1e-5,1e-5);
+    const inside=p=>p.every((v,i)=>v>=bounds.min[i]-allowance&&v<=bounds.max[i]+allowance);
+    if(!inside(localPoint)) continue;
+    const matchingTriangle=id=>{
+      const n=normals[id];if(!n||Math.abs(pmDot(n,axis))>0.17) return false;
+      const pts=triangle(part,id);
+      if(!pts.every(inside)) return false;
+      const midpoint=scale(pts.reduce((a,b)=>add(a,b),[0,0,0]),1/3);
+      const radial=sub(sub(midpoint,axisPoint),scale(axis,pmDot(sub(midpoint,axisPoint),axis)));
+      const radialUnit=normal(radial);
+      if(!radialUnit||Math.abs(pmDot(radialUnit,n))<0.89) return false;
+      const edgeLength=(a,b)=>{
+        const edge=sub(a,b);
+        return length(sub(edge,scale(axis,pmDot(edge,axis))));
+      };
+      const edges=[edgeLength(pts[0],pts[1]),edgeLength(pts[1],pts[2]),
+        edgeLength(pts[2],pts[0])];
+      // Facet chords lie inside the CAD cylinder; tolerate chordal sagitta,
+      // not arbitrary displacement from the analytical radius.
+      const chord=Math.min(Math.max(...edges),2*radius);
+      const sagitta=radius-Math.sqrt(Math.max(0,radius*radius-chord*chord/4));
+      const gap=Math.abs(length(radial)-radius);
+      return gap<=Math.max(allowance,1.6*sagitta);
+    };
+    if(!matchingTriangle(triangleIndex)) continue;
+    const visited=new Set([triangleIndex]), queue=[triangleIndex];
+    for(let i=0;i<queue.length;i++) for(const neighbor of links[queue[i]]) {
+      if(visited.has(neighbor)||!matchingTriangle(neighbor)) continue;
+      visited.add(neighbor);queue.push(neighbor);
+    }
+    if(queue.length<4) continue;
+    // Reject a single flat tangent strip; a curved face should contain
+    // distinct radial directions across its faceted neighborhood.
+    const reference=normals[triangleIndex];
+    if(!queue.some(id=>Math.abs(pmDot(reference,normals[id]))<0.9998)) continue;
+    const localCenter=add(axisPoint,scale(axis,pmDot(sub(localPoint,axisPoint),axis)));
+    const positions=new Float32Array(queue.length*9);
+    for(let i=0;i<queue.length;i++) positions.set(triangle(part,queue[i]).flat(),i*9);
+    matches.push({kind:'cylinder',method:'nx_cad',meshId:part.meshId,part,point,triangleIndex,
+      triangleIds:visited,axis,center:add(localCenter,part.offset || [0,0,0]),radius,
+      faceCount:queue.length,positions});
+  }
+  // Ambiguous overlapping analytical surfaces should not claim an exact value.
+  return matches.length===1 ? matches[0] : null;
+}
+
 // Check cylinders before planar patches; each flat STL side facet is itself
 // coplanar and would otherwise be mistaken for a legitimate CAD plane.
 export function measurementSurface(hit) {
   if(!hit) return null;
-  return cylindricalPatch(hit) || planarPatch(hit);
+  return analyticalCylinderPatch(hit) || cylindricalPatch(hit) || planarPatch(hit);
 }
 
 // Two circular/cylindrical features are comparable only when their center axes
