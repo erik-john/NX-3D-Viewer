@@ -1,4 +1,7 @@
-MS44 — Section Export / PMI Presentation Fix
+MS44 — Section View and Image Export
+
+Status: Completed. Section view and PNG export with PMI and
+Characteristics verified by the user.
 
 Included capabilities:
 - Section PNG export with title block, gray original faces, orange cut faces,
