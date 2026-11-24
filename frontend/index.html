@@ -168,9 +168,10 @@
         <div id="annotation-layer" class="annotation-layer" aria-label="Model PMI and Characteristic labels"></div>
         <svg id="move-gizmo" class="move-gizmo"
           role="group" aria-label="Selected component movement axes" hidden></svg>
+        <svg id="section-gizmo" class="section-gizmo" role="group" aria-label="Move and rotate cutting plane" hidden></svg>
         <section class="section-panel" id="section-panel" hidden aria-label="Section cut controls">
-          <div class="section-heading">
-            <strong>Section / Cut Face</strong>
+          <div class="section-heading" id="section-drag-handle" tabindex="0" aria-label="Move section panel with arrow keys" title="Drag to move the panel · Arrow keys to reposition">
+            <span class="section-drag-title"><span class="section-drag-grip" aria-hidden="true">⠿</span><strong>Section / Cut Face</strong></span>
             <button type="button" id="section-close" aria-label="Close section view" title="Close section view">×</button>
           </div>
           <div class="section-axes" role="group" aria-label="NX section plane">
@@ -180,6 +181,19 @@
           </div>
           <label class="section-depth-label" for="section-depth">Cut position <output id="section-depth-value">50%</output></label>
           <input type="range" id="section-depth" min="0" max="100" step="1" value="50" aria-label="Section depth">
+          <div class="section-presets section-presets-depth" id="section-depth-presets" role="group" aria-label="Cut position presets"></div>
+          <div class="section-tilt-row">
+            <label for="section-tilt-u">Tilt U <output id="section-tilt-u-value">0°</output></label>
+            <input type="range" id="section-tilt-u" min="-180" max="180" step="1" value="0" aria-label="Rotate cutting plane about local U axis">
+            <div class="section-presets section-presets-tilt" id="section-tilt-u-presets" role="group" aria-label="Tilt U presets"></div>
+            <label for="section-tilt-v">Tilt V <output id="section-tilt-v-value">0°</output></label>
+            <input type="range" id="section-tilt-v" min="-180" max="180" step="1" value="0" aria-label="Rotate cutting plane about local V axis">
+            <div class="section-presets section-presets-tilt" id="section-tilt-v-presets" role="group" aria-label="Tilt V presets"></div>
+          </div>
+          <div class="section-gizmo-options">
+            <label><input type="checkbox" id="section-gizmo-visible" checked> Show 3D manipulator</label>
+            <button type="button" id="section-reset">Reset plane</button>
+          </div>
           <div class="section-bottom-row">
             <button type="button" id="section-flip" aria-pressed="false" title="Switch the visible half of the model">Flip side</button>
             <label><input type="checkbox" id="section-cap" checked> Fill cut faces</label>

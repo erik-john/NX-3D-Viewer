@@ -6,6 +6,8 @@ import { FileWorkspace } from './workspace.js';
 import { createExplodePlan, calculateExplodeOffsets, selectionGroupIds } from './assembly_explode.js';
 import { buildComponentColors } from './component_colors.js';
 import { MoveGizmo, MOVE_AXES } from './component_move.js';
+import { SectionGizmo } from './section_gizmo.js';
+import { makeSectionPanelDraggable, makeSectionSliderPresets } from './section_panel_controls.js';
 import { MeasurementUI } from './measurement_ui.js';
 import { AnnotationDisplay } from './annotations_ui.js';
 
@@ -42,11 +44,27 @@ function setup() {
   let sectionAxis = 'X';
   let sectionReversed = false;
   let sectionFill = true;
+  let sectionTiltU = 0;
+  let sectionTiltV = 0;
+  let sectionGizmoEnabled = true;
+  let sectionGizmo = null;
+  const sectionPanelDrag = makeSectionPanelDraggable(
+    $('section-panel'), $('section-drag-handle'), $('viewer-viewport'));
+  const sectionPresetControls = [
+    makeSectionSliderPresets($('section-depth'), $('section-depth-presets'),
+      [0, 25, 50, 75, 100], {unit: '%', snapTolerance: 2}),
+    makeSectionSliderPresets($('section-tilt-u'), $('section-tilt-u-presets'),
+      [-180, -135, -90, -45, 0, 45, 90, 135, 180], {unit: '°', snapTolerance: 3}),
+    makeSectionSliderPresets($('section-tilt-v'), $('section-tilt-v-presets'),
+      [-180, -135, -90, -45, 0, 45, 90, 135, 180], {unit: '°', snapTolerance: 3}),
+  ];
 
   function refreshSection() {
     viewer.setSection({ enabled: sectionEnabled, axis: sectionAxis,
       percent: Number($('section-depth').value), reversed: sectionReversed,
-      showCap: sectionFill });
+      showCap: sectionFill, tiltU: sectionTiltU, tiltV: sectionTiltV,
+      showGizmo: sectionGizmoEnabled });
+    sectionGizmo?.setVisible(sectionEnabled && sectionGizmoEnabled);
     const state = sectionEnabled ? viewer.sectionState() : { active: false, caps: 0, open: 0 };
     $('section-menu-button').classList.toggle('active', sectionEnabled);
     $('section-menu-button').setAttribute('aria-pressed', String(sectionEnabled));
@@ -57,6 +75,13 @@ function setup() {
     }
     $('section-flip').setAttribute('aria-pressed', String(sectionReversed));
     $('section-cap').checked = sectionFill;
+    $('section-tilt-u').value = String(sectionTiltU);
+    $('section-tilt-v').value = String(sectionTiltV);
+    $('section-tilt-u-value').textContent = `${Math.round(sectionTiltU)}°`;
+    $('section-tilt-v-value').textContent = `${Math.round(sectionTiltV)}°`;
+    $('section-gizmo-visible').checked = sectionGizmoEnabled;
+    for (const presets of sectionPresetControls) presets.update();
+    if (sectionEnabled) sectionPanelDrag.keepInView();
     $('section-status').textContent = !state.active ? 'Section inactive' : !state.stencil && sectionFill
       ? 'Cut active · solid caps unavailable (stencil support required)'
       : `${state.caps} closed cut face(s) · ${state.open} open mesh(es)` +
@@ -363,7 +388,13 @@ function setup() {
     const activeComponent = selectedNode();
     viewer.setSelectedMeshIds(activeComponent ? meshIdsFor(activeComponent) : []);
   };
-  viewer.onFrame = () => { moveGizmo.update(); measurement.update(); annotations.update(); };
+  sectionGizmo = new SectionGizmo($('section-gizmo'), viewer, changes => {
+    if (changes.percent !== undefined) $('section-depth').value = String(changes.percent);
+    if (changes.tiltU !== undefined) sectionTiltU = changes.tiltU;
+    if (changes.tiltV !== undefined) sectionTiltV = changes.tiltV;
+    refreshSection();
+  });
+  viewer.onFrame = () => { moveGizmo.update(); sectionGizmo.update(); measurement.update(); annotations.update(); };
   viewer.onHoverMesh = meshId => {
     const node = !measureMode && meshId ? tree.nodeForMesh(meshId) : null;
     viewer.setHoveredMeshIds(node ? tree.descendants(node) : []);
@@ -391,6 +422,8 @@ function setup() {
 
   function clearScene() {
     sectionEnabled = false;
+    sectionTiltU = 0; sectionTiltV = 0; sectionAxis = 'X'; sectionReversed = false;
+    $('section-depth').value = '50';
     $('section-menu-button').disabled = true;
     refreshSection();
     isolated = null;
@@ -490,6 +523,8 @@ function setup() {
       viewer.setScene(meshes);
       $('section-menu-button').disabled = !viewer.geometry.length;
       sectionEnabled = false;
+      sectionTiltU = 0; sectionTiltV = 0; sectionAxis = 'X'; sectionReversed = false;
+      $('section-depth').value = '50';
       refreshSection();
       measurement.setModelUnits(info.nx?.units);
       updateMeasureButton();
@@ -598,9 +633,26 @@ function setup() {
   });
   $('section-close').addEventListener('click', () => { sectionEnabled = false; refreshSection(); });
   for (const button of document.querySelectorAll('[data-section-axis]')) {
-    button.addEventListener('click', () => { sectionAxis = button.dataset.sectionAxis; refreshSection(); });
+    button.addEventListener('click', () => { sectionAxis = button.dataset.sectionAxis;
+      sectionTiltU = 0; sectionTiltV = 0; refreshSection(); });
   }
   $('section-depth').addEventListener('input', refreshSection);
+  for (const name of ['u', 'v']) {
+    $(`section-tilt-${name}`).addEventListener('input', () => {
+      if (name === 'u') sectionTiltU = Number($('section-tilt-u').value);
+      else sectionTiltV = Number($('section-tilt-v').value);
+      refreshSection();
+    });
+  }
+  $('section-gizmo-visible').addEventListener('change', () => {
+    sectionGizmoEnabled = $('section-gizmo-visible').checked;
+    refreshSection();
+  });
+  $('section-reset').addEventListener('click', () => {
+    sectionAxis = 'X'; sectionTiltU = 0; sectionTiltV = 0;
+    sectionReversed = false; $('section-depth').value = '50';
+    refreshSection();
+  });
   $('section-flip').addEventListener('click', () => { sectionReversed = !sectionReversed; refreshSection(); });
   $('section-cap').addEventListener('change', () => { sectionFill = $('section-cap').checked; refreshSection(); });
   for (const button of [$('component-color-toggle'), $('component-color-menu-button')]) {

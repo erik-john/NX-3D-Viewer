@@ -1,5 +1,5 @@
 import { boundsFor } from './geometry.js';
-import { sectionPlane, capQuad, isWatertight } from './section_geometry.js';
+import { sectionPlane, capQuad, isWatertight, intersectsSection } from './section_geometry.js';
 import { encodePickId, decodePickColor, pickMatrix } from './picking.js';
 import { rayForViewport, hitMeshGroup, measurementSurface } from './plane_measure.js';
 
@@ -360,7 +360,8 @@ export class Viewer {
       sectionActive: gl.getUniformLocation(this.lines, 'uSectionActive'),
     };
     this.geometry = [];
-    this.section = { enabled: false, axis: 'X', percent: 50, reversed: false, showCap: true };
+    this.section = { enabled: false, axis: 'X', percent: 50, reversed: false, showCap: true,
+      tiltU: 0, tiltV: 0, showGizmo: true };
     this.stencilAvailable = gl.getParameter(gl.STENCIL_BITS) > 0;
     this.capPosition = createBuffer(gl, new Float32Array(18));
     this.capNormal = createBuffer(gl, new Float32Array(18));
@@ -449,7 +450,8 @@ export class Viewer {
 
   getSectionPlane() {
     return this.section.enabled && this.geometry.length ?
-      sectionPlane(this.bounds, this.section.axis, this.section.percent, this.section.reversed) : null;
+      sectionPlane(this.bounds, this.section.axis, this.section.percent, this.section.reversed,
+        this.section.tiltU, this.section.tiltV) : null;
   }
 
   sectionState() {
@@ -457,9 +459,7 @@ export class Viewer {
     if (!plane) return { active: false, caps: 0, open: 0 };
     const crossed = this.geometry.filter(part => {
       if (!part.visible) return false;
-      const low = part.bounds.min[plane.index] + part.offset[plane.index];
-      const high = part.bounds.max[plane.index] + part.offset[plane.index];
-      return plane.position > low && plane.position < high;
+      return intersectsSection(part.bounds, part.offset, plane);
     });
     for (const part of crossed) {
       if (part.watertight === null) part.watertight = isWatertight(
@@ -934,9 +934,7 @@ export class Viewer {
     if (!section || !this.section.showCap || !this.stencilAvailable || this.wireframe) return;
     const span = Math.max(...this.bounds.size, 1);
     for (const part of parts) {
-      const min = part.bounds.min[section.index] + part.offset[section.index];
-      const max = part.bounds.max[section.index] + part.offset[section.index];
-      if (section.position <= min || section.position >= max) continue;
+      if (!intersectsSection(part.bounds, part.offset, section)) continue;
       if (part.watertight === null) part.watertight = isWatertight(
         part.sourcePositions, part.sourceIndices, Math.max(...part.bounds.size, 1));
       if (!part.watertight) continue;
