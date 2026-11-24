@@ -1222,7 +1222,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 .jt-wizard-folder-controls[hidden] { display:none; }
 
-#jt-wizard-choose-folder { background:white; color:#116e67; border:1px solid #89c6bc;
+#jt-wizard-choose-folder, #chr-wizard-choose-part, #chr-wizard-choose-chr { background:white; color:#116e67; border:1px solid #89c6bc;
 
   padding:8px 11px; border-radius:8px; cursor:pointer; font-weight:700; }
 
@@ -1232,7 +1232,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 .jt-wizard-standalone input { accent-color:#16877e; margin-top:2px; flex:none; }
 
-#jt-wizard-notice { min-height:20px; font-size:12px; color:#8b5641; margin-top:10px; }
+#jt-wizard-notice, #chr-wizard-notice { min-height:20px; font-size:12px; color:#8b5641; margin-top:10px; }
 
 .jt-wizard-actions { display:flex; gap:9px; align-items:center;
 
@@ -1248,7 +1248,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 .jt-wizard-actions button:disabled { opacity:.4; cursor:not-allowed; }
 
-.jt-wizard-actions button:focus-visible, #jt-wizard-choose-folder:focus-visible {
+.jt-wizard-actions button:focus-visible, #jt-wizard-choose-folder:focus-visible, #chr-wizard-choose-part:focus-visible, #chr-wizard-choose-chr:focus-visible {
 
   outline:2px solid #0b8e82; outline-offset:2px; }
 

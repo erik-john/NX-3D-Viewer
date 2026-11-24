@@ -101,6 +101,44 @@ class WorkspaceTests(unittest.TestCase):
                     workspace.upload('part.prt', io.BytesIO(b'abc'), 123)
                 self.assertEqual(list((Path(tmp)/'uploads').iterdir()), [])
 
+    def test_chr_requires_matching_prt_and_valid_nx_file(self):
+        valid = b'SPLMSSTR' + b'\0' * 128 + b'CHRPARTS' + b'\0' * 40
+        with running_workspace() as (url, root):
+            chr_url = url + '/api/workspace/upload?path=Bolt%20M12x55_chr.chr'
+            code, response = call(chr_url, 'POST', valid, 'application/octet-stream')
+            self.assertEqual(code, 400)
+            self.assertIn('matching', response['error'].lower())
+            self.assertFalse((root/'Bolt M12x55_chr.chr').exists())
+            self.assertEqual(call(url + '/api/workspace/upload?path=Bolt%20M12x55.prt',
+                'POST', b'CAD', 'application/octet-stream')[0], 201)
+            code, response = call(chr_url, 'POST', b'bad data', 'application/octet-stream')
+            self.assertEqual(code, 400)
+            self.assertIn('not a recognized NX', response['error'])
+            self.assertFalse((root/'Bolt M12x55_chr.chr').exists())
+            self.assertEqual(call(chr_url, 'POST', valid, 'application/octet-stream')[0], 201)
+            self.assertEqual((root/'Bolt M12x55_chr.chr').read_bytes(), valid)
+            code, _ = call(url + '/api/workspace/open', 'POST',
+                b'{"path":"Bolt M12x55_chr.chr"}', 'application/json')
+            self.assertEqual(code, 400)
+            # A failed replacement never destroys an existing valid CHR.
+            self.assertEqual(call(chr_url + '&replace=1', 'POST', b'bad',
+                'application/octet-stream')[0], 400)
+            self.assertEqual((root/'Bolt M12x55_chr.chr').read_bytes(), valid)
+
+    def test_chr_matching_stays_within_same_workspace_folder(self):
+        valid = b'SPLMSSTR' + b'\0' * 128 + b'CHRPARTS'
+        with running_workspace() as (url, root):
+            self.assertEqual(call(url + '/api/workspace/upload?path=Model.prt',
+                'POST', b'CAD', 'application/octet-stream')[0], 201)
+            self.assertEqual(call(url + '/api/workspace/folder', 'POST',
+                b'{"path":"Models"}', 'application/json')[0], 201)
+            chr_url = url + '/api/workspace/upload?path=Models%2FModel.chr'
+            self.assertEqual(call(chr_url,'POST',valid,'application/octet-stream')[0], 400)
+            self.assertEqual(call(url + '/api/workspace/upload?path=Models%2FMODEL.PRT',
+                'POST', b'CAD2', 'application/octet-stream')[0], 201)
+            self.assertEqual(call(chr_url,'POST',valid,'application/octet-stream')[0], 201)
+            self.assertTrue((root/'Models'/'Model.chr').exists())
+
     def test_zip_extract_preserves_dependent_files(self):
         with running_workspace() as (url, root):
             archive = io.BytesIO()
