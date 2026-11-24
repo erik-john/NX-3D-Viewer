@@ -22,24 +22,24 @@
       <div class="toolbar-scroll">
         <div class="toolbar-group" role="group" aria-label="File actions">
           <button type="button" id="open-nx-button" class="tool-button open-nx-button"
-            title="Open a Siemens NX part (.prt) or JT file (.jt) on this computer">OPEN NX FILES</button>
+            title="Open a Siemens NX part (.prt) or JT file (.jt) on this computer"><svg class="header-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5h6l2 2H21v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18M3 6.5v-2a2 2 0 0 1 2-2h4"/></svg><span class="header-button-text">OPEN NX FILES</span></button>
           <button type="button" id="workspace-button" class="tool-button workspace-header-button"
-            title="Manage uploaded CAD files and related folders">WORKSPACE</button>
+            title="Manage uploaded CAD files and related folders"><svg class="header-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg><span class="header-button-text">WORKSPACE</span></button>
         </div>
         <span class="toolbar-divider" aria-hidden="true"></span>
         <div class="header-action-cluster" role="group" aria-label="Model actions">
-          <button type="button" id="component-menu-toggle" class="header-action header-menu-trigger" aria-controls="component-menu" aria-expanded="false" title="Selected component actions" disabled>Component <span aria-hidden="true">⌄</span></button>
-          <button type="button" id="header-explode" class="header-action" disabled aria-pressed="false" title="Explode all assembly components">Explode</button>
-          <button type="button" id="transparency-menu-toggle" class="header-action header-menu-trigger" aria-controls="transparency-menu" aria-expanded="false" title="Selected component transparency" disabled>Transparency <output id="component-opacity-value">0%</output> <span aria-hidden="true">⌄</span></button>
+          <button type="button" id="component-menu-toggle" class="header-action header-menu-trigger" aria-controls="component-menu" aria-expanded="false" title="Selected component actions" disabled><svg class="header-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.5 8.5 4.8v9.4L12 21.5l-8.5-4.8V 7.3L12 2.5Z"/><path d="m3.5 7.3 8.5 4.8 8.5-4.8M12 12.1v9.4"/></svg><span class="header-button-text">Component</span><svg class="header-menu-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button>
+          <button type="button" id="header-explode" class="header-action" disabled aria-pressed="false" title="Explode all assembly components"><svg class="header-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 8 4 2.3v4.4L12 17l-4-2.3v-4.4L12 8Z"/><path d="m12 3 0 3m0 13v2M3 12h3m12 0h3M5.4 5.4l2.1 2.1m9 9 2.1 2.1M18.6 5.4l-2.1 2.1m-9 9-2.1 2.1"/></svg><span id="header-explode-label" class="header-button-text">Explode</span></button>
+          <button type="button" id="transparency-menu-toggle" class="header-action header-menu-trigger" aria-controls="transparency-menu" aria-expanded="false" title="Selected component transparency" disabled><svg class="header-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="M10 3.5a6.5 6.5 0 0 1 0 13M15 11.5h3.5v8h-8v-3.5"/></svg><span class="header-button-text">Transparency</span><output id="component-opacity-value">0%</output><svg class="header-menu-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button>
         </div>
         <span class="toolbar-divider" aria-hidden="true"></span>
         <div class="header-action-cluster" role="group" aria-label="View and measurement">
-          <button type="button" id="viewer-menu-toggle" class="header-action header-menu-trigger" aria-controls="viewer-menu" aria-expanded="false" title="Camera views, fit, and component colors">Viewer <span aria-hidden="true">⌄</span></button>
+          <button type="button" id="viewer-menu-toggle" class="header-action header-menu-trigger" aria-controls="viewer-menu" aria-expanded="false" title="Camera views, fit, and component colors"><svg class="header-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.5 8 4.6v9.8l-8 4.6-8-4.6V 7.1L12 2.5Z"/><path d="M4 7.1 12 12l8-4.9M12 12v9.5"/></svg><span class="header-button-text">Viewer</span><svg class="header-menu-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button>
           <button type="button" class="header-action header-measure-button" id="measure-planes-toggle"
             aria-label="Measurement" title="Measure diameter, center spacing, or planar distance/angle" aria-pressed="false" disabled>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M3 19h18M4 15l6-10 3 2-6 10M12 6l8 8M16 8l4-2M17 18l3-4"/><path d="M6 11l2 1M10 15l3 1"/>
-            </svg>
+            </svg><span class="header-button-text">Measurement</span>
           </button>
         </div>
       </div>

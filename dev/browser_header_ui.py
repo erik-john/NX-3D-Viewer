@@ -33,6 +33,18 @@ with sync_playwright() as p:
     assert page.locator('#viewer-viewport #component-color-toggle .viewport-view-shortcut').count() == 0
     assert page.locator('#viewer-viewport #component-color-toggle').count() == 1
     assert page.locator('#measure-planes-toggle').count() == 1
+    # Icon and text are both visible in each main header action.
+    for item, label in (
+        ('open-nx-button', 'OPEN NX FILES'), ('workspace-button', 'WORKSPACE'),
+        ('component-menu-toggle', 'Component'), ('header-explode', 'Explode'),
+        ('transparency-menu-toggle', 'Transparency'), ('viewer-menu-toggle', 'Viewer'),
+        ('measure-planes-toggle', 'Measurement'),
+    ):
+      control = page.locator('#' + item)
+      assert control.locator('svg').count() == (2 if item in ('component-menu-toggle','transparency-menu-toggle','viewer-menu-toggle') else 1), item
+      assert control.locator('.header-button-text').inner_text() == label, item
+      menu_caret = control.locator('.header-menu-caret')
+      assert menu_caret.count() == (1 if item in ('component-menu-toggle', 'transparency-menu-toggle', 'viewer-menu-toggle') else 0), item
     assert page.locator('#header-explode').is_disabled()
     page.locator('#viewer-menu-toggle').click()
     assert page.locator('#viewer-menu').is_visible()
@@ -103,6 +115,11 @@ with sync_playwright() as p:
       assert page.locator('#header-explode').is_visible(), width
       assert page.locator('#measure-planes-toggle').is_visible(), width
       assert page.locator('#viewer-viewport .viewport-view-tools').is_visible(), width
+      for trigger in ('component-menu-toggle', 'transparency-menu-toggle', 'viewer-menu-toggle'):
+        b = page.locator('#'+trigger).bounding_box()
+        c = page.locator('#'+trigger+' .header-menu-caret').bounding_box()
+        assert b and c and abs((c['y']+c['height']/2)-(b['y']+b['height']/2)) <= 1.0, (width,trigger,b,c)
+        assert c['x']+c['width'] < b['x']+b['width'] and c['x'] > b['x'], (width,trigger,b,c)
       # Switching the label must not resize the control or displace neighboring header actions.
       ids = ('header-explode', 'transparency-menu-toggle', 'viewer-menu-toggle', 'measure-planes-toggle')
       positions_before = {item: page.locator('#' + item).bounding_box() for item in ids}

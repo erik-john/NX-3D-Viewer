@@ -12,6 +12,7 @@ const menus=html.slice(html.indexOf('id="header-menu-layer"'),html.indexOf('<mai
 assert.ok(!html.includes('id="header-select"'));
 assert.ok(!html.includes('id="header-unexplode"'));
 assert.ok(header.includes('id="header-explode"') && header.includes('aria-pressed="false"'));
+assert.match(js,/label\.textContent = exploded \? 'Collapse' : 'Explode'/);
 assert.match(js,/button\.textContent = exploded \? 'Collapse' : 'Explode'/);
 assert.ok(header.includes('id="viewer-menu-toggle"'));
 assert.ok(header.includes('id="measure-planes-toggle"'));

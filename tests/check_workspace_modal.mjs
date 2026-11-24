@@ -6,7 +6,7 @@ const html = readFileSync(resolve(root, 'frontend/index.html'), 'utf8');
 const css = readFileSync(resolve(root, 'frontend/css/style.css'), 'utf8');
 const js = readFileSync(resolve(root, 'frontend/js/workspace.js'), 'utf8');
 const dialog = html.match(/<dialog id="file-workspace"[\s\S]*?<\/dialog>/)?.[0] || '';
-assert.match(html, /id="workspace-button"[^>]*>WORKSPACE<\/button>/);
+assert.match(html, /id="workspace-button"[^>]*>[\s\S]*?<span class="header-button-text">WORKSPACE<\/span><\/button>/);
 assert.match(dialog, /<h2 id="workspace-title">Workspace<\/h2>/);
 assert.doesNotMatch(dialog, /LOCAL CAD FILES|Manage source files in the project/);
 assert.match(css, /\.file-workspace\s*\{[^}]*height: min\(740px, calc\(100vh - 36px\)\)/s);
