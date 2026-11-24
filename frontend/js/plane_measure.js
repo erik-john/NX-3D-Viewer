@@ -43,7 +43,7 @@ function triangle(part, index) {
 
 // Pick the front surface of the GPU-picked component, accounting for both
 // Move and Explode offsets. Restricting to that mesh ID keeps clicks practical.
-export function hitMeshGroup(parts, meshId, ray) {
+export function hitMeshGroup(parts, meshId, ray, section = null) {
   let closest=null, minDistance=Infinity;
   for (const part of parts) {
     if (!part.visible || part.meshId!==meshId || !part.sourceIndices) continue;
@@ -53,8 +53,10 @@ export function hitMeshGroup(parts, meshId, ray) {
       const [a,b,c]=triangle(part,i);
       const t=hitTriangle(localOrigin,ray.direction,a,b,c);
       if (t!==null && t<minDistance) {
+        const point=add(ray.origin,scale(ray.direction,t));
+        if (section && pmDot(section.normal,point) < section.equation[3] - 1e-6) continue;
         minDistance=t;
-        closest={part,triangleIndex:i,point:add(ray.origin,scale(ray.direction,t))};
+        closest={part,triangleIndex:i,point};
       }
     }
   }

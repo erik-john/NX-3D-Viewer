@@ -1,6 +1,11 @@
-MS43 — PMI & Characteristics Integration
+MS44 — Section View and Image Export
+
+Status: Completed. Section view and PNG export with PMI and
+Characteristics verified by the user.
 
 Included capabilities:
+- Section PNG export with title block, gray original faces, orange cut faces,
+  visible component-aware PMI/Characteristics, and Save As.
 - NX 2506 PRT and JT viewing with component structure and 3D assembly controls.
 - NX-native PMI annotations, dimension graphics, dependencies, and detail tables.
 - Companion CHR loading through NX Inspector with PC instances, parameter details,

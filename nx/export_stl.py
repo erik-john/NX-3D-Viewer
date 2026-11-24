@@ -293,10 +293,15 @@ def export(input_path, output_path, manifest_path=None, stage_path=None):
                     associated_mesh_ids[int(body.Tag)] = node_id
                     for face in body.GetFaces():
                         associated_mesh_ids[int(face.Tag)] = node_id
+                    for edge in body.GetEdges():
+                        associated_mesh_ids[int(edge.Tag)] = node_id
                 except Exception:
                     pass
             for entry in annotations['pmi']:
                 matched = {associated_mesh_ids[tag] for tag in entry.get('associatedTags', []) if tag in associated_mesh_ids}
+                tags = entry.get('associatedTags', [])
+                entry['meshIds'] = sorted(matched)
+                entry['associationVerified'] = bool(tags) and all(tag in associated_mesh_ids for tag in tags)
                 if len(matched) == 1:
                     entry['meshId'] = next(iter(matched))
                 elif len(leaves) == 1 and entry.get('position') is not None:

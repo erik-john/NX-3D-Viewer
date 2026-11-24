@@ -98,6 +98,11 @@
             <circle cx="16.3" cy="11.3" r="1.5" fill="#5D9DC8" stroke="none"/>
             <circle cx="12" cy="16.1" r="1.5" fill="#58A99A" stroke="none"/>
           </svg><span>Color components</span></span></button>
+        <div class="header-menu-divider"></div>
+        <div class="header-menu-heading">Section</div>
+        <button type="button" class="header-menu-item" id="section-menu-button" aria-pressed="false" disabled>
+          <span class="header-menu-label"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/><path d="m4 19 16-14" stroke-dasharray="2 2"/></svg><span>Section / Cut Face</span></span>
+        </button>
       </div>
     </div>
 
@@ -163,6 +168,44 @@
         <div id="annotation-layer" class="annotation-layer" aria-label="Model PMI and Characteristic labels"></div>
         <svg id="move-gizmo" class="move-gizmo"
           role="group" aria-label="Selected component movement axes" hidden></svg>
+        <svg id="section-gizmo" class="section-gizmo" role="group" aria-label="Move and rotate cutting plane" hidden></svg>
+        <section class="section-panel" id="section-panel" hidden aria-label="Section cut controls">
+          <div class="section-heading" id="section-drag-handle" tabindex="0" aria-label="Move section panel with arrow keys" title="Drag to move the panel · Arrow keys to reposition">
+            <span class="section-drag-title"><span class="section-drag-grip" aria-hidden="true">⠿</span><strong>Section / Cut Face</strong></span>
+            <button type="button" id="section-close" aria-label="Close section view" title="Close section view">×</button>
+          </div>
+          <div class="section-axes" role="group" aria-label="NX section plane">
+            <button type="button" data-section-axis="X" aria-pressed="true">X</button>
+            <button type="button" data-section-axis="Y" aria-pressed="false">Y</button>
+            <button type="button" data-section-axis="Z" aria-pressed="false">Z</button>
+          </div>
+          <label class="section-depth-label" for="section-depth">Cut position <output id="section-depth-value">50%</output></label>
+          <input type="range" id="section-depth" min="0" max="100" step="1" value="50" aria-label="Section depth">
+          <div class="section-presets section-presets-depth" id="section-depth-presets" role="group" aria-label="Cut position presets"></div>
+          <div class="section-tilt-row">
+            <label for="section-tilt-u">Tilt U <output id="section-tilt-u-value">0°</output></label>
+            <input type="range" id="section-tilt-u" min="-180" max="180" step="1" value="0" aria-label="Rotate cutting plane about local U axis">
+            <div class="section-presets section-presets-tilt" id="section-tilt-u-presets" role="group" aria-label="Tilt U presets"></div>
+            <label for="section-tilt-v">Tilt V <output id="section-tilt-v-value">0°</output></label>
+            <input type="range" id="section-tilt-v" min="-180" max="180" step="1" value="0" aria-label="Rotate cutting plane about local V axis">
+            <div class="section-presets section-presets-tilt" id="section-tilt-v-presets" role="group" aria-label="Tilt V presets"></div>
+          </div>
+          <div class="section-gizmo-options">
+            <label><input type="checkbox" id="section-gizmo-visible" checked> Show 3D manipulator</label>
+            <button type="button" id="section-reset">Reset plane</button>
+          </div>
+          <div class="section-bottom-row">
+            <button type="button" id="section-flip" aria-pressed="false" title="Switch the visible half of the model">Flip side</button>
+            <label><input type="checkbox" id="section-cap" checked> Fill cut faces</label>
+          </div>
+          <div class="section-export-actions">
+            <button type="button" id="section-save-image" aria-label="Save current cut as PNG image" title="Save affected cut components as a colored image">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h13l3 3v15H4z"/><path d="M8 3v6h8V3M8 21v-8h8v8"/></svg>
+              <span>Save Image</span>
+            </button>
+          </div>
+          <div id="section-status" class="section-status" aria-live="polite">Section inactive</div>
+        </section>
         <div class="measurement-panel" id="measurement-panel" hidden aria-live="polite">
           <div class="measurement-heading"><span id="measurement-summary">Distance &amp; Angle</span>
             <span class="measurement-actions"><button type="button" id="measurement-fit" title="Fit selected measurement surfaces" aria-label="Fit measurement surfaces" disabled>Fit</button><button type="button" id="measurement-clear" title="Clear selected measurement surfaces" aria-label="Clear measurement" disabled>Clear</button></span></div>

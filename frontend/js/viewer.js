@@ -1,4 +1,6 @@
 import { boundsFor } from './geometry.js';
+import { sectionPlane, capQuad, isWatertight, intersectsSection } from './section_geometry.js';
+import { planSectionImage } from './section_export.js';
 import { encodePickId, decodePickColor, pickMatrix } from './picking.js';
 import { rayForViewport, hitMeshGroup, measurementSurface } from './plane_measure.js';
 
@@ -99,9 +101,15 @@ uniform vec3 uEye;
 uniform float uWire;
 uniform float uHighlight;
 uniform float uOpacity;
+uniform vec4 uSectionPlane;
+uniform float uSectionActive;
+uniform float uCutFace;
+uniform float uCutScale;
+uniform float uSectionExport;
 varying vec3 vNormal;
 varying vec3 vPosition;
 void main() {
+  if (uSectionActive > 0.5 && dot(uSectionPlane.xyz, vPosition) < uSectionPlane.w - 0.000001) discard;
   vec3 normal = normalize(vNormal);
   vec3 viewDir = normalize(uEye - vPosition);
   if (!gl_FrontFacing) normal = -normal;
@@ -146,6 +154,15 @@ void main() {
   if (uHighlight > 1.5) glassTint = mix(glassTint, vec3(0.13, 0.44, 0.77), 0.48);
   else if (uHighlight > 0.5) glassTint = mix(glassTint, vec3(0.13, 0.67, 0.62), 0.40);
   surface = mix(surface, glassTint, glassMix);
+  if (uSectionExport > 0.5 && uCutFace > 0.5) {
+    surface = vec3(0.98, 0.51, 0.17);
+  }
+  if (uCutFace > 0.5) {
+    // A light section hatch distinguishes actual interior material from a hollow shell.
+    float diagonal = (vPosition.x * 0.71 + vPosition.y * 0.42 + vPosition.z * 0.63) / max(uCutScale, 0.0001);
+    float stripe = step(0.79, fract(diagonal));
+    surface = mix(surface * 0.78, surface * 0.54, stripe * 0.28);
+  }
   // Back faces of closed STL solids otherwise pile up opacity and form an
   // almost-white slab. Keep them, but let the front glass and internal parts
   // dominate the view. Do not cull: imported CAD windings can differ.
@@ -159,7 +176,9 @@ const PICK_VERTEX = `
 attribute vec3 aPosition;
 uniform mat4 uViewProjection;
 uniform vec3 uOffset;
-void main() { gl_Position = uViewProjection * vec4(aPosition + uOffset, 1.0); }`;
+varying vec3 vWorldPosition;
+void main() { vWorldPosition = aPosition + uOffset;
+  gl_Position = uViewProjection * vec4(vWorldPosition, 1.0); }`;
 const PICK_FRAGMENT = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -167,7 +186,13 @@ precision highp float;
 precision mediump float;
 #endif
 uniform vec3 uPickColor;
-void main() { gl_FragColor = vec4(uPickColor, 1.0); }`;
+uniform vec4 uSectionPlane;
+uniform float uSectionActive;
+varying vec3 vWorldPosition;
+void main() {
+  if (uSectionActive > 0.5 && dot(uSectionPlane.xyz, vWorldPosition) < uSectionPlane.w - 0.000001) discard;
+  gl_FragColor = vec4(uPickColor, 1.0);
+}`;
 
 const LINE_VERTEX = `
 attribute vec3 aPosition;
@@ -175,15 +200,23 @@ attribute vec4 aColor;
 uniform mat4 uViewProjection;
 uniform vec3 uOffset;
 varying vec4 vColor;
+varying vec3 vWorldPosition;
 void main() {
+  vWorldPosition = aPosition + uOffset;
   vColor = aColor;
   gl_Position = uViewProjection * vec4(aPosition + uOffset, 1.0);
 }`;
 const LINE_FRAGMENT = `
 precision mediump float;
 uniform float uOpacity;
+uniform vec4 uSectionPlane;
+uniform float uSectionActive;
 varying vec4 vColor;
-void main() { gl_FragColor = vec4(vColor.rgb, vColor.a * uOpacity); }`;
+varying vec3 vWorldPosition;
+void main() {
+  if (uSectionActive > 0.5 && dot(uSectionPlane.xyz, vWorldPosition) < uSectionPlane.w - 0.000001) discard;
+  gl_FragColor = vec4(vColor.rgb, vColor.a * uOpacity);
+}`;
 
 function createBuffer(gl, data, target = gl.ARRAY_BUFFER) {
   const buffer = gl.createBuffer();
@@ -288,8 +321,8 @@ function makeDatum(bounds, empty = false) {
 export class Viewer {
   constructor(canvas) {
     this.canvas = canvas;
-    const gl = canvas.getContext('webgl2', { alpha: true, antialias: true, depth: true }) ||
-      canvas.getContext('webgl', { alpha: true, antialias: true, depth: true });
+    const gl = canvas.getContext('webgl2', { alpha: true, antialias: true, depth: true, stencil: true }) ||
+      canvas.getContext('webgl', { alpha: true, antialias: true, depth: true, stencil: true });
     if (!gl) throw new Error('WebGL is unavailable. Check your browser settings and graphics driver.');
     this.gl = gl;
     this.solid = program(gl, SOLID_VERTEX, SOLID_FRAGMENT);
@@ -298,7 +331,9 @@ export class Viewer {
     this.pickLoc = { position: gl.getAttribLocation(this.pickProgram, 'aPosition'),
       matrix: gl.getUniformLocation(this.pickProgram, 'uViewProjection'),
       offset: gl.getUniformLocation(this.pickProgram, 'uOffset'),
-      color: gl.getUniformLocation(this.pickProgram, 'uPickColor') };
+      color: gl.getUniformLocation(this.pickProgram, 'uPickColor'),
+      section: gl.getUniformLocation(this.pickProgram, 'uSectionPlane'),
+      sectionActive: gl.getUniformLocation(this.pickProgram, 'uSectionActive') };
     this.pickBuffer = null;
     this.onHoverMesh = null;
     this.onSelectMesh = null;
@@ -315,6 +350,11 @@ export class Viewer {
       highlight: gl.getUniformLocation(this.solid, 'uHighlight'),
       opacity: gl.getUniformLocation(this.solid, 'uOpacity'),
       eye: gl.getUniformLocation(this.solid, 'uEye'),
+      section: gl.getUniformLocation(this.solid, 'uSectionPlane'),
+      sectionActive: gl.getUniformLocation(this.solid, 'uSectionActive'),
+      cutFace: gl.getUniformLocation(this.solid, 'uCutFace'),
+      cutScale: gl.getUniformLocation(this.solid, 'uCutScale'),
+      sectionExport: gl.getUniformLocation(this.solid, 'uSectionExport'),
     };
     this.lineLoc = {
       position: gl.getAttribLocation(this.lines, 'aPosition'),
@@ -322,8 +362,16 @@ export class Viewer {
       matrix: gl.getUniformLocation(this.lines, 'uViewProjection'),
       offset: gl.getUniformLocation(this.lines, 'uOffset'),
       opacity: gl.getUniformLocation(this.lines, 'uOpacity'),
+      section: gl.getUniformLocation(this.lines, 'uSectionPlane'),
+      sectionActive: gl.getUniformLocation(this.lines, 'uSectionActive'),
     };
     this.geometry = [];
+    this.sectionExportActive = false;
+    this.section = { enabled: false, axis: 'X', percent: 50, reversed: false, showCap: true,
+      tiltU: 0, tiltV: 0, showGizmo: true };
+    this.stencilAvailable = gl.getParameter(gl.STENCIL_BITS) > 0;
+    this.capPosition = createBuffer(gl, new Float32Array(18));
+    this.capNormal = createBuffer(gl, new Float32Array(18));
     this.measureFaces = [];
     this.measureBuffers = [];
     this.explodeOffsets = new Map();
@@ -365,6 +413,7 @@ export class Viewer {
     this.selectedMeshIds.clear();
     this.explodeOffsets.clear();
     this.manualOffsets.clear();
+    this.section.enabled = false;
     this.geometry = meshes.map((item, index) => {
       if (item.positions.length / 3 > 65535) throw new Error('Mesh exceeds the current index limit');
       const edges = getEdges(item.indices);
@@ -392,11 +441,48 @@ export class Viewer {
         sourceIndices: item.indices,
         analyticalFaces: item.analyticalFaces || [],
         measureIndex: null,
+        watertight: null,
       };
     });
     this.bounds = boundsFor(meshes);
     this.updateGrid();
     this.setView('iso');
+  }
+
+  setSection(settings) {
+    this.section = { ...this.section, ...settings };
+    if (!this.geometry.length) this.section.enabled = false;
+    this.requestRender();
+  }
+
+  getSectionPlane() {
+    return this.section.enabled && this.geometry.length ?
+      sectionPlane(this.bounds, this.section.axis, this.section.percent, this.section.reversed,
+        this.section.tiltU, this.section.tiltV) : null;
+  }
+
+  sectionState() {
+    const plane = this.getSectionPlane();
+    if (!plane) return { active: false, caps: 0, open: 0 };
+    const crossed = this.geometry.filter(part => {
+      if (!part.visible) return false;
+      return intersectsSection(part.bounds, part.offset, plane);
+    });
+    for (const part of crossed) {
+      if (part.watertight === null) part.watertight = isWatertight(
+        part.sourcePositions, part.sourceIndices, Math.max(...part.bounds.size, 1));
+    }
+    return { active: true, caps: crossed.filter(p => p.watertight).length,
+      open: crossed.filter(p => !p.watertight).length,
+      stencil: this.stencilAvailable };
+  }
+
+  setSectionUniforms(program, active, section = this.getSectionPlane()) {
+    const gl = this.gl;
+    const locations = program === this.solid ? this.solidLoc :
+      program === this.pickProgram ? this.pickLoc : this.lineLoc;
+    gl.uniform1f(locations.sectionActive, active && section ? 1 : 0);
+    gl.uniform4fv(locations.section, section ? section.equation : [0, 0, 0, 0]);
   }
 
   setComponentColors(colors) {
@@ -567,6 +653,7 @@ export class Viewer {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.useProgram(this.pickProgram);
       gl.uniformMatrix4fv(this.pickLoc.matrix, false, pixelMatrix);
+      this.setSectionUniforms(this.pickProgram, true);
       gl.enableVertexAttribArray(this.pickLoc.position);
       for (const part of this.geometry) {
         if (!part.visible) continue;
@@ -598,7 +685,7 @@ export class Viewer {
     const ray = rayForViewport(eye, this.target,
       clientX - rect.left, clientY - rect.top, rect.width, rect.height);
     if (!ray) return null;
-    return measurementSurface(hitMeshGroup(this.geometry, id, ray));
+    return measurementSurface(hitMeshGroup(this.geometry, id, ray, this.getSectionPlane()));
   }
 
   // Semi-transparent selected surface overlays, not permanent recoloring of solids.
@@ -847,26 +934,169 @@ export class Viewer {
     requestAnimationFrame(() => { this.pendingRender = false; this.render(); });
   }
 
-  render() {
+  // Cap material on watertight clipped solids. Stencil winding preserves internal
+  // holes (e.g. bores) rather than painting the cutting plane as one solid disk.
+  renderSectionCaps(parts, matrix, eye, section) {
+    const gl = this.gl;
+    if (!section || !this.section.showCap || !this.stencilAvailable || this.wireframe) return;
+    const span = Math.max(...this.bounds.size, 1);
+    for (const part of parts) {
+      if (!intersectsSection(part.bounds, part.offset, section)) continue;
+      if (part.watertight === null) part.watertight = isWatertight(
+        part.sourcePositions, part.sourceIndices, Math.max(...part.bounds.size, 1));
+      if (!part.watertight) continue;
+
+      gl.enable(gl.STENCIL_TEST);
+      gl.stencilMask(0xff);
+      gl.clearStencil(0);
+      gl.clear(gl.STENCIL_BUFFER_BIT);
+      gl.stencilFunc(gl.ALWAYS, 0, 0xff);
+      gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP);
+      gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP);
+      gl.colorMask(false, false, false, false);
+      gl.depthMask(false);
+      gl.disable(gl.DEPTH_TEST);
+      gl.useProgram(this.pickProgram);
+      gl.uniformMatrix4fv(this.pickLoc.matrix, false, matrix);
+      gl.uniform3fv(this.pickLoc.offset, part.offset);
+      gl.uniform3fv(this.pickLoc.color, part.pickColor);
+      this.setSectionUniforms(this.pickProgram, true, section);
+      gl.bindBuffer(gl.ARRAY_BUFFER, part.position);
+      gl.enableVertexAttribArray(this.pickLoc.position);
+      gl.vertexAttribPointer(this.pickLoc.position, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, part.triangles);
+      gl.drawElements(gl.TRIANGLES, part.triangleCount, gl.UNSIGNED_SHORT, 0);
+
+      gl.colorMask(true, true, true, true);
+      gl.depthMask(true);
+      gl.enable(gl.DEPTH_TEST);
+      gl.stencilFunc(gl.NOTEQUAL, 0, 0xff);
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      const quad = capQuad(part.bounds, part.offset, section);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.capPosition);
+      gl.bufferData(gl.ARRAY_BUFFER, quad.positions, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.capNormal);
+      gl.bufferData(gl.ARRAY_BUFFER, quad.normals, gl.DYNAMIC_DRAW);
+      gl.useProgram(this.solid);
+      gl.uniformMatrix4fv(this.solidLoc.matrix, false, matrix);
+      gl.uniform3fv(this.solidLoc.eye, eye);
+      gl.uniform3fv(this.solidLoc.offset, [0, 0, 0]);
+      gl.uniform3fv(this.solidLoc.color,
+        this.sectionExportActive ? [0.74, 0.80, 0.85] :
+        this.componentColorsEnabled && part.componentColor ? part.componentColor : part.color);
+      gl.uniform1f(this.solidLoc.opacity, part.opacity ?? 1);
+      gl.uniform1f(this.solidLoc.wire, 0);
+      gl.uniform1f(this.solidLoc.highlight, this.sectionExportActive ? 0 :
+        this.selectedMeshIds.has(part.meshId) ? 2 :
+        this.hoveredMeshIds.has(part.meshId) ? 1 : 0);
+      gl.uniform1f(this.solidLoc.cutFace, 1);
+      gl.uniform1f(this.solidLoc.cutScale, span / 12);
+      gl.uniform1f(this.solidLoc.sectionExport, this.sectionExportActive ? 1 : 0);
+      this.setSectionUniforms(this.solid, false, section);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.capPosition);
+      gl.enableVertexAttribArray(this.solidLoc.position);
+      gl.vertexAttribPointer(this.solidLoc.position, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.capNormal);
+      gl.enableVertexAttribArray(this.solidLoc.normal);
+      gl.vertexAttribPointer(this.solidLoc.normal, 3, gl.FLOAT, false, 0, 0);
+      gl.disable(gl.CULL_FACE);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.disable(gl.STENCIL_TEST);
+    }
+    gl.useProgram(this.solid);
+    gl.uniform1f(this.solidLoc.cutFace, 0);
+    this.setSectionUniforms(this.solid, true, section);
+  }
+
+  // Read a clean, actual WebGL section frame into an independent 2D canvas.
+  // No asynchronous work runs before the viewer state is fully restored.
+  captureSectionImage(annotations = null) {
+    const plane = this.getSectionPlane();
+    if (!plane) throw new Error('Activate Section / Cut Face before saving an image.');
+    if (!this.stencilAvailable) throw new Error('This browser does not support filled cut faces.');
+    const cut = planSectionImage(this.geometry, plane, this.bounds);
+    if (!cut.length) throw new Error('No visible components intersect the current cutting plane.');
+    const original = this.geometry.map(part => ({part, visible: part.visible,
+      offset: [...part.offset], opacity: part.opacity}));
+    const previousFill = this.section.showCap;
+    const previousWireframe = this.wireframe;
+    const affected = new Set(cut.map(item => item.part));
+    const bounds = this.canvas.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) throw new Error('The 3D viewport has no drawable area.');
+    const overlay = annotations?.captureSectionOverlay(affected, bounds);
+    let imageCanvas;
+    try {
+      for (const item of original) {
+        item.part.visible = affected.has(item.part);
+        item.part.opacity = 1;
+      }
+      if (!overlay?.displayed) {
+        for (const item of cut) item.part.offset = item.offset;
+      }
+      this.section.showCap = true;
+      this.wireframe = false;
+      this.sectionExportActive = true;
+      const gl = this.gl;
+      const aspect = bounds.width / bounds.height;
+      const maxSize = Math.min(3072, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 2048);
+      const nativeWidth = Math.round(bounds.width * Math.min(window.devicePixelRatio || 1, 2));
+      const desiredWidth = Math.max(1600, nativeWidth);
+      const width = Math.max(1, Math.min(desiredWidth, maxSize, Math.floor(maxSize * aspect)));
+      const height = Math.max(1, Math.round(width / aspect));
+      this.render(width, height);
+      if (!width || !height) throw new Error('The 3D viewport has no drawable area.');
+      const pixels = new Uint8Array(width * height * 4);
+      gl.finish();
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      if (gl.getError() !== gl.NO_ERROR) throw new Error('Unable to read the section image from WebGL.');
+      imageCanvas = document.createElement('canvas');
+      imageCanvas.width = width;
+      imageCanvas.height = height;
+      const context = imageCanvas.getContext('2d');
+      if (!context) throw new Error('PNG image encoding is not supported by this browser.');
+      const image = context.createImageData(width, height);
+      const stride = width * 4;
+      for (let y = 0; y < height; y++) {
+        const src = (height - 1 - y) * stride;
+        image.data.set(pixels.subarray(src, src + stride), y * stride);
+      }
+      context.putImageData(image, 0, 0);
+      annotations?.paintSection(context, width, height, overlay);
+    } finally {
+      this.sectionExportActive = false;
+      this.section.showCap = previousFill;
+      this.wireframe = previousWireframe;
+      for (const item of original) {
+        item.part.visible = item.visible;
+        item.part.offset = item.offset;
+        item.part.opacity = item.opacity;
+      }
+      this.render();
+    }
+    return imageCanvas;
+  }
+
+  render(exportWidth = null, exportHeight = null) {
     const canvas = this.canvas, gl = this.gl;
     const bounds = canvas.getBoundingClientRect();
     if (bounds.width < 1 || bounds.height < 1) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const width = Math.max(1, Math.round(bounds.width * dpr));
-    const height = Math.max(1, Math.round(bounds.height * dpr));
+    const width = exportWidth === null ? Math.max(1, Math.round(bounds.width * dpr)) : exportWidth;
+    const height = exportHeight === null ? Math.max(1, Math.round(bounds.height * dpr)) : exportHeight;
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
     }
     gl.viewport(0, 0, width, height);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clearColor(...(this.sectionExportActive ? [1, 1, 1, 1] : [0, 0, 0, 0]));
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.CULL_FACE);
     const { eye, matrix } = this.cameraMatrix(width, height);
-    if (this.showGrid) this.renderLines(this.gridBuffers.position, this.gridBuffers.color, this.gridBuffers.count, matrix);
-    if (this.showAxes) this.renderLines(this.gridBuffers.planePosition,
+    const section = this.getSectionPlane();
+    if (!this.sectionExportActive && this.showGrid) this.renderLines(this.gridBuffers.position, this.gridBuffers.color, this.gridBuffers.count, matrix);
+    if (!this.sectionExportActive && this.showAxes) this.renderLines(this.gridBuffers.planePosition,
       this.gridBuffers.planeColor, this.gridBuffers.planeCount, matrix, gl.TRIANGLES);
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(1, 1);
@@ -874,6 +1104,10 @@ export class Viewer {
     gl.uniformMatrix4fv(this.solidLoc.matrix, false, matrix);
     gl.uniform1f(this.solidLoc.wire, this.wireframe ? 1 : 0);
     gl.uniform3fv(this.solidLoc.eye, eye);
+    gl.uniform1f(this.solidLoc.cutFace, 0);
+    gl.uniform1f(this.solidLoc.cutScale, 1);
+    gl.uniform1f(this.solidLoc.sectionExport, this.sectionExportActive ? 1 : 0);
+    this.setSectionUniforms(this.solid, true, section);
     // Draw opaque components first with depth writes, then transparent components
     // back-to-front with blending and depth reads only. This allows rear solid
     // components to remain visible through a selected translucent component.
@@ -892,21 +1126,27 @@ export class Viewer {
       gl.enableVertexAttribArray(this.solidLoc.normal);
       gl.vertexAttribPointer(this.solidLoc.normal, 3, gl.FLOAT, false, 0, 0);
       gl.uniform3fv(this.solidLoc.color,
+        this.sectionExportActive ? [0.74, 0.80, 0.85] :
         this.componentColorsEnabled && part.componentColor ? part.componentColor : part.color);
       gl.uniform3fv(this.solidLoc.offset, part.offset);
       gl.uniform1f(this.solidLoc.opacity, part.opacity ?? 1);
-      gl.uniform1f(this.solidLoc.highlight, this.selectedMeshIds.has(part.meshId) ? 2 :
+      gl.uniform1f(this.solidLoc.highlight, this.sectionExportActive ? 0 :
+        this.selectedMeshIds.has(part.meshId) ? 2 :
         this.hoveredMeshIds.has(part.meshId) ? 1 : 0);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.wireframe ? part.edges : part.triangles);
       gl.drawElements(this.wireframe ? gl.LINES : gl.TRIANGLES,
         this.wireframe ? part.edgeCount : part.triangleCount, gl.UNSIGNED_SHORT, 0);
     };
     for (const part of opaque) drawSurface(part);
+    this.renderSectionCaps(opaque, matrix, eye, section);
+    // Cap rendering binds the shared shader buffers; restore state for the next part.
+    gl.useProgram(this.solid);
     if (transparent.length) {
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.depthMask(false);
       for (const part of transparent) drawSurface(part);
+      this.renderSectionCaps(transparent, matrix, eye, section);
       gl.depthMask(true);
       gl.disable(gl.BLEND);
     }
@@ -914,32 +1154,34 @@ export class Viewer {
     if (!this.wireframe) {
       for (const part of opaque) {
         if (part.creaseCount) this.renderLines(part.creasePosition, part.creaseColor,
-          part.creaseCount, matrix, gl.LINES, part.offset);
+          part.creaseCount, matrix, gl.LINES, part.offset, 1, true);
       }
       for (const part of transparent) {
         if (part.creaseCount) this.renderLines(part.creasePosition, part.glassCreaseColor || part.creaseColor,
-          part.creaseCount, matrix, gl.LINES, part.offset, Math.max(0.58, part.opacity ?? 1));
+          part.creaseCount, matrix, gl.LINES, part.offset, Math.max(0.58, part.opacity ?? 1), true);
       }
     }
-    if (this.measureBuffers?.length) {
+    if (!this.sectionExportActive && this.measureBuffers?.length) {
       // Keep both selected planes inspectable even when one lies inside glass.
       gl.disable(gl.DEPTH_TEST);
       for (const item of this.measureBuffers) {
         if (!item.part.visible) continue;
-        this.renderLines(item.fillPosition, item.fillColor, item.fillCount, matrix, gl.TRIANGLES, item.part.offset);
-        if (item.edgeCount) this.renderLines(item.edgePosition, item.edgeColor, item.edgeCount, matrix, gl.LINES, item.part.offset);
+        this.renderLines(item.fillPosition, item.fillColor, item.fillCount, matrix, gl.TRIANGLES, item.part.offset, 1, true);
+        if (item.edgeCount) this.renderLines(item.edgePosition, item.edgeColor, item.edgeCount, matrix, gl.LINES, item.part.offset, 1, true);
       }
       gl.enable(gl.DEPTH_TEST);
     }
-    if (this.showAxes) {
+    if (!this.sectionExportActive && this.showAxes) {
       this.renderLines(this.gridBuffers.outlinePosition,
         this.gridBuffers.outlineColor, this.gridBuffers.outlineCount, matrix);
       this.renderLines(this.gridBuffers.axesPosition,
         this.gridBuffers.axesColor, this.gridBuffers.axesCount, matrix);
     }
-    this.renderAxisLabels(matrix, bounds);
-    this.renderCompass();
-    this.onFrame?.();
+    if (!this.sectionExportActive) {
+      this.renderAxisLabels(matrix, bounds);
+      this.renderCompass();
+      this.onFrame?.();
+    }
   }
 
   renderAxisLabels(matrix, bounds) {
@@ -987,9 +1229,10 @@ export class Viewer {
     }
   }
 
-  renderLines(position, color, count, matrix, primitive = this.gl.LINES, offset = [0, 0, 0], opacity = 1) {
+  renderLines(position, color, count, matrix, primitive = this.gl.LINES, offset = [0, 0, 0], opacity = 1, clipped = false) {
     const gl = this.gl;
     gl.useProgram(this.lines);
+    this.setSectionUniforms(this.lines, clipped);
     gl.uniformMatrix4fv(this.lineLoc.matrix, false, matrix);
     gl.uniform3fv(this.lineLoc.offset, offset);
     gl.uniform1f(this.lineLoc.opacity, opacity);

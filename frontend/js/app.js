@@ -6,6 +6,9 @@ import { FileWorkspace } from './workspace.js';
 import { createExplodePlan, calculateExplodeOffsets, selectionGroupIds } from './assembly_explode.js';
 import { buildComponentColors } from './component_colors.js';
 import { MoveGizmo, MOVE_AXES } from './component_move.js';
+import { SectionGizmo } from './section_gizmo.js';
+import { makeSectionPanelDraggable, makeSectionSliderPresets } from './section_panel_controls.js';
+import { sectionImageName, composeSectionImage } from './section_export.js';
 import { MeasurementUI } from './measurement_ui.js';
 import { AnnotationDisplay } from './annotations_ui.js';
 
@@ -38,6 +41,56 @@ function setup() {
   let componentColorEnabled = false;
   let componentColors = { available: false, colors: new Map() };
   const canExplode = () => explodeGroups.length >= 2;
+  let sectionEnabled = false;
+  let sectionAxis = 'X';
+  let sectionReversed = false;
+  let sectionFill = true;
+  let sectionTiltU = 0;
+  let sectionTiltV = 0;
+  let sectionGizmoEnabled = true;
+  let sectionGizmo = null;
+  let openedModelName = 'NX_Model';
+  const sectionPanelDrag = makeSectionPanelDraggable(
+    $('section-panel'), $('section-drag-handle'), $('viewer-viewport'));
+  const sectionPresetControls = [
+    makeSectionSliderPresets($('section-depth'), $('section-depth-presets'),
+      [0, 25, 50, 75, 100], {unit: '%', snapTolerance: 2}),
+    makeSectionSliderPresets($('section-tilt-u'), $('section-tilt-u-presets'),
+      [-180, -135, -90, -45, 0, 45, 90, 135, 180], {unit: '°', snapTolerance: 3}),
+    makeSectionSliderPresets($('section-tilt-v'), $('section-tilt-v-presets'),
+      [-180, -135, -90, -45, 0, 45, 90, 135, 180], {unit: '°', snapTolerance: 3}),
+  ];
+
+  function refreshSection() {
+    viewer.setSection({ enabled: sectionEnabled, axis: sectionAxis,
+      percent: Number($('section-depth').value), reversed: sectionReversed,
+      showCap: sectionFill, tiltU: sectionTiltU, tiltV: sectionTiltV,
+      showGizmo: sectionGizmoEnabled });
+    sectionGizmo?.setVisible(sectionEnabled && sectionGizmoEnabled);
+    const state = sectionEnabled ? viewer.sectionState() : { active: false, caps: 0, open: 0 };
+    $('section-menu-button').classList.toggle('active', sectionEnabled);
+    $('section-menu-button').setAttribute('aria-pressed', String(sectionEnabled));
+    $('section-panel').hidden = !sectionEnabled;
+    $('section-save-image').disabled = !sectionEnabled || !viewer.geometry.length;
+    $('section-depth-value').textContent = `${$('section-depth').value}%`;
+    for (const button of document.querySelectorAll('[data-section-axis]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.sectionAxis === sectionAxis));
+    }
+    $('section-flip').setAttribute('aria-pressed', String(sectionReversed));
+    $('section-cap').checked = sectionFill;
+    $('section-tilt-u').value = String(sectionTiltU);
+    $('section-tilt-v').value = String(sectionTiltV);
+    $('section-tilt-u-value').textContent = `${Math.round(sectionTiltU)}°`;
+    $('section-tilt-v-value').textContent = `${Math.round(sectionTiltV)}°`;
+    $('section-gizmo-visible').checked = sectionGizmoEnabled;
+    for (const presets of sectionPresetControls) presets.update();
+    if (sectionEnabled) sectionPanelDrag.keepInView();
+    $('section-status').textContent = !state.active ? 'Section inactive' : !state.stencil && sectionFill
+      ? 'Cut active · solid caps unavailable (stencil support required)'
+      : `${state.caps} closed cut face(s) · ${state.open} open mesh(es)` +
+        (state.open ? ' (open meshes are not filled)' : '');
+  }
+
 
   function updateComponentColorMode() {
     const active = componentColors.available && componentColorEnabled;
@@ -65,6 +118,7 @@ function setup() {
   }
   function applyVisibility(map) {
     for (const [id, visible] of map) viewer.setMeshVisible(id, visible);
+    if (sectionEnabled) refreshSection();
     tree.setVisibilityFromMeshes(map);
     updateMoveActions();
   }
@@ -166,6 +220,7 @@ function setup() {
       for (const meshId of group.meshIds) offsets.set(meshId, manual.slice());
     }
     viewer.setManualOffsets(offsets);
+    if (sectionEnabled) refreshSection();
     updateMoveActions();
   }
   function beginMoveSnapshot() {
@@ -237,6 +292,7 @@ function setup() {
   }
   function applyExplosion() {
     viewer.setExplodeOffsets(calculateExplodeOffsets(explodeGroups, explodeBounds, explodeLevel, selectedOverrides));
+    if (sectionEnabled) refreshSection();
     viewer.fit();
     updateExplodeControls();
     updateMoveActions();
@@ -261,6 +317,7 @@ function setup() {
     container: $('model-tree'), summary: $('tree-summary'), note: $('tree-note'),
     onVisibility: (meshId, visible) => {
       viewer.setMeshVisible(meshId, visible);
+      if (sectionEnabled) refreshSection();
       // A manual visibility change takes ownership of the current visibility state.
       // Do not later overwrite it with a stale pre-isolation snapshot.
       if (isolated) isolated = null;
@@ -334,7 +391,13 @@ function setup() {
     const activeComponent = selectedNode();
     viewer.setSelectedMeshIds(activeComponent ? meshIdsFor(activeComponent) : []);
   };
-  viewer.onFrame = () => { moveGizmo.update(); measurement.update(); annotations.update(); };
+  sectionGizmo = new SectionGizmo($('section-gizmo'), viewer, changes => {
+    if (changes.percent !== undefined) $('section-depth').value = String(changes.percent);
+    if (changes.tiltU !== undefined) sectionTiltU = changes.tiltU;
+    if (changes.tiltV !== undefined) sectionTiltV = changes.tiltV;
+    refreshSection();
+  });
+  viewer.onFrame = () => { moveGizmo.update(); sectionGizmo.update(); measurement.update(); annotations.update(); };
   viewer.onHoverMesh = meshId => {
     const node = !measureMode && meshId ? tree.nodeForMesh(meshId) : null;
     viewer.setHoveredMeshIds(node ? tree.descendants(node) : []);
@@ -361,6 +424,12 @@ function setup() {
   }
 
   function clearScene() {
+    openedModelName = 'NX_Model';
+    sectionEnabled = false;
+    sectionTiltU = 0; sectionTiltV = 0; sectionAxis = 'X'; sectionReversed = false;
+    $('section-depth').value = '50';
+    $('section-menu-button').disabled = true;
+    refreshSection();
     isolated = null;
     viewer.setScene([]);
     setMeasureMode(false);
@@ -456,6 +525,12 @@ function setup() {
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
       const { meshes, perBody } = await loadGeometry(info);
       viewer.setScene(meshes);
+      openedModelName = info.name || 'NX_Model';
+      $('section-menu-button').disabled = !viewer.geometry.length;
+      sectionEnabled = false;
+      sectionTiltU = 0; sectionTiltV = 0; sectionAxis = 'X'; sectionReversed = false;
+      $('section-depth').value = '50';
+      refreshSection();
       measurement.setModelUnits(info.nx?.units);
       updateMeasureButton();
       const geometryStructure = info.tree || { id: 'root', name: info.name, type: 'part', children: [] };
@@ -552,7 +627,94 @@ function setup() {
   }
   $('fit-button').addEventListener('click', () => viewer.fit());
   $('fit-menu-button').addEventListener('click', () => viewer.fit());
-  $('measure-planes-toggle').addEventListener('click', () => setMeasureMode(!measureMode));
+  $('measure-planes-toggle').addEventListener('click', () => {
+    if (sectionEnabled) { sectionEnabled = false; refreshSection(); }
+    setMeasureMode(!measureMode);
+  });
+  $('section-menu-button').addEventListener('click', () => {
+    sectionEnabled = !sectionEnabled;
+    if (sectionEnabled && measureMode) setMeasureMode(false);
+    refreshSection();
+  });
+  $('section-close').addEventListener('click', () => { sectionEnabled = false; refreshSection(); });
+  for (const button of document.querySelectorAll('[data-section-axis]')) {
+    button.addEventListener('click', () => { sectionAxis = button.dataset.sectionAxis;
+      sectionTiltU = 0; sectionTiltV = 0; refreshSection(); });
+  }
+  $('section-depth').addEventListener('input', refreshSection);
+  for (const name of ['u', 'v']) {
+    $(`section-tilt-${name}`).addEventListener('input', () => {
+      if (name === 'u') sectionTiltU = Number($('section-tilt-u').value);
+      else sectionTiltV = Number($('section-tilt-v').value);
+      refreshSection();
+    });
+  }
+  $('section-gizmo-visible').addEventListener('change', () => {
+    sectionGizmoEnabled = $('section-gizmo-visible').checked;
+    refreshSection();
+  });
+  $('section-reset').addEventListener('click', () => {
+    sectionAxis = 'X'; sectionTiltU = 0; sectionTiltV = 0;
+    sectionReversed = false; $('section-depth').value = '50';
+    refreshSection();
+  });
+  $('section-flip').addEventListener('click', () => { sectionReversed = !sectionReversed; refreshSection(); });
+  $('section-cap').addEventListener('change', () => { sectionFill = $('section-cap').checked; refreshSection(); });
+  $('section-save-image').addEventListener('click', async () => {
+    if (!sectionEnabled || !viewer.geometry.length) return;
+    const button = $('section-save-image');
+    const filename = sectionImageName(openedModelName);
+    let handlePromise = null;
+    // File picker must be opened directly from the user gesture. Non-secure
+    // HTTP sessions and unsupported browsers use a normal PNG download.
+    if (window.isSecureContext && typeof window.showSaveFilePicker === 'function') {
+      try {
+        handlePromise = window.showSaveFilePicker({ suggestedName: filename,
+          types: [{ description: 'PNG image', accept: {'image/png': ['.png']} }] });
+        // Catch picker dismissal even if the capture fails before awaiting it.
+        handlePromise.catch(() => {});
+      } catch (error) {
+        $('section-status').textContent = `Save dialog could not open: ${error.message}`;
+        return;
+      }
+    }
+    button.disabled = true;
+    try {
+      const snapshot = viewer.captureSectionImage(annotations);
+      const image = composeSectionImage(snapshot, {filename: openedModelName,
+        section: {...viewer.section}, logo: document.querySelector('.brand-logo')});
+      const blob = await new Promise((resolve, reject) => image.toBlob(result =>
+        result ? resolve(result) : reject(new Error('Could not encode PNG.')), 'image/png'));
+      let chosenFilename = filename;
+      if (handlePromise) {
+        const handle = await handlePromise;
+        chosenFilename = handle.name || filename;
+        const writer = await handle.createWritable();
+        await writer.write(blob);
+        await writer.close();
+      } else {
+        const url = URL.createObjectURL(blob);
+        try {
+          const link = document.createElement('a');
+          link.href = url; link.download = filename;
+          document.body.append(link);
+          link.click();
+          link.remove();
+        } finally {
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }
+      }
+      $('section-status').textContent = handlePromise ? `Saved ${chosenFilename}` :
+        `PNG downloaded: ${filename} · Browser download settings control the save location.`;
+      if (annotations.sectionIncluded) $('section-status').textContent += ` · ${annotations.sectionIncluded} annotation(s) included.`;
+      if (annotations.sectionOmitted) $('section-status').textContent += ` · ${annotations.sectionOmitted} annotation(s) omitted (hidden, ambiguous or inconsistent component references).`;
+    } catch (error) {
+      if (error.name !== 'AbortError') $('section-status').textContent = `Image export failed: ${error.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   for (const button of [$('component-color-toggle'), $('component-color-menu-button')]) {
     button.addEventListener('click', () => {
       if (!componentColors.available) return;
