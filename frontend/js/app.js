@@ -8,6 +8,7 @@ import { buildComponentColors } from './component_colors.js';
 import { MoveGizmo, MOVE_AXES } from './component_move.js';
 import { SectionGizmo } from './section_gizmo.js';
 import { makeSectionPanelDraggable, makeSectionSliderPresets } from './section_panel_controls.js';
+import { sectionImageName, composeSectionImage } from './section_export.js';
 import { MeasurementUI } from './measurement_ui.js';
 import { AnnotationDisplay } from './annotations_ui.js';
 
@@ -48,6 +49,7 @@ function setup() {
   let sectionTiltV = 0;
   let sectionGizmoEnabled = true;
   let sectionGizmo = null;
+  let openedModelName = 'NX_Model';
   const sectionPanelDrag = makeSectionPanelDraggable(
     $('section-panel'), $('section-drag-handle'), $('viewer-viewport'));
   const sectionPresetControls = [
@@ -69,6 +71,7 @@ function setup() {
     $('section-menu-button').classList.toggle('active', sectionEnabled);
     $('section-menu-button').setAttribute('aria-pressed', String(sectionEnabled));
     $('section-panel').hidden = !sectionEnabled;
+    $('section-save-image').disabled = !sectionEnabled || !viewer.geometry.length;
     $('section-depth-value').textContent = `${$('section-depth').value}%`;
     for (const button of document.querySelectorAll('[data-section-axis]')) {
       button.setAttribute('aria-pressed', String(button.dataset.sectionAxis === sectionAxis));
@@ -421,6 +424,7 @@ function setup() {
   }
 
   function clearScene() {
+    openedModelName = 'NX_Model';
     sectionEnabled = false;
     sectionTiltU = 0; sectionTiltV = 0; sectionAxis = 'X'; sectionReversed = false;
     $('section-depth').value = '50';
@@ -521,6 +525,7 @@ function setup() {
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
       const { meshes, perBody } = await loadGeometry(info);
       viewer.setScene(meshes);
+      openedModelName = info.name || 'NX_Model';
       $('section-menu-button').disabled = !viewer.geometry.length;
       sectionEnabled = false;
       sectionTiltU = 0; sectionTiltV = 0; sectionAxis = 'X'; sectionReversed = false;
@@ -655,6 +660,59 @@ function setup() {
   });
   $('section-flip').addEventListener('click', () => { sectionReversed = !sectionReversed; refreshSection(); });
   $('section-cap').addEventListener('change', () => { sectionFill = $('section-cap').checked; refreshSection(); });
+  $('section-save-image').addEventListener('click', async () => {
+    if (!sectionEnabled || !viewer.geometry.length) return;
+    const button = $('section-save-image');
+    const filename = sectionImageName(openedModelName);
+    let handlePromise = null;
+    // File picker must be opened directly from the user gesture. Non-secure
+    // HTTP sessions and unsupported browsers use a normal PNG download.
+    if (window.isSecureContext && typeof window.showSaveFilePicker === 'function') {
+      try {
+        handlePromise = window.showSaveFilePicker({ suggestedName: filename,
+          types: [{ description: 'PNG image', accept: {'image/png': ['.png']} }] });
+        // Catch picker dismissal even if the capture fails before awaiting it.
+        handlePromise.catch(() => {});
+      } catch (error) {
+        $('section-status').textContent = `Save dialog could not open: ${error.message}`;
+        return;
+      }
+    }
+    button.disabled = true;
+    try {
+      const snapshot = viewer.captureSectionImage();
+      const image = composeSectionImage(snapshot, {filename: openedModelName,
+        section: {...viewer.section}, logo: document.querySelector('.brand-logo')});
+      const blob = await new Promise((resolve, reject) => image.toBlob(result =>
+        result ? resolve(result) : reject(new Error('Could not encode PNG.')), 'image/png'));
+      let chosenFilename = filename;
+      if (handlePromise) {
+        const handle = await handlePromise;
+        chosenFilename = handle.name || filename;
+        const writer = await handle.createWritable();
+        await writer.write(blob);
+        await writer.close();
+      } else {
+        const url = URL.createObjectURL(blob);
+        try {
+          const link = document.createElement('a');
+          link.href = url; link.download = filename;
+          document.body.append(link);
+          link.click();
+          link.remove();
+        } finally {
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }
+      }
+      $('section-status').textContent = handlePromise ? `Saved ${chosenFilename}` :
+        `PNG downloaded: ${filename} · Browser download settings control the save location.`;
+    } catch (error) {
+      if (error.name !== 'AbortError') $('section-status').textContent = `Image export failed: ${error.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   for (const button of [$('component-color-toggle'), $('component-color-menu-button')]) {
     button.addEventListener('click', () => {
       if (!componentColors.available) return;

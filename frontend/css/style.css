@@ -1556,6 +1556,13 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .section-bottom-row > button[aria-pressed="true"] { border-color:#3f9e90; color:#04796d; background:#e1f4ee; }
 .section-bottom-row label { display:flex; align-items:center; gap:5px; font-size:11px; white-space:nowrap; }
 .section-bottom-row input { accent-color:#088a7c; }
+.section-export-actions { margin-top: 11px; display: flex; justify-content: flex-end; }
+#section-save-image { display: inline-flex; align-items: center; gap: 7px; justify-content: center;
+  min-height: 32px; padding: 0 13px; border: 1px solid #087a71; border-radius: 7px;
+  background: #0b8277; color: #fff; font-size: 12px; font-weight: 750; cursor: pointer; }
+#section-save-image:hover:not(:disabled) { background: #056a62; }
+#section-save-image:disabled { opacity: .5; cursor: not-allowed; }
+#section-save-image:focus-visible { outline: 2px solid #1eafa3; outline-offset: 2px; }
 .section-status { border-top:1px solid #e2eceb; margin-top:11px; padding-top:8px;
   font-size:11px; line-height:1.4; color:#59707c; }
 @media (max-width:740px) { .section-panel { top:66px; left:12px; width:min(312px, calc(100% - 16px)); } }
