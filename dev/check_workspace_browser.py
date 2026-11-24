@@ -97,6 +97,9 @@ with sync_playwright() as playwright:
         page.locator('#workspace-new-folder').click()
         page.wait_for_function('(name) => window.__files.some(f=>f.name===name)', arg=folder)
         page.get_by_role('button',name='▣ uploads/').click()
+    # Newly discovered folders begin collapsed, while the uploads root stays visible.
+    for folder in ['Parts', 'Zeta', 'Assembly']:
+        assert page.get_by_role('button', name=f'Expand {folder}').count() == 1
     # Single Upload command opens one in-app dialog with both native picker choices.
     assert page.locator('#workspace-upload-files').count() == 0
     assert page.locator('#workspace-upload-folder').count() == 0
@@ -119,11 +122,13 @@ with sync_playwright() as playwright:
     page.locator('#workspace-file-input').set_input_files({'name':'fastener.prt','mimeType':'application/octet-stream','buffer':b'CAD TEST'})
     page.wait_for_function('Object.keys(window.__uploads).length === 3')
     assert 'Parts/fastener.prt' in page.evaluate('Object.keys(window.__uploads)')
-    # Double-click works like Explorer: first click selects, second expands/collapses.
-    page.get_by_role('button', name='▣ Parts Folder').dblclick()
+    # Double-click works like Explorer: a collapsed folder expands, then folds.
     assert page.locator('.workspace-entry-name', has_text='fastener.prt').count() == 0
     page.get_by_role('button', name='▣ Parts Folder').dblclick()
     assert page.locator('.workspace-entry-name', has_text='fastener.prt').count() == 1
+    page.get_by_role('button', name='▣ Parts Folder').dblclick()
+    assert page.locator('.workspace-entry-name', has_text='fastener.prt').count() == 0
+    page.get_by_role('button', name='Expand Parts').click()
     # Folder collapse hides children, and a refresh must preserve that state.
     page.get_by_role('button',name='Collapse Parts').click()
     assert page.locator('.workspace-entry-name',has_text='fastener.prt').count() == 0
@@ -137,6 +142,9 @@ with sync_playwright() as playwright:
     page.wait_for_function('document.querySelector("#file-workspace").open === false')
     assert page.locator('#import-message').is_visible()
     page.locator('#workspace-button').click()
+    assert page.get_by_role('button', name='Expand Parts').count() == 1
+    assert page.locator('.workspace-entry-name', has_text='fastener.prt').count() == 0
+    page.get_by_role('button', name='Expand Parts').click()
     page.get_by_role('button',name='⬡ fastener.prt').click()
     page.locator('#workspace-delete').click()
     assert page.locator('#workspace-jt-wizard').is_visible()
@@ -153,7 +161,11 @@ with sync_playwright() as playwright:
     assert 'AssemblyDrop/Components/Bolt.prt' in page.evaluate('Object.keys(window.__uploads)')
     assert 'AssemblyDrop/Empty' in page.evaluate('window.__files.map(f=>f.path)')
     assert page.locator('.workspace-entry-name',has_text='AssemblyDrop').count() == 1
+    assert page.get_by_role('button',name='Expand AssemblyDrop').count() == 1
+    assert page.locator('.workspace-entry-name',has_text='Empty').count() == 0
+    page.get_by_role('button',name='Expand AssemblyDrop').click()
     assert page.locator('.workspace-entry-name',has_text='Empty').count() == 1
+    assert page.get_by_role('button',name='Expand Components').count() == 1
     assert not errors, errors
     if os.environ.get('NX_PREVIEW_PATH'):
         page.screenshot(path=os.environ['NX_PREVIEW_PATH'], full_page=True)

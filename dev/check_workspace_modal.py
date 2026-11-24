@@ -31,8 +31,8 @@ with sync_playwright() as playwright:
         page.once('dialog', lambda prompt, value=folder: prompt.accept(value))
         page.locator('#workspace-new-folder').click()
         page.wait_for_function('(name) => window.__files.some(f=>f.name===name)', arg=folder)
-    for selector in ["button[aria-label='Collapse uploads']", "button[aria-label='Expand uploads']",
-                     "button[aria-label='Collapse Assembly']", "button[aria-label='Expand Assembly']"]:
+    for selector in ["button[aria-label='Expand Assembly']", "button[aria-label='Collapse Assembly']",
+                     "button[aria-label='Collapse uploads']", "button[aria-label='Expand uploads']"]:
         page.locator(selector).click()
         box = dialog.bounding_box()
         assert abs(box['height'] - full_box['height']) <= 1, (selector, full_box, box)

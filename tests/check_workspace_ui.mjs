@@ -11,6 +11,8 @@ const css = readFileSync(resolve(root, 'frontend/css/style.css'), 'utf8');
 assert.match(js, /new Intl\.Collator\([^\n]*numeric: true/);
 assert.match(js, /a\.type !== b\.type.*a\.type === 'folder'/);
 assert.match(js, /this\.expandedFolders = new Set\(\)/);
+assert.match(js, /this\.expandedFolders\.clear\(\)/);
+assert.doesNotMatch(js, /this\.expandedFolders\.add\(folder\)/);
 assert.match(js, /toggleFolder\(path\)/);
 assert.match(html, /id="workspace-upload"/);
 assert.doesNotMatch(html, /id="workspace-upload-files"|id="workspace-upload-folder"/);

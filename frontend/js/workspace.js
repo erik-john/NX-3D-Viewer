@@ -527,7 +527,12 @@ export class FileWorkspace {
   }
   setBusy(active) { this.busy = active; this.syncButtons(); }
   async show() {
-    if (!this.dialog.open) this.dialog.showModal();
+    if (!this.dialog.open) {
+      this.rootExpanded = true;
+      this.expandedFolders.clear();
+      this.selected = '';
+      this.dialog.showModal();
+    }
     await this.refresh();
   }
   showUpload() {
@@ -542,11 +547,6 @@ export class FileWorkspace {
       const data = await api('/api/workspace');
       this.files = data.files;
       const folders = new Set(this.files.filter(item => item.type === 'folder').map(item => item.path));
-      // New folders begin expanded; an existing collapsed state survives refreshes.
-      for (const folder of folders) {
-        if (!this.knownFolders?.has(folder)) this.expandedFolders.add(folder);
-      }
-      this.knownFolders = folders;
       for (const folder of this.expandedFolders) {
         if (!folders.has(folder)) this.expandedFolders.delete(folder);
       }
