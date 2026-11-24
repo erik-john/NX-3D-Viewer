@@ -877,3 +877,15 @@ Validation commands (dev branch):
 Suggested Git commit messages:
 - dev: feat(ui): unify viewer controls in top header
 - main: feat(ui): release unified top toolbar
+
+MS43: PRT annotation metadata pipeline (PMI + read-only NX Inspector Characteristic discovery), Structure and Information UI integration, positioned annotation labels, independent header toggles. NX 2506 runtime validation of PC1 Inspector access and full PMI graphics pending. Existing geometry, measurement and material rendering preserved.
+
+MS43 follow-up: Display available NX Inspector Characteristic parameters in an ordered table, preserve empty fields, extract NX PMI dimension definition points and render annotation lines/arrows tied to 3D camera and associated component transforms. Native NX 2506 runtime verification pending.
+
+MS43 follow-up: Right sidebar changed to Information / PMI / Characteristics tabs; unavailable records disable their tabs. Removed PMI and Characteristics header buttons, improved NX associativity extraction, and expanded read-only API diagnostics. NX 2506 real-part verification still required.
+
+MS43 follow-up: Product geometry only in the left Structure tree; NX-style PMI and Characteristics navigators inside their corresponding right-side tabs, with selection-linked 3D highlighting and tab-specific annotation visibility. Dimension graphics accept genuine NX definition points even if text placement is unavailable, while keeping NX 2506 Inspector and full guide-line extraction subject to real workstation verification.
+
+MS43 follow-up: PMI dimension rendering now reads NX annotation display components (line endpoints, arrow locations, text origins) using read-only NX Open ComponentData instead of relying only on inferred associativity geometry. The model-space primitives are projected with the 3D camera and component Move/Explode offsets. When native lines are unavailable, the viewer retains the guarded NX reference-point fallback and does not invent PMI dimensions from STL. Extended workstation diagnostics and automated regression checks; actual NX 2506 validation still required.
+
+MS43 follow-up: PMI detail extraction now includes available NX dimension size, tolerance style, unit, URL and additional saved metadata, plus associated NX objects and model-view dependencies. Right PMI tab displays an NX-style expandable Dependencies tree and parameter table. The exporter never invents missing values; installed NX 2506 API coverage requires workstation verification.

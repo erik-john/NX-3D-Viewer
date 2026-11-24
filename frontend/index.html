@@ -42,11 +42,6 @@
             </svg>
           </button>
         </div>
-        <span class="toolbar-divider header-annotations" aria-hidden="true"></span>
-        <div class="header-action-cluster header-annotations" role="group" aria-label="Engineering annotations">
-          <button type="button" class="header-action" disabled title="PMI display will be enabled when NX PMI extraction is implemented">PMI</button>
-          <button type="button" class="header-action" disabled title="Characteristic display will be enabled when NX Characteristics extraction is implemented">Characteristics</button>
-        </div>
       </div>
     </header>
     <div class="header-menu-layer" id="header-menu-layer">
@@ -165,6 +160,7 @@
             <circle cx="12" cy="16.1" r="1.5" fill="#58A99A" stroke="none"/>
           </svg>
         </button></div>
+        <div id="annotation-layer" class="annotation-layer" aria-label="Model PMI and Characteristic labels"></div>
         <svg id="move-gizmo" class="move-gizmo"
           role="group" aria-label="Selected component movement axes" hidden></svg>
         <div class="measurement-panel" id="measurement-panel" hidden aria-live="polite">
@@ -219,11 +215,16 @@
         </div>
         <aside class="inspector-panel" id="inspector-panel" aria-label="Product and selected item information">
           <div class="inspector-heading">
-            <h2>Information</h2>
+            <h2>Product Details</h2>
             <button type="button" class="inspector-toggle" id="inspector-toggle"
               aria-label="Collapse Part Inspector" aria-expanded="true" title="Collapse Part Inspector">›</button>
           </div>
-          <div class="inspector-content" id="inspector-content" aria-live="off">
+          <div class="inspector-tabs" id="inspector-tabs" role="tablist" aria-label="Product detail views">
+            <button type="button" id="inspector-tab-information" role="tab" data-inspector-tab="information" aria-selected="true" aria-controls="inspector-content">Information</button>
+            <button type="button" id="inspector-tab-pmi" role="tab" data-inspector-tab="pmi" aria-selected="false" aria-controls="inspector-content" disabled>PMI</button>
+            <button type="button" id="inspector-tab-characteristics" role="tab" data-inspector-tab="characteristics" aria-selected="false" aria-controls="inspector-content" disabled>Characteristics</button>
+          </div>
+          <div class="inspector-content" id="inspector-content" role="tabpanel" aria-labelledby="inspector-tab-information" aria-live="off">
             <p class="inspector-empty">Open an NX file to view part information.</p>
           </div>
         </aside>

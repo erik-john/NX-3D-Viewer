@@ -7,6 +7,7 @@ import { createExplodePlan, calculateExplodeOffsets, selectionGroupIds } from '.
 import { buildComponentColors } from './component_colors.js';
 import { MoveGizmo, MOVE_AXES } from './component_move.js';
 import { MeasurementUI } from './measurement_ui.js';
+import { AnnotationDisplay } from './annotations_ui.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TOTAL_STL_BYTES = 256 * 1024 * 1024;
@@ -32,6 +33,7 @@ function setup() {
   let moveGizmo = null;
   let measureMode = false;
   let measurement = null;
+  let annotations = null;
   let isolated = null; // { nodeId, previous: Map(meshId -> prior visible) }
   let componentColorEnabled = false;
   let componentColors = { available: false, colors: new Map() };
@@ -250,6 +252,7 @@ function setup() {
   }
   const inspector = new PartInspector({
     panel: $('inspector-panel'), toggle: $('inspector-toggle'), content: $('inspector-content'),
+    tabs: $('inspector-tabs'),
   });
   const tree = new ItemTree({
     panel: $('tree-panel'), toggle: $('tree-toggle'), resizer: $('tree-resizer'),
@@ -271,6 +274,7 @@ function setup() {
     },
     onSelect: node => {
       inspector.select(node);
+      annotations?.setSelected(null);
       viewer.setSelectedMeshIds(node ? tree.descendants(node) : []);
       $('status-message').textContent = node ? `Selected: ${node.name}` : 'Selection cleared';
       updateSelectionActions();
@@ -309,7 +313,26 @@ function setup() {
     updateMeasureButton();
     if (measureMode) $('status-message').textContent = 'Measurement: select a round surface for diameter, two round surfaces for center distance, or two planes';
   }
-  viewer.onFrame = () => { moveGizmo.update(); measurement.update(); };
+  function selectAnnotation(id) {
+    const entries = inspector.info?.annotations || {};
+    const item = [...(entries.pmi || []), ...(entries.characteristics || [])].find(record => record.id === id);
+    if (!item) return;
+    const type = (entries.pmi || []).some(record => record.id === id) ? 'pmi' : 'characteristic';
+    tree.selectNode(null);
+    inspector.select({id: item.id, name: item.name, type, annotation: item, details: item.details});
+    viewer.setSelectedMeshIds(item.meshId ? [item.meshId] : []);
+    annotations.setSelected(id);
+    $('status-message').textContent = `Selected ${type === 'pmi' ? 'PMI' : 'Characteristic'}: ${item.name || item.text}`;
+  }
+  annotations = new AnnotationDisplay(viewer, $('annotation-layer'), selectAnnotation);
+  inspector.onSelectAnnotation = selectAnnotation;
+  inspector.onTabChange = tab => {
+    annotations.setSelected(null);
+    annotations.setMode(tab);
+    const activeComponent = selectedNode();
+    viewer.setSelectedMeshIds(activeComponent ? meshIdsFor(activeComponent) : []);
+  };
+  viewer.onFrame = () => { moveGizmo.update(); measurement.update(); annotations.update(); };
   viewer.onHoverMesh = meshId => {
     const node = !measureMode && meshId ? tree.nodeForMesh(meshId) : null;
     viewer.setHoveredMeshIds(node ? tree.descendants(node) : []);
@@ -351,6 +374,7 @@ function setup() {
     manualGroupOffsets.clear();
     moveMode = false;
     tree.clear();
+    annotations.clear();
     updateExplodeControls();
     inspector.clear();
     updateSelectionActions();
@@ -432,7 +456,8 @@ function setup() {
       viewer.setScene(meshes);
       measurement.setModelUnits(info.nx?.units);
       updateMeasureButton();
-      const structure = info.tree || { id: 'root', name: info.name, type: 'part', children: [] };
+      const geometryStructure = info.tree || { id: 'root', name: info.name, type: 'part', children: [] };
+      const structure = geometryStructure;
       componentColors = perBody ? buildComponentColors(structure, meshes) :
         { available: false, colors: new Map() };
       viewer.setComponentColors(componentColors.colors);
@@ -442,7 +467,9 @@ function setup() {
       });
       setCameraView('iso');
       initializeExplosion(info, meshes, perBody);
+      annotations.setData(info.annotations);
       inspector.show(info, meshes, { perBody, gridSize: viewer.gridSize });
+      annotations.setMode(inspector.activeTab);
       updateSelectionActions();
       $('empty-state').hidden = true;
       $('status-message').textContent = `${info.name} loaded · Drag to rotate · Scroll to zoom`;

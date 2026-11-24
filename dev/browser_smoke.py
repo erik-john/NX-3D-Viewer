@@ -17,7 +17,7 @@ def small_stl():
 
 
 def script_code():
-    paths = ['geometry.js', 'stl.js', 'picking.js', 'plane_measure.js', 'measurement_ui.js', 'viewer.js', 'item_tree.js', 'inspector.js', 'assembly_explode.js', 'component_colors.js','component_move.js', 'app.js']
+    paths = ['geometry.js', 'stl.js', 'picking.js', 'plane_measure.js', 'measurement_ui.js', 'viewer.js', 'item_tree.js', 'inspector.js', 'assembly_explode.js', 'component_colors.js','component_move.js', 'annotations_ui.js', 'app.js']
     pieces = []
     for name in paths:
         code = (FRONTEND / 'js' / name).read_text(encoding='utf-8')

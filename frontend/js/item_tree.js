@@ -366,7 +366,8 @@ export class ItemTree {
     const symbol = document.createElement('span');
     symbol.className = 'tree-symbol';
     symbol.setAttribute('aria-hidden', 'true');
-    symbol.textContent = node.type === 'body' ? '◇' : node.type === 'part' ? '▣' : '▤';
+    symbol.textContent = node.type === 'body' ? '◇' : node.type === 'part' ? '▣' :
+      node.type === 'pmi' ? '↔' : node.type === 'characteristic' ? '◈' : '▤';
     row.append(symbol);
     const label = document.createElement('button');
     label.type = 'button';
@@ -426,7 +427,7 @@ export class ItemTree {
       const nested = document.createElement('ul');
       nested.setAttribute('role', 'group');
       for (const child of children) nested.append(this.createNode(child, depth + 1, node));
-      const open = depth === 0;
+      const open = depth === 0 || node.type === 'annotation-group';
       nested.hidden = !open;
       li.setAttribute('aria-expanded', String(open));
       disclosure.textContent = open ? '▾' : '▸';

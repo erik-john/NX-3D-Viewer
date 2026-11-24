@@ -26,7 +26,7 @@ function makeElement() {
 }
 
 const ids = [
-  'viewer-canvas', 'viewer-error',
+  'annotation-layer', 'inspector-tabs', 'inspector-tab-information', 'inspector-tab-pmi', 'inspector-tab-characteristics', 'viewer-canvas', 'viewer-error',
   'viewer-error-text', 'status-message', 'tree-panel', 'tree-toggle',
   'tree-resizer', 'model-tree', 'tree-summary', 'tree-note',
   'empty-state', 'loading-overlay', 'loading-title', 'loading-detail',
@@ -96,6 +96,10 @@ const context = {
   MOVE_AXES: { X:[1,0,0], Y:[0,0,-1], Z:[0,1,0] },
   MoveGizmo: class { constructor() {} setTarget() {} update() {} },
   MeasurementUI: class { constructor() { this.faces=[]; } setModelUnits() {} setActive() {} update() {} select() {} },
+  AnnotationDisplay: class { constructor() { this.data={pmi:[],characteristics:[]}; this.visibility={pmi:false,characteristics:false}; }
+    setVisible() {} setMode() {} setSelected() {} update() {} clear() {this.data={pmi:[],characteristics:[]}; this.visibility={pmi:false,characteristics:false};}
+    setData(value) { this.data={pmi:value?.pmi || [],characteristics:value?.characteristics || []};
+      this.visibility={pmi:!!this.data.pmi.length,characteristics:!!this.data.characteristics.length}; } },
   Viewer: class extends FakeViewer { constructor(...args) { super(...args); viewer = this; } },
   parseSTL: () => [fakeMesh],
   fetch,

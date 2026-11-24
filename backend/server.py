@@ -175,6 +175,13 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         else:
             output = convert_prt(selection, self.export_directory, nx_journal)
         tree, geometry_mode, files, warning, nx_info = self.prepare_structure(output, Path(selection).name)
+        annotations = {}
+        try:
+            manifest = json.loads(output.with_suffix('.json').read_text(encoding='utf-8'))
+            if isinstance(manifest.get('annotations'), dict):
+                annotations = manifest['annotations']
+        except (OSError, ValueError, TypeError):
+            pass
         source = Path(selection)
         file_info = {'path': str(source)}
         try:
@@ -192,6 +199,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             "ok": True, "name": source.name,
             "modelUrl": "/api/models/" + output.name,
             "tree": tree, "file": file_info, "nx": nx_info,
+            "annotations": annotations,
             "geometryMode": geometry_mode, "meshes": files, "warning": warning,
         })
 
