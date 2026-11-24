@@ -228,7 +228,9 @@ function setup() {
     const exploded = explodeLevel > 0 || [...selectedOverrides.values()].some(value => value > 0);
     const button = $('header-explode');
     button.disabled = !canExplode();
-    button.textContent = exploded ? 'Collapse' : 'Explode';
+    const label = button.querySelector?.('#header-explode-label');
+    if (label) label.textContent = exploded ? 'Collapse' : 'Explode';
+    else button.textContent = exploded ? 'Collapse' : 'Explode';
     button.title = exploded ? 'Collapse all assembly components' : 'Explode all assembly components';
     button.setAttribute('aria-pressed', String(exploded));
     button.classList.toggle('is-active', exploded);
