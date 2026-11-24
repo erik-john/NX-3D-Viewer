@@ -1327,6 +1327,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .toolbar-scroll { overflow-x: hidden; scrollbar-width: none; gap: 8px; }
 .toolbar-scroll::-webkit-scrollbar { display: none; }
 .app-header .header-action { padding-inline: 9px; }
+.app-header #header-explode { box-sizing: border-box; width: 74px; flex: 0 0 74px; text-align: center; }
 .app-header .header-menu-trigger { white-space: nowrap; }
 .header-menu-trigger span { color: #5b8b90; margin-left: 2px; }
 #component-opacity-value { font: inherit; font-variant-numeric: tabular-nums; color: #0b7975; margin-left: 3px; }
@@ -1372,6 +1373,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   .toolbar-scroll { gap: 5px; padding-inline: 5px; }
   .app-header .tool-button { padding-inline: 8px; }
   .app-header .header-action { padding-inline: 7px; font-size: 11px; }
+  .app-header #header-explode { width: 65px; flex-basis: 65px; }
 }
 @media (max-width: 1070px) {
   .app-brand { flex-basis: 60px; }
@@ -1382,6 +1384,7 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   .toolbar-scroll { gap: 4px; }
   .app-header .tool-button { font-size: 10px; padding-inline: 6px; }
   .app-header .header-action { font-size: 10px; padding-inline: 5px; }
+  .app-header #header-explode { width: 58px; flex-basis: 58px; }
   .app-brand { flex-basis: 52px; }
   .brand-logo { width: 40px; height: 40px; }
   .toolbar-scroll .toolbar-divider { display: none; }

@@ -103,6 +103,17 @@ with sync_playwright() as p:
       assert page.locator('#header-explode').is_visible(), width
       assert page.locator('#measure-planes-toggle').is_visible(), width
       assert page.locator('#viewer-viewport .viewport-view-tools').is_visible(), width
+      # Switching the label must not resize the control or displace neighboring header actions.
+      ids = ('header-explode', 'transparency-menu-toggle', 'viewer-menu-toggle', 'measure-planes-toggle')
+      positions_before = {item: page.locator('#' + item).bounding_box() for item in ids}
+      page.locator('#header-explode').click()
+      assert page.locator('#header-explode').inner_text() == 'Collapse'
+      positions_after = {item: page.locator('#' + item).bounding_box() for item in ids}
+      for item in ids:
+        assert abs(positions_before[item]['x'] - positions_after[item]['x']) < 0.1, (width, item, positions_before, positions_after)
+        assert abs(positions_before[item]['width'] - positions_after[item]['width']) < 0.1, (width, item, positions_before, positions_after)
+      page.locator('#header-explode').click()
+      assert page.locator('#header-explode').inner_text() == 'Explode'
       if width==1366 and os.environ.get('SAVE_PREVIEW'):
         page.screenshot(path=os.environ['SAVE_PREVIEW'])
     assert not errors,errors
