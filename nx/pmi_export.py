@@ -447,12 +447,16 @@ def characteristic_records(part, pmis):
             owners.extend(list(safe_value(manager, 'Pmis') or [])[:500])
         except Exception:
             pass
-    for owner_name in ('Inspector', 'InspectorManager', 'CharacteristicManager', 'CharacteristicsManager', 'InspectionManager'):
+    for owner_name in ('Inspector', 'InspectorManager', 'InspectorRoot', 'CharacteristicManager',
+                       'CharacteristicsManager', 'ProductCharacteristicManager',
+                       'ProductCharacteristicsManager', 'InspectionManager'):
         owner = safe_value(part, owner_name)
         if owner is not None:
             owners.append(owner)
     accessors = ('Characteristics', 'CharacteristicInstances', 'CharacteristicsCollection',
-                 'GetCharacteristics', 'GetCharacteristicInstances', 'GetAllCharacteristics')
+                 'ProductCharacteristics', 'ProductCharacteristicInstances',
+                 'GetCharacteristics', 'GetCharacteristicInstances', 'GetAllCharacteristics',
+                 'GetProductCharacteristics', 'GetProductCharacteristicInstances')
     found_collection = False
     for owner in owners:
         for name in accessors:

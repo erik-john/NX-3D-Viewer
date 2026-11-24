@@ -274,13 +274,16 @@ export class PartInspector {
     for (const [key, button] of this.tabButtons) {
       const entries = annotations[keys[key]];
       const count = Array.isArray(entries) ? entries.length : 0;
-      button.disabled = key !== 'information' && count === 0;
+      const linkedChr = key === 'characteristics' && Boolean(annotations.characteristicsFile?.name);
+      button.disabled = key !== 'information' && count === 0 && !linkedChr;
       const unavailable = key !== 'information' && !count && (annotations.warnings || []).some(message =>
         /not accessible|unavailable|not expose|could not enumerate/i.test(message));
-      button.title = button.disabled ?
-        (unavailable ? `${key === 'pmi' ? 'PMI' : 'Characteristics'} data could not be read from NX; absence is not confirmed` :
-          `No ${key === 'pmi' ? 'PMI' : 'Characteristic'} records in this export`) :
-        (key === 'information' ? 'Product and selection information' : `${count} ${key} record${count === 1 ? '' : 's'}`);
+      button.title = linkedChr && !count ?
+        'Associated CHR file found; NX characteristic parameters have not been extracted' :
+        button.disabled ?
+          (unavailable ? `${key === 'pmi' ? 'PMI' : 'Characteristics'} data could not be read from NX; absence is not confirmed` :
+            `No ${key === 'pmi' ? 'PMI' : 'Characteristic'} records in this export`) :
+          (key === 'information' ? 'Product and selection information' : `${count} ${key} record${count === 1 ? '' : 's'}`);
     }
     if (this.tabButtons.get(this.activeTab)?.disabled) this.activeTab = 'information';
     for (const [key, button] of this.tabButtons) {
@@ -357,6 +360,8 @@ export class PartInspector {
     section(this.content, 'PMI & Characteristics', [
       ['PMI records available', integer.format(pmi.length)],
       ['Characteristic records available', integer.format(chr.length)],
+      ['Characteristics file', annotations.characteristicsFile?.name || null, true],
+      ['Characteristics file status', annotations.characteristicsFile?.status || null],
     ], (annotations.warnings || []).join(' '));
     section(this.content, 'Dimensions', [
       ['X dimension', format(size[0])],
@@ -486,6 +491,19 @@ export class PartInspector {
 
   renderCharacteristics() {
     const items = this.info.annotations?.characteristics || [];
+    const source = this.info.annotations?.characteristicsFile;
+    if (source?.name) section(this.content, 'Characteristics Source', [
+      ['File', source.name, true], ['NX extraction', source.status],
+    ]);
+    if (!items.length && source?.name) {
+      const hints = Array.isArray(source.observedDesignators) ? source.observedDesignators : [];
+      if (hints.length) section(this.content, 'Identifiers detected in CHR (unverified)',
+        hints.map(hint => [hint.designator, hint.uuid, true]),
+        'These identifiers were observed in the native binary file. They are not decoded NX Characteristic instances and cannot be used as engineering parameter records.');
+      section(this.content, 'Characteristic extraction unavailable', [],
+        'The companion CHR file was found, but NX did not return readable Inspector instances. No parameter values or PMI links have been inferred. Run the read-only NX Inspector API diagnostic to identify the supported NX 2506 interface.');
+      return;
+    }
     this.renderAnnotationList(items, 'characteristic');
     const selected = items.find(entry => entry.id === this.selected?.id) || (items.length === 1 ? items[0] : null);
     if (!selected) {

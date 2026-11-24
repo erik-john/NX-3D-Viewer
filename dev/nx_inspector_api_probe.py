@@ -11,6 +11,18 @@ import sys
 import traceback
 
 
+def public_members(obj, limit=300):
+    try:
+        return sorted(x for x in dir(obj) if not x.startswith('_'))[:limit]
+    except Exception:
+        return []
+
+
+def write_report(destination, report):
+    with io.open(destination, 'w', encoding='utf-8') as stream:
+        json.dump(report, stream, ensure_ascii=False, indent=2)
+
+
 def names(obj):
     try:
         return sorted(x for x in dir(obj) if not x.startswith('_') and
@@ -23,21 +35,46 @@ def names(obj):
 def run(path, destination):
     import NXOpen
     session = NXOpen.Session.GetSession()
-    opened = session.Parts.OpenBaseDisplay(path)
-    part = next((obj for obj in opened if hasattr(obj, 'Bodies')), None) if isinstance(opened, tuple) else opened
-    if part is None:
-        raise RuntimeError('NX did not return the part.')
+    result = {'sourceExtension': os.path.splitext(path)[1].lower(),
+              'sourceName': os.path.basename(path),
+              'sessionMembers': names(session),
+              'inspectorNamespaceMembers': [], 'pmiCount': None}
+    try:
+        opened = session.Parts.OpenBaseDisplay(path)
+        part = next((obj for obj in opened if hasattr(obj, 'Bodies') or
+                     hasattr(obj, 'FullPath') or hasattr(obj, 'PartUnits') or
+                     hasattr(obj, 'Leaf')), None) if isinstance(opened, tuple) else opened
+        if part is None:
+            raise RuntimeError('NX did not return a readable BasePart.')
+    except Exception as exc:
+        result['partOpenError'] = '{}: {}'.format(type(exc).__name__, str(exc))[:800]
+        result['partsCollectionMembers'] = public_members(session.Parts)
+        try:
+            import NXOpen.Inspector
+            result['inspectorNamespaceMembers'] = public_members(NXOpen.Inspector)
+        except Exception as inner:
+            result['inspectorModuleError'] = '{}: {}'.format(type(inner).__name__, str(inner))[:400]
+        write_report(destination, result)
+        return
+    result.update({'partMembers': names(part), 'partObjectType': type(part).__name__,
+                   'pmiManagerMembers': names(getattr(part, 'PmiManager', None)),
+                   'partPublicMembers': public_members(part),
+                   'partsCollectionMembers': public_members(session.Parts)})
     try:
         import NXOpen.UF
         uf_session = NXOpen.UF.UFSession.GetUFSession()
     except Exception:
         uf_session = None
-    result = {'partMembers': names(part), 'sessionMembers': names(session),
-              'pmiManagerMembers': names(getattr(part, 'PmiManager', None)),
-              'inspectorNamespaceMembers': [], 'pmiCount': None}
     try:
         import NXOpen.Inspector
-        result['inspectorNamespaceMembers'] = names(NXOpen.Inspector)
+        result['inspectorNamespaceMembers'] = public_members(NXOpen.Inspector)
+        result['inspectorTypes'] = {}
+        for type_name in result['inspectorNamespaceMembers']:
+            if not any(token in type_name.lower() for token in ('characteristic', 'inspector', 'root', 'facet', 'instance')):
+                continue
+            cls = getattr(NXOpen.Inspector, type_name, None)
+            if cls is not None:
+                result['inspectorTypes'][type_name] = public_members(cls, 120)
     except Exception as exc:
         result['inspectorModuleError'] = str(exc)[:200]
     try:
@@ -51,9 +88,47 @@ def run(path, destination):
             owner = getattr(part, manager_name)
             if callable(owner):
                 continue
-            result['manager_' + manager_name] = names(owner)
+            result['manager_' + manager_name] = public_members(owner)
         except Exception:
             pass
+    # The companion Characteristics part contains Inspector data even when the
+    # linked PRT's ordinary PMI collection cannot reveal those records.
+    for owner_name in ('Inspector', 'InspectorManager', 'InspectorRoot',
+                       'CharacteristicManager', 'CharacteristicsManager',
+                       'ProductCharacteristicManager', 'ProductCharacteristicsManager'):
+        try:
+            owner = getattr(part, owner_name)
+            if callable(owner):
+                continue
+            result['inspectorOwner_' + owner_name] = {
+                'type': type(owner).__name__,
+                'members': public_members(owner),
+            }
+        except Exception:
+            pass
+    for scope in (part, getattr(part, 'InspectorManager', None)):
+        if scope is None:
+            continue
+        for field in ('Characteristics', 'CharacteristicInstances', 'ProductCharacteristics',
+                      'ProductCharacteristicInstances', 'GetCharacteristics',
+                      'GetCharacteristicInstances', 'GetProductCharacteristics',
+                      'GetProductCharacteristicInstances'):
+            try:
+                value = getattr(scope, field)
+                values = list((value() if callable(value) else value) or [])[:20]
+                result['collection_' + type(scope).__name__ + '_' + field] = {
+                    'countCappedAt': len(values),
+                    'examples': [
+                        {'type': type(item).__name__, 'members': names(item),
+                         'designator': str(getattr(item, 'Designator', ''))[:100],
+                         'nominalValue': str(getattr(item, 'NominalValue', ''))[:100]}
+                        for item in values[:5]
+                    ],
+                }
+            except Exception as exc:
+                result.setdefault('collectionErrors', {})[
+                    type(scope).__name__ + '_' + field] = '{}: {}'.format(
+                        type(exc).__name__, str(exc))[:250]
     # Report safe geometric accessors of a few PMI display instances; different
     # NX builds may expose the same reference through distinct associations.
     def read_point(value):
@@ -144,8 +219,7 @@ def run(path, destination):
         result['annotationProbe'] = extract_annotations(part, uf_session)
     except Exception as exc:
         result['annotationProbeError'] = str(exc)[:300]
-    with io.open(destination, 'w', encoding='utf-8') as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
+    write_report(destination, result)
 
 
 if __name__ == '__main__':

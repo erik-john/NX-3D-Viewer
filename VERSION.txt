@@ -1,3 +1,18 @@
+MS43 — CHR companion integration (read-only, NX 2506 validation required)
+
+Changes
+- Detect a matching native Inspector Characteristics part next to the source PRT (Name_chr.chr or Name.chr).
+- Ask Siemens NX to open that companion and extract Characteristics with its available read-only NX Open interfaces.
+- Preserve the existing PRT geometry/PMI export, annotation selection, measurement behavior, and right-side tabs.
+- Show the linked CHR filename and extraction status; do not claim missing records are absent when the API cannot read them.
+- Extend read-only NX Inspector diagnostic output for Characteristics parts.
+
+Checks
+- Native sample matches the companion detection rules and contains Inspector structures, PC1, PC2, 55.0 and 12.0.
+- 94 Python and 34 JavaScript checks pass; NX 2506 reading native Inspector records remains to be verified in the installed environment.
+- No native CHR editing or saving is performed.
+
+--- Prior work ---
 Measurement correction — partial cylinder recognition
 
 Changes
@@ -889,3 +904,5 @@ MS43 follow-up: Product geometry only in the left Structure tree; NX-style PMI a
 MS43 follow-up: PMI dimension rendering now reads NX annotation display components (line endpoints, arrow locations, text origins) using read-only NX Open ComponentData instead of relying only on inferred associativity geometry. The model-space primitives are projected with the 3D camera and component Move/Explode offsets. When native lines are unavailable, the viewer retains the guarded NX reference-point fallback and does not invent PMI dimensions from STL. Extended workstation diagnostics and automated regression checks; actual NX 2506 validation still required.
 
 MS43 follow-up: PMI detail extraction now includes available NX dimension size, tolerance style, unit, URL and additional saved metadata, plus associated NX objects and model-view dependencies. Right PMI tab displays an NX-style expandable Dependencies tree and parameter table. The exporter never invents missing values; installed NX 2506 API coverage requires workstation verification.
+
+MS43 follow-up: A detected native CHR companion now keeps the Characteristics panel accessible when NX Inspector extraction is unavailable. Diagnostic-only characteristic designator/UUID candidates are distinguished from NX-verified records; no nominal values or relationships are fabricated. Added extended NX 2506 API introspection, drag-and-drop read-only probe helper, and browser regression coverage.

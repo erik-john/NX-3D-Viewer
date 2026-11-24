@@ -36,7 +36,7 @@ with sync_playwright() as p:
     content = page.locator('#inspector-content').inner_text()
     assert 'Dimension Graphics' in content
     assert 'no readable' not in content or 'reference points' in content
-    assert 'cannot draw accurate guide lines' in content
+    assert 'Accurate guides cannot be drawn from text alone.' in content
     assert page.locator('.annotation-dimension').count() == 0
     assert page.locator('#show-pmi-toggle, #show-characteristics-toggle').count() == 0
     page.locator('#inspector-toggle').click()

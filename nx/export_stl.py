@@ -9,6 +9,7 @@ import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pmi_export import extract_annotations
+from chr_export import load_characteristics_part
 
 
 
@@ -283,6 +284,8 @@ def export(input_path, output_path, manifest_path=None, stage_path=None):
             count = sum(len(mesh.get('analyticalFaces', [])) for mesh in meshes)
             record_stage(stage_path, 'captured {} NX analytical cylindrical faces'.format(count))
         annotations = extract_annotations(part, uf) if input_path.lower().endswith('.prt') else {'pmi': [], 'characteristics': [], 'warnings': []}
+        if input_path.lower().endswith('.prt'):
+            annotations = load_characteristics_part(session, input_path, annotations)
         if annotations['pmi']:
             associated_mesh_ids = {}
             for node_id, body in leaves:
