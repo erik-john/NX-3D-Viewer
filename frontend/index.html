@@ -42,11 +42,6 @@
             </svg>
           </button>
         </div>
-        <span class="toolbar-divider header-annotations" aria-hidden="true"></span>
-        <div class="header-action-cluster header-annotations" role="group" aria-label="Engineering annotations">
-          <button type="button" class="header-action" disabled title="PMI display will be enabled when NX PMI extraction is implemented">PMI</button>
-          <button type="button" class="header-action" disabled title="Characteristic display will be enabled when NX Characteristics extraction is implemented">Characteristics</button>
-        </div>
       </div>
     </header>
     <div class="header-menu-layer" id="header-menu-layer">
@@ -165,6 +160,7 @@
             <circle cx="12" cy="16.1" r="1.5" fill="#58A99A" stroke="none"/>
           </svg>
         </button></div>
+        <div id="annotation-layer" class="annotation-layer" aria-label="Model PMI and Characteristic labels"></div>
         <svg id="move-gizmo" class="move-gizmo"
           role="group" aria-label="Selected component movement axes" hidden></svg>
         <div class="measurement-panel" id="measurement-panel" hidden aria-live="polite">
@@ -219,11 +215,22 @@
         </div>
         <aside class="inspector-panel" id="inspector-panel" aria-label="Product and selected item information">
           <div class="inspector-heading">
-            <h2>Information</h2>
+            <h2>Product Details</h2>
             <button type="button" class="inspector-toggle" id="inspector-toggle"
               aria-label="Collapse Part Inspector" aria-expanded="true" title="Collapse Part Inspector">›</button>
           </div>
-          <div class="inspector-content" id="inspector-content" aria-live="off">
+          <div class="inspector-tabs" id="inspector-tabs" role="tablist" aria-label="Product detail views">
+            <button type="button" id="inspector-tab-information" role="tab" data-inspector-tab="information" aria-selected="true" aria-controls="inspector-content">
+              <span class="inspector-tab-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Information</span></span>
+            </button>
+            <button type="button" id="inspector-tab-pmi" role="tab" data-inspector-tab="pmi" aria-selected="false" aria-controls="inspector-content" disabled>
+              <span class="inspector-tab-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 17 4l3 3L7 20zM10 10l3 3M13 7l3 3M7 13l3 3"/></svg><span>PMI</span></span>
+            </button>
+            <button type="button" id="inspector-tab-characteristics" role="tab" data-inspector-tab="characteristics" aria-selected="false" aria-controls="inspector-content" disabled>
+              <span class="inspector-tab-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-6 9 6-9 6-9-6ZM3 14l9 6 9-6M3 18l9 4 9-4"/></svg><span>Characteristics</span></span>
+            </button>
+          </div>
+          <div class="inspector-content" id="inspector-content" role="tabpanel" aria-labelledby="inspector-tab-information" aria-live="off">
             <p class="inspector-empty">Open an NX file to view part information.</p>
           </div>
         </aside>
@@ -270,7 +277,7 @@
           <button id="workspace-choose-files" type="button">Choose files</button>
           <button id="workspace-choose-folder" type="button">Choose folder</button>
         </div>
-        <p class="workspace-upload-hint">You can drop files and folders together. Browser file pickers use separate choices for files and folders.</p>
+        <p class="workspace-upload-hint">You can drop files and folders together, including PRT and its matching CHR file. Browser file pickers use separate choices for files and folders.</p>
         <p id="workspace-upload-progress" role="status" aria-live="polite"></p>
         <input id="workspace-file-input" type="file" multiple hidden>
         <input id="workspace-folder-input" type="file" webkitdirectory multiple hidden>
@@ -306,6 +313,43 @@
         <span class="jt-wizard-action-spacer"></span>
         <button type="button" id="jt-wizard-back">Back</button>
         <button type="button" id="jt-wizard-next" class="workspace-primary">Next</button>
+      </div>
+    </dialog>
+    <dialog id="workspace-chr-wizard" class="workspace-jt-wizard" aria-labelledby="chr-wizard-title">
+      <div class="workspace-dialog-header">
+        <div>
+          <span class="workspace-dialog-eyebrow">WORKSPACE · RELATED NX FILES</span>
+          <h2 id="chr-wizard-title">Upload Characteristics</h2>
+        </div>
+        <button type="button" id="chr-wizard-close" class="workspace-close" title="Cancel" aria-label="Cancel Characteristics upload">×</button>
+      </div>
+      <ol class="jt-wizard-steps" aria-label="Characteristics upload steps">
+        <li class="is-current" data-chr-step="0"><span>1</span><small>Review</small></li>
+        <li data-chr-step="1"><span>2</span><small>Companions</small></li>
+        <li data-chr-step="2"><span>3</span><small>Confirm</small></li>
+      </ol>
+      <section class="jt-wizard-body" aria-live="polite">
+        <h3 id="chr-wizard-heading"></h3>
+        <p id="chr-wizard-description"></p>
+        <div class="jt-wizard-items" id="chr-wizard-items"></div>
+        <div id="chr-wizard-part-controls" class="jt-wizard-folder-controls" hidden>
+          <button id="chr-wizard-choose-part" type="button">Choose matching PRT file(s)</button>
+          <input id="chr-wizard-part-input" type="file" accept=".prt" multiple hidden>
+        </div>
+        <div id="chr-wizard-chr-controls" class="jt-wizard-folder-controls" hidden>
+          <button id="chr-wizard-choose-chr" type="button">Choose matching CHR file(s)</button>
+          <input id="chr-wizard-chr-input" type="file" accept=".chr" multiple hidden>
+        </div>
+        <div id="chr-wizard-without-chr-controls" class="jt-wizard-folder-controls" hidden>
+          <label><input id="chr-wizard-without-chr" type="checkbox"> Continue uploading the PRT without missing CHR files</label>
+        </div>
+        <p id="chr-wizard-notice" role="status"></p>
+      </section>
+      <div class="jt-wizard-actions">
+        <button type="button" id="chr-wizard-cancel">Cancel</button>
+        <span class="jt-wizard-action-spacer"></span>
+        <button type="button" id="chr-wizard-back">Back</button>
+        <button type="button" id="chr-wizard-next" class="workspace-primary">Next</button>
       </div>
     </dialog>
     <footer class="status-bar">

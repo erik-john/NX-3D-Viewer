@@ -134,6 +134,37 @@ def file_for_open(relative):
         return target
 
 
+
+def _chr_design_name(name):
+    """Return the PRT name expected by the NX Characteristics reader."""
+    if not name.casefold().endswith('.chr'):
+        return None
+    stem = name[:-4]
+    if stem.casefold().endswith('_chr'):
+        stem = stem[:-4]
+    return stem + '.prt' if stem else None
+
+
+def _validate_chr_companion(target):
+    """Require a matching sibling PRT before accepting its CHR sidecar."""
+    expected = _chr_design_name(target.name)
+    if not expected:
+        raise WorkspaceError('The CHR filename does not identify an NX part.')
+    matches = [item for item in target.parent.iterdir()
+               if item.is_file() and not item.is_symlink() and
+               item.name.casefold() == expected.casefold()]
+    if len(matches) != 1:
+        raise WorkspaceError('Upload the matching ' + expected +
+                             ' file in the same folder before its CHR file.')
+
+
+def _validate_chr_contents(path):
+    with path.open('rb') as stream:
+        header = stream.read(4096)
+    if not header.startswith(b'SPLMSSTR') or b'CHRPARTS' not in header:
+        raise WorkspaceError('The CHR file is not a recognized NX Characteristics part.')
+
+
 def upload(relative, source, length, overwrite=False):
     """Stream one browser-uploaded file to disk, then atomically move it into place."""
     with LOCK:
@@ -146,6 +177,8 @@ def upload(relative, source, length, overwrite=False):
             raise FileExistsError('File already exists: ' + relative)
         if target.is_dir():
             raise WorkspaceError('Cannot replace a folder with a file.')
+        if target.suffix.casefold() == '.chr':
+            _validate_chr_companion(target)
         _, total, count = _scan()
         previous_size = target.stat().st_size if target.exists() else 0
         if total - previous_size + length > MAX_WORKSPACE_BYTES:
@@ -162,6 +195,8 @@ def upload(relative, source, length, overwrite=False):
                         raise WorkspaceError('The upload ended before all file bytes arrived.')
                     stream.write(data)
                     remaining -= len(data)
+            if target.suffix.casefold() == '.chr':
+                _validate_chr_contents(temp)
             os.replace(temp, target)
         finally:
             temp.unlink(missing_ok=True)

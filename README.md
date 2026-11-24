@@ -1,57 +1,60 @@
 # NX 3D Viewer
 
-A local, browser-based viewer for Siemens NX geometry. NX converts supported CAD files to temporary STL meshes; the browser displays and inspects them on **port 8888**.
+A local 3D visualization application for Siemens NX parts and assemblies. View CAD geometry, inspect component information, measure surfaces, and explore PMI and NX Inspector Characteristics in a browser.
 
-## Features
+## Main features
 
-- Open **NX `.prt`** and **JT `.jt`** files; manage uploads, folders, ZIP archives, and linked JT packages in **Workspace**.
-- Explore parts and assemblies with the **Item Structure** tree and **Part Inspector**. The Structure area scrolls horizontally for long component names and vertically for large hierarchies.
-- Rotate, pan, zoom, fit, and use isometric/front/top/right views.
-- Select, highlight, show/hide, isolate, explode, move, and color individual components when separate meshes are available.
-- Apply per-component glass-style transparency and restore all components to solid.
-- Measure **CAD-derived cylindrical diameter** from NX PRT analytical faces when available; use approximate STL-based diameter (including sufficiently resolved partial cylinders), centerline spacing, planar distance, and angle otherwise. Selected surface outlines and measurement guides follow the model during camera navigation, Move, and Explode.
+- Open **NX PRT** and **JT** models, including supported assemblies and linked JT component folders.
+- Manage files and folders in **Workspace**, with companion-file guidance for JT packages and PRT/CHR pairs.
+- Browse the product structure; select, show/hide, isolate, move, explode, and color components.
+- Rotate, pan, zoom, fit, and switch between 3D, front, top, and right views.
+- Adjust component transparency and measure distances, angles, and cylindrical diameters. CAD-derived measurements are used when NX provides reliable geometry; STL-only measurements are approximate.
+- Browse **PMI** annotations with dimension graphics, associated geometry, and available parameters.
+- Browse **Characteristics** from a matching NX Inspector `.chr` file, including instances, parameters, and associated PMI highlighting.
+
+## Screenshots
+
+**Assembly visualization** — exploded assembly with colored components and selected-component information.
+
+![Assembly visualization](screenshots/assembly-visualization.png)
+
+**PMI and Characteristics** — bolt model with its linked Characteristics and selected 3D annotation.
+
+![Characteristics visualization](screenshots/characteristics-visualization.png)
+
+*Illustrative application composites based on the provided 3D model captures; panel figures shown in the images are examples.*
 
 ## Requirements
 
-- **Windows** and a working, licensed **Siemens NX** installation (target: **NX 2506**) with NX Open / `run_journal.exe`.
-- **Python 3.10+** and a browser with **WebGL** support.
-- For JT files, the installed NX must support reading the particular JT geometry.
+- Windows with **Siemens NX 2506**, including a working `run_journal.exe` and the appropriate NX licenses.
+- **Python 3.10+**.
+- A modern browser with WebGL support.
 
-## Screenshot
+The NX Inspector module/license is required for reading native Characteristics through NX Open. JT conversion depends on the formats supported by the installed NX environment.
 
-![NX 3D Viewer — current light-theme interface preview](screenshot.png)
+## Getting started
 
-*Illustrative interface preview combined with an NX assembly capture; not a verified JT conversion.*
-
-## Start
-
-1. Run **`Run.bat`** from the project folder, or execute `py -3 backend/server.py`.
+1. Run **`Run.bat`** in the project folder.
 2. Open **http://127.0.0.1:8888/** in your browser.
-3. Choose **OPEN NX FILES** or use **WORKSPACE** to upload and open a `.prt` / `.jt` file.
-4. Press **Ctrl+C** in the terminal to stop the server.
+3. Select **OPEN NX FILES**, or use **WORKSPACE** to upload your model and open it there.
+4. Use the **Structure** panel on the left, the 3D viewer in the center, and the **Information / PMI / Characteristics** tabs on the right.
+5. Stop the server with **Ctrl+C** in its terminal window.
 
-## Supported scope
+## File relationships
 
-| Format / capability | Current scope |
-| --- | --- |
-| **PRT** | Single parts and assemblies via Siemens NX; separate-body controls when exportable. |
-| **JT** | Standalone JT and externally linked JT opening via NX. Keep referenced component files in their expected relative folders; Workspace guides upload of parent JT files with companion folders and reviews related files for deletion as a package. Standalone JT can be declared explicitly. Full JT assembly compatibility depends on NX. |
-| **CHR / STEP** | Not directly supported in the viewer yet. |
-| **Measurements** | NX PRT cylindrical faces can provide CAD-derived diameter when the analytical face can be matched uniquely to selected STL facets. Connected faceted half-cylinders can also be measured by a high-confidence circle fit, clearly labeled approximate. Short or ambiguous faceted patches are not treated as cylinders. Other measurements remain approximate; the viewer is not a certified metrology system. |
-| **Deployment** | Runs locally on `127.0.0.1:8888`; uploaded files persist under `uploads/`. |
+For a part with NX Inspector Characteristics, keep the files together in the same Workspace folder:
 
-## JT component controls
+```text
+Bolt M12x55.prt
+Bolt M12x55_chr.chr
+```
 
-For separate NX-exported body meshes, each JT occurrence must have a unique mesh ID corresponding to exactly one body node in the NX hierarchy. The viewer reuses existing Selection, Explode, Move, Color, Transparency, and Measurement controls; these operate on triangulated geometry, not exact JT CAD topology. If the NX translator cannot produce a complete, consistent set of separate bodies, the viewer displays a combined STL when possible and disables per-component controls. JT assemblies must still be tested using the installed factory NX version.
+Open the **PRT** to view the geometry, PMI, and linked Characteristics. The viewer reads CHR data without editing the native file. The Workspace upload wizard can help select a missing companion file.
 
-## Troubleshooting
+For externally linked JT assemblies, preserve the JT references and the related component folder structure when uploading.
 
-| Problem | Check |
-| --- | --- |
-| `run_journal.exe` not found | Set `NX_RUN_JOURNAL` to its full path (example: `C:\Program Files\Siemens\NX1855\NXBIN\run_journal.exe`) and restart. |
-| NX/JT conversion fails | Restore referenced component files (often a folder matching the parent JT filename). Confirm NX JT support and check `%TEMP%\NX_3D_Viewer\logs`. |
-| Individual component actions unavailable | NX may have supplied a **combined STL** rather than separate meshes. |
-| Inaccurate measurement | Select a curved cylindrical face in an NX PRT with analytical geometry for CAD-derived diameter; other measurements still use tessellated STL. When an NX analytical face is unavailable, partial cylinders with at least three distinct connected side facets may provide an approximate STL-fitted diameter. If the surface is too sparse or ambiguous, the tool will still show planar-facet measurements. Verify critical values in NX or certified metrology. |
-| Page does not open | Check that the Python server is running and **port 8888** is available. |
+## Notes
 
-For detailed setup, controls, limits, and troubleshooting, see the **[User Manual](NX_3D_Viewer_User_Manual.docx)**.
+- The viewer uses STL meshes generated through Siemens NX. Its measurements and visual representations are not a substitute for certified CAD inspection or metrology.
+- Exact PMI and Characteristics data availability depends on NX 2506, the model contents, and the installed NX capabilities.
+- Native CHR editing and standalone STEP viewing are not supported.

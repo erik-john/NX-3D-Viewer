@@ -7,6 +7,10 @@ import os
 import sys
 import traceback
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pmi_export import extract_annotations
+from chr_export import load_characteristics_part
+
 
 
 
@@ -279,9 +283,34 @@ def export(input_path, output_path, manifest_path=None, stage_path=None):
         if uf is not None and separate_error is None:
             count = sum(len(mesh.get('analyticalFaces', [])) for mesh in meshes)
             record_stage(stage_path, 'captured {} NX analytical cylindrical faces'.format(count))
+        annotations = extract_annotations(part, uf) if input_path.lower().endswith('.prt') else {'pmi': [], 'characteristics': [], 'warnings': []}
+        if input_path.lower().endswith('.prt'):
+            annotations = load_characteristics_part(session, input_path, annotations, design_part=part)
+        if annotations['pmi']:
+            associated_mesh_ids = {}
+            for node_id, body in leaves:
+                try:
+                    associated_mesh_ids[int(body.Tag)] = node_id
+                    for face in body.GetFaces():
+                        associated_mesh_ids[int(face.Tag)] = node_id
+                except Exception:
+                    pass
+            for entry in annotations['pmi']:
+                matched = {associated_mesh_ids[tag] for tag in entry.get('associatedTags', []) if tag in associated_mesh_ids}
+                if len(matched) == 1:
+                    entry['meshId'] = next(iter(matched))
+                elif len(leaves) == 1 and entry.get('position') is not None:
+                    entry['meshId'] = leaves[0][0]
+            for entry in annotations['characteristics']:
+                parent = next((p for p in annotations['pmi'] if p['id'] == entry.get('pmiId')), None)
+                if parent and parent.get('meshId'):
+                    entry['meshId'] = parent['meshId']
+        record_stage(stage_path, 'captured {} PMI records and {} Inspector characteristics'.format(
+            len(annotations['pmi']), len(annotations['characteristics'])))
         manifest = {
             'root': root,
             'partInfo': get_part_information(part),
+            'annotations': annotations,
             'geometryMode': 'separate' if separate_error is None else 'combined',
             'meshes': meshes if separate_error is None else [],
         }

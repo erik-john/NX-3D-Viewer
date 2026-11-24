@@ -3,6 +3,13 @@ const prettySize = value => value == null ? '' : value < 1024 ? `${value} B` :
   value < 1024 * 1024 ? `${(value / 1024).toFixed(1)} KB` : `${(value / (1024 * 1024)).toFixed(1)} MB`;
 const parentPath = path => path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
 const joinPath = (parent, name) => parent ? `${parent}/${name}` : name;
+const chrDesignPath = relative => {
+  const path = relative.replaceAll('\\', '/');
+  if (!/\.chr$/i.test(path)) return null;
+  let name = path.slice(parentPath(path).length ? parentPath(path).length + 1 : 0, -4);
+  if (/_chr$/i.test(name)) name = name.slice(0, -4);
+  return name ? joinPath(parentPath(path), `${name}.prt`) : null;
+};
 const explorerNames = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
 const compareEntries = (a, b) => a.type !== b.type ? (a.type === 'folder' ? -1 : 1) :
   explorerNames.compare(a.name, b.name) || a.name.localeCompare(b.name);
@@ -40,6 +47,8 @@ export class FileWorkspace {
     this.dialog = $('file-workspace');
     this.uploadDialog = $('workspace-upload-dialog');
     this.jtWizard = $('workspace-jt-wizard');
+    this.chrWizard = $('workspace-chr-wizard');
+    this.chrWizardState = null;
     this.wizardState = null;
     this.files = [];
     this.selected = '';
@@ -102,6 +111,23 @@ export class FileWorkspace {
     });
     this.jtWizard.addEventListener('cancel', event => {
       event.preventDefault(); this.finishJtWizard(null);
+    });
+    $('chr-wizard-close').addEventListener('click', () => this.finishChrWizard(false));
+    $('chr-wizard-cancel').addEventListener('click', () => this.finishChrWizard(false));
+    $('chr-wizard-back').addEventListener('click', () => this.changeChrStep(-1));
+    $('chr-wizard-next').addEventListener('click', () => this.changeChrStep(1));
+    $('chr-wizard-choose-part').addEventListener('click', () => $('chr-wizard-part-input').click());
+    $('chr-wizard-part-input').addEventListener('change', event => this.pickChrParts(event.target));
+    $('chr-wizard-choose-chr').addEventListener('click', () => $('chr-wizard-chr-input').click());
+    $('chr-wizard-chr-input').addEventListener('change', event => this.pickChrCompanions(event.target));
+    $('chr-wizard-without-chr').addEventListener('change', event => {
+      if (this.chrWizardState) {
+        this.chrWizardState.withoutChr = event.target.checked;
+        this.renderChrWizard();
+      }
+    });
+    this.chrWizard.addEventListener('cancel', event => {
+      event.preventDefault(); this.finishChrWizard(false);
     });
     this.panel.addEventListener('keydown', event => {
       if (event.key === 'Enter' && this.selected && this.item()?.canOpen) this.openSelected();
@@ -271,6 +297,210 @@ export class FileWorkspace {
       'JT reference detection is not exact. Use “standalone” only for files with no external components.' : '');
   }
 
+  missingChrParts(files, base) {
+    const available = new Set([
+      ...this.files.filter(item => item.type === 'file').map(item => item.path.toLowerCase()),
+      ...files.map(item => joinPath(base, item.relative.replaceAll('\\', '/')).toLowerCase()),
+    ]);
+    return files.filter(item => /\.chr$/i.test(item.relative)).map(item => {
+      const relative = item.relative.replaceAll('\\', '/');
+      const chr = joinPath(base, relative);
+      const part = chrDesignPath(chr);
+      return !part || !available.has(part.toLowerCase()) ? {chr, part, relative} : null;
+    }).filter(Boolean);
+  }
+
+  missingChrCompanions(files, base) {
+    const allChr = [
+      ...this.files.filter(item => item.type === 'file' && /\.chr$/i.test(item.path))
+        .map(item => item.path),
+      ...files.filter(item => /\.chr$/i.test(item.relative))
+        .map(item => joinPath(base, item.relative.replaceAll('\\', '/'))),
+    ];
+    const withChr = new Set(allChr.map(chrDesignPath).filter(Boolean).map(path => path.toLowerCase()));
+    return files.filter(item => /\.prt$/i.test(item.relative)).map(item => {
+      const part = joinPath(base, item.relative.replaceAll('\\', '/'));
+      return withChr.has(part.toLowerCase()) ? null :
+        {part, expected: part.replace(/\.prt$/i, '_chr.chr')};
+    }).filter(Boolean);
+  }
+
+  async reviewChrUpload(files, folders, base) {
+    if (!files.some(item => /\.(chr|prt)$/i.test(item.relative))) return {files, folders};
+    const missingParts = this.missingChrParts(files,base);
+    const missingChrs = this.missingChrCompanions(files,base);
+    if (!missingParts.length && !missingChrs.length && !files.some(item => /\.chr$/i.test(item.relative)))
+      return {files, folders};
+    const state = {files:[...files], folders:[...folders], base, step:0, problem:'',
+      missingParts, missingChrs, withoutChr:false};
+    if (this.chrWizardState) return null;
+    this.chrWizardState = state;
+    const result = new Promise(resolve => {state.resolve = resolve;});
+    this.renderChrWizard();
+    this.chrWizard.showModal();
+    return await result ? {files:state.files, folders:state.folders} : null;
+  }
+
+  finishChrWizard(approved) {
+    const state = this.chrWizardState;
+    if (!state) return;
+    this.chrWizardState = null;
+    if (this.chrWizard.open) this.chrWizard.close();
+    state.resolve?.(approved);
+  }
+
+  refreshChrPairing(state) {
+    state.missingParts = this.missingChrParts(state.files, state.base);
+    state.missingChrs = this.missingChrCompanions(state.files, state.base);
+  }
+
+  pickChrParts(input) {
+    const state = this.chrWizardState;
+    if (!state) return;
+    const picked = Array.from(input.files || []);
+    input.value = '';
+    if (!picked.length) return;
+    const pending = state.missingParts;
+    const incoming = [];
+    for (const file of picked) {
+      // Resolve the destination from the matching CHR, not the local file path.
+      const matching = pending.filter(item => item.part &&
+        item.part.split('/').at(-1).toLowerCase() === file.name.toLowerCase());
+      if (matching.length !== 1) {
+        state.problem = `No unique matching CHR upload for ${file.name}. Choose the PRT named in the review.`;
+        this.renderChrWizard(); return;
+      }
+      const target = matching[0].part;
+      if (incoming.some(item => item.target.toLowerCase() === target.toLowerCase())) {
+        state.problem = `The PRT file ${file.name} was selected more than once.`;
+        this.renderChrWizard(); return;
+      }
+      incoming.push({file, target});
+    }
+    const already = new Set(state.files.map(item => joinPath(state.base,
+      item.relative.replaceAll('\\', '/')).toLowerCase()));
+    for (const item of incoming) if (!already.has(item.target.toLowerCase())) {
+      state.files.push({file:item.file, relative:item.target.slice(state.base ? state.base.length + 1 : 0)});
+      already.add(item.target.toLowerCase());
+    }
+    this.refreshChrPairing(state);
+    state.problem = '';
+    this.renderChrWizard();
+  }
+
+  pickChrCompanions(input) {
+    const state = this.chrWizardState;
+    if (!state) return;
+    const picked = Array.from(input.files || []);
+    input.value = '';
+    if (!picked.length) return;
+    const incoming = [];
+    for (const file of picked) {
+      // A browser file picker exposes only the selected file, not its directory.
+      // Place it beside the one unambiguously matching PRT in the upload batch.
+      const matching = state.missingChrs.filter(item => {
+        const target = joinPath(parentPath(item.part), file.name);
+        return chrDesignPath(target)?.toLowerCase() === item.part.toLowerCase();
+      });
+      if (matching.length !== 1) {
+        state.problem = `No unique matching PRT for ${file.name}. Choose the CHR file named in the review.`;
+        this.renderChrWizard(); return;
+      }
+      const target = joinPath(parentPath(matching[0].part), file.name);
+      if (incoming.some(item => chrDesignPath(item.target)?.toLowerCase() === matching[0].part.toLowerCase())) {
+        state.problem = `More than one CHR was selected for ${matching[0].part}.`;
+        this.renderChrWizard(); return;
+      }
+      incoming.push({file, target});
+    }
+    const already = new Set(state.files.map(item => joinPath(state.base,
+      item.relative.replaceAll('\\', '/')).toLowerCase()));
+    for (const item of incoming) if (!already.has(item.target.toLowerCase())) {
+      state.files.push({file:item.file, relative:item.target.slice(state.base ? state.base.length + 1 : 0)});
+      already.add(item.target.toLowerCase());
+    }
+    this.refreshChrPairing(state);
+    state.problem = '';
+    this.renderChrWizard();
+  }
+
+  changeChrStep(delta) {
+    const state = this.chrWizardState;
+    if (!state) return;
+    if (delta < 0) {state.step = Math.max(0,state.step-1);this.renderChrWizard();return;}
+    if (state.step === 1 && state.missingParts.length) {
+      state.problem = 'Choose the matching PRT file(s) before uploading Characteristics.';
+      this.renderChrWizard(); return;
+    }
+    if (state.step === 1 && state.missingChrs.length && !state.withoutChr) {
+      state.problem = 'Choose the matching CHR file(s), or confirm that the PRT will be uploaded without Characteristics.';
+      this.renderChrWizard(); return;
+    }
+    if (state.step === 2) {this.finishChrWizard(true);return;}
+    state.problem = '';
+    state.step += 1;
+    this.renderChrWizard();
+  }
+
+  renderChrWizard() {
+    const state = this.chrWizardState;
+    if (!state) return;
+    const step = state.step;
+    for (const el of this.chrWizard.querySelectorAll('[data-chr-step]')) {
+      const i = Number(el.dataset.chrStep);
+      el.classList.toggle('is-current',i === step);
+      el.classList.toggle('is-complete',i < step);
+      if (i === step) el.setAttribute('aria-current','step');
+      else el.removeAttribute('aria-current');
+    }
+    const heading = $('chr-wizard-heading');
+    const description = $('chr-wizard-description');
+    const items = $('chr-wizard-items');
+    items.replaceChildren();
+    const add = (name,note) => {
+      const row = document.createElement('div'); row.className = 'jt-wizard-item';
+      const icon = document.createElement('span'); icon.textContent = '⬡';
+      const title = document.createElement('strong'); title.textContent = name;
+      const details = document.createElement('em'); details.textContent = note;
+      row.append(icon,title,details);items.append(row);
+    };
+    $('chr-wizard-back').disabled = step === 0;
+    $('chr-wizard-next').textContent = step === 2 ? 'Upload files' : 'Next ›';
+    $('chr-wizard-part-controls').hidden = step !== 1 || !state.missingParts.length;
+    $('chr-wizard-chr-controls').hidden = step !== 1 || !state.missingChrs.length;
+    $('chr-wizard-without-chr-controls').hidden = step !== 1 || !state.missingChrs.length;
+    $('chr-wizard-without-chr').checked = state.withoutChr;
+    if (step === 0) {
+      heading.textContent = 'Review related NX files';
+      description.textContent = 'PRT files may have matching CHR Characteristics files. Both files can be selected together, or a missing companion can be chosen in the next step.';
+      for (const file of state.files.filter(item => /\.(chr|prt)$/i.test(item.relative))) {
+        const target = joinPath(state.base,file.relative.replaceAll('\\','/'));
+        const match = /\.chr$/i.test(target) ? `Matching PRT: ${chrDesignPath(target) || 'unknown'}` :
+          `Expected CHR: ${target.replace(/\.prt$/i, '_chr.chr')}`;
+        add(target,match);
+      }
+    } else if (step === 1) {
+      heading.textContent = state.missingParts.length || state.missingChrs.length ?
+        'Choose companion files' : 'Related NX files ready';
+      description.textContent = 'CHR files require their matching PRT. PRT files can be uploaded without CHR after explicit confirmation.';
+      if (state.missingParts.length) for (const item of state.missingParts)
+        add(item.part || item.chr, 'Matching PRT required');
+      if (state.missingChrs.length) for (const item of state.missingChrs)
+        add(item.expected, state.withoutChr ? 'PRT-only upload confirmed' : 'Optional matching CHR');
+      if (!state.missingParts.length && !state.missingChrs.length)
+        for (const file of state.files.filter(item => /\.chr$/i.test(item.relative)))
+          add(joinPath(state.base,file.relative.replaceAll('\\', '/')), 'Matching PRT available');
+    } else {
+      heading.textContent = 'Confirm NX file upload';
+      description.textContent = 'PRT files will be uploaded before their CHR companions. Matching Characteristics are kept in the same Workspace folder.';
+      for (const file of state.files) add(joinPath(state.base,file.relative.replaceAll('\\','/')),
+        /\.chr$/i.test(file.relative) ? 'Characteristics' : 'Included');
+      if (state.missingChrs.length) for (const item of state.missingChrs)
+        add(item.expected, 'Not uploaded — PRT-only confirmed');
+    }
+    $('chr-wizard-notice').textContent = state.problem;
+  }
+
   item() { return this.files.find(item => item.path === this.selected); }
   destination() { const item = this.item(); return item?.type === 'folder' ? item.path : parentPath(this.selected); }
   status(message, isError = false) {
@@ -297,7 +527,12 @@ export class FileWorkspace {
   }
   setBusy(active) { this.busy = active; this.syncButtons(); }
   async show() {
-    if (!this.dialog.open) this.dialog.showModal();
+    if (!this.dialog.open) {
+      this.rootExpanded = true;
+      this.expandedFolders.clear();
+      this.selected = '';
+      this.dialog.showModal();
+    }
     await this.refresh();
   }
   showUpload() {
@@ -312,11 +547,6 @@ export class FileWorkspace {
       const data = await api('/api/workspace');
       this.files = data.files;
       const folders = new Set(this.files.filter(item => item.type === 'folder').map(item => item.path));
-      // New folders begin expanded; an existing collapsed state survives refreshes.
-      for (const folder of folders) {
-        if (!this.knownFolders?.has(folder)) this.expandedFolders.add(folder);
-      }
-      this.knownFolders = folders;
       for (const folder of this.expandedFolders) {
         if (!folders.has(folder)) this.expandedFolders.delete(folder);
       }
@@ -469,12 +699,19 @@ export class FileWorkspace {
     if (!reviewed) return;
     files = reviewed.files;
     folders = reviewed.folders;
+    const chrReviewed = await this.reviewChrUpload(files, folders, base);
+    if (!chrReviewed) return;
+    files = chrReviewed.files;
+    folders = chrReviewed.folders;
     // Upload referenced components before parent JT files: an incomplete
     // companion upload must not leave a newly uploaded parent in Workspace.
     const parents = new Set(files.filter(item => /\.jt$/i.test(item.relative) &&
       !/_\d+\.jt$/i.test(item.relative)).map(item => item.relative.toLowerCase()));
-    files = [...files].sort((a,b) => Number(parents.has(a.relative.toLowerCase())) -
-      Number(parents.has(b.relative.toLowerCase())));
+    const uploadRank = item => parents.has(item.relative.toLowerCase()) ? 3 :
+      /\.prt$/i.test(item.relative) ? 0 : /\.chr$/i.test(item.relative) ? 2 : 1;
+    files = [...files].sort((a,b) => uploadRank(a) - uploadRank(b));
+    const incoming = new Set(files.map(item => joinPath(base,item.relative.replaceAll('\\','/')).toLowerCase()));
+    const failedPaths = new Set();
     this.setBusy(true);
     let success = 0, foldersCreated = 0;
     const failures = [];
@@ -503,6 +740,13 @@ export class FileWorkspace {
         this.uploadStatus(`Uploading ${i + 1} of ${files.length}: ${file.name}`);
         if (parents.has(relative.toLowerCase()) && failures.length) {
           failures.push(`${relative}: skipped because a companion file failed to upload.`);
+          failedPaths.add(target.toLowerCase());
+          continue;
+        }
+        const chrParent = chrDesignPath(target)?.toLowerCase();
+        if (chrParent && incoming.has(chrParent) && failedPaths.has(chrParent)) {
+          failures.push(`${relative}: skipped because the related PRT failed to upload.`);
+          failedPaths.add(target.toLowerCase());
           continue;
         }
         try {
@@ -518,7 +762,7 @@ export class FileWorkspace {
             });
           }
           success += 1;
-        } catch (error) { failures.push(`${relative}: ${error.message}`); }
+        } catch (error) { failures.push(`${relative}: ${error.message}`); failedPaths.add(target.toLowerCase()); }
       }
     } catch (error) { failures.push(error.message); }
     finally {
