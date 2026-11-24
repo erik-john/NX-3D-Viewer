@@ -66,10 +66,10 @@ export class AnnotationDisplay {
     this.layer.replaceChildren();
     this.svg = null;
   }
-  addDimension(item) {
-    const native = nativeLines(item);
+  addDimension(item, source = item, key = 'pmi') {
+    const native = nativeLines(source);
     const actual = native.length > 0;
-    if (!actual && !dimensionGuide(item)) return;
+    if (!actual && !dimensionGuide(source)) return;
     if (!this.svg) {
       this.svg = svgNode('svg');
       this.svg.classList.add('annotation-dimensions');
@@ -78,14 +78,15 @@ export class AnnotationDisplay {
     }
     const group = svgNode('g');
     group.classList.add('annotation-dimension');
+    group.classList.add(`annotation-dimension-${key}`);
     group.dataset.annotationId = item.id;
     group.dataset.geometrySource = actual ? 'nx-components' : 'nx-associativity';
     const lines = Array.from({length: actual ? native.length : 3}, () => svgNode('line'));
-    const arrows = Array.from({length: actual ? nativeArrows(item).length : 2}, () => svgNode('polygon'));
+    const arrows = Array.from({length: actual ? nativeArrows(source).length : 2}, () => svgNode('polygon'));
     group.append(...lines, ...arrows);
     group.addEventListener('click', () => this.onSelect(item.id));
     this.svg.append(group);
-    this.linework.push({item, group, lines, arrows, actual, native});
+    this.linework.push({item, source, key, group, lines, arrows, actual, native});
   }
   setData(data) {
     this.clear();
@@ -95,10 +96,13 @@ export class AnnotationDisplay {
     const pmiById = new Map(this.data.pmi.map(item => [item.id, item]));
     for (const [key, list] of Object.entries(this.data)) {
       for (const item of list) {
+        const linkedPmi = key === 'characteristics' ? pmiById.get(item.pmiId) : null;
         if (key === 'pmi') this.addDimension(item);
-        const location = validPoint(item.position) ? item.position :
+        else if (linkedPmi) this.addDimension(item, linkedPmi, key);
+        const location = (linkedPmi && validPoint(linkedPmi.position) ? linkedPmi.position : null) ||
+          (validPoint(item.position) ? item.position : null) ||
           (key === 'pmi' ? item.presentation?.texts?.find(entry => validPoint(entry.position))?.position : null) ||
-          (key === 'characteristics' ? pmiById.get(item.pmiId)?.position : null);
+          (linkedPmi ? linkedPmi.presentation?.texts?.find(entry => validPoint(entry.position))?.position : null);
         if (!validPoint(location)) continue;
         const label = document.createElement('button');
         label.type = 'button';
@@ -138,7 +142,8 @@ export class AnnotationDisplay {
     const matrix = this.viewer.cameraMatrix(rect.width, rect.height).matrix;
     if (this.svg) this.svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
     for (const {key, item, location, label} of this.elements) {
-      const {mesh, xyz} = this.position(item, location);
+      const source = key === 'characteristics' ? this.data.pmi.find(pmi => pmi.id === item.pmiId) : null;
+      const {mesh, xyz} = this.position({...item, meshId: item.meshId || source?.meshId}, location);
       const xy = xyz ? projectPoint(matrix, xyz, rect.width, rect.height) : null;
       const shown = this.visibility[key] && xy && xy[0] > -50 && xy[0] < rect.width + 50 &&
         xy[1] > -50 && xy[1] < rect.height + 50 && (!mesh || mesh.visible);
@@ -149,9 +154,9 @@ export class AnnotationDisplay {
         label.style.top = `${xy[1]}px`;
       }
     }
-    for (const {item, group, lines, arrows, actual, native} of this.linework) {
-      const mesh = this.viewer.geometry.find(entry => entry.meshId === item.meshId);
-      const enabled = this.visibility.pmi && (!mesh || mesh.visible);
+    for (const {item, source, key, group, lines, arrows, actual, native} of this.linework) {
+      const mesh = this.viewer.geometry.find(entry => entry.meshId === (item.meshId || source.meshId));
+      const enabled = this.visibility[key] && (!mesh || mesh.visible);
       group.classList.toggle('is-selected', item.id === this.selectedId);
       if (actual) {
         let anyVisible = false;
@@ -168,7 +173,7 @@ export class AnnotationDisplay {
         }).filter(Boolean);
         // Arrows are placed at NX's recorded tips and oriented along their
         // nearest visible dimension/leader segment, without changing the tip.
-        nativeArrows(item).forEach((itemArrow, index) => {
+        nativeArrows(source).forEach((itemArrow, index) => {
           const xyz = nxToViewer(itemArrow.point);
           const tip = xyz && projectPoint(matrix, annAdd(xyz, offset), rect.width, rect.height);
           let choice = null, distance = Infinity;
@@ -185,7 +190,7 @@ export class AnnotationDisplay {
         group.setAttribute('visibility', enabled && anyVisible ? 'visible' : 'hidden');
         continue;
       }
-      const guide = dimensionGuide(item, mesh?.offset);
+      const guide = dimensionGuide(source, mesh?.offset);
       const xy = guide && [guide.start, guide.end, guide.first, guide.second]
         .map(point => projectPoint(matrix, point, rect.width, rect.height));
       const shown = enabled && xy && xy.every(Boolean);

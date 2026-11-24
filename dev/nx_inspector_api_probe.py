@@ -226,4 +226,16 @@ if __name__ == '__main__':
     args = sys.argv[sys.argv.index('-args') + 1:] if '-args' in sys.argv else sys.argv[1:]
     if len(args) != 2:
         raise RuntimeError('Supply part filepath and JSON output path.')
-    run(os.path.abspath(args[0]), os.path.abspath(args[1]))
+    source_path, output_path = os.path.abspath(args[0]), os.path.abspath(args[1])
+    try:
+        run(source_path, output_path)
+    except Exception as exc:
+        # Preserve diagnostic evidence even when NX cannot initialize or open CHR.
+        report = {
+            'sourceName': os.path.basename(source_path),
+            'sourceExtension': os.path.splitext(source_path)[1].lower(),
+            'probeFatalError': '{}: {}'.format(type(exc).__name__, str(exc))[:1000],
+            'probeTraceback': traceback.format_exc()[-6000:],
+        }
+        write_report(output_path, report)
+        print('NX Inspector probe failed; diagnostic JSON saved: ' + output_path)

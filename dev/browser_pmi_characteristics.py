@@ -40,13 +40,14 @@ with sync_playwright() as p:
     assert page.locator('.tree-row[data-kind="pmi"]').count() == 0
     assert page.locator('.tree-row[data-kind="characteristic"]').count() == 0
     assert page.locator('#inspector-tab-pmi').is_enabled()
-    assert page.locator('.annotation-dimension').get_attribute('visibility') == 'hidden'
+    assert page.locator('.annotation-dimension-pmi').get_attribute('visibility') == 'hidden'
     assert page.locator('#inspector-tab-characteristics').is_enabled()
     assert page.locator('.annotation-marker-pmi').count() == 1
-    assert page.locator('.annotation-dimension line').count() == 3
-    assert page.locator('.annotation-dimension polygon').count() == 2
+    assert page.locator('.annotation-dimension-pmi line').count() == 3
+    assert page.locator('.annotation-dimension-pmi polygon').count() == 2
     assert page.locator('.annotation-marker-characteristics').count() == 1
     page.locator('#inspector-tab-characteristics').click()
+    assert page.locator('.annotation-dimension-characteristics').get_attribute('visibility') == 'visible'
     assert page.locator('.annotation-marker-characteristics').first.is_visible()
     assert page.locator('.annotation-marker-pmi').first.is_hidden()
     assert page.locator('.annotation-records-section .inspector-annotation-item').count() == 1
@@ -61,7 +62,7 @@ with sync_playwright() as p:
     if os.environ.get('NX_ANNOTATION_PREVIEW'):
         page.screenshot(path=os.environ['NX_ANNOTATION_PREVIEW'])
     page.locator('#inspector-tab-pmi').click()
-    assert page.locator('.annotation-dimension').get_attribute('visibility') == 'visible'
+    assert page.locator('.annotation-dimension-pmi').get_attribute('visibility') == 'visible'
     assert page.locator('.annotation-marker-characteristics').first.is_hidden()
     page.locator('.inspector-annotation-item').first.click()
     right = page.locator('#inspector-content').inner_text()
@@ -72,12 +73,12 @@ with sync_playwright() as p:
     assert 'Size' in right and 'Tolerance Type' in right and 'No Tolerance' in right, right
     assert page.locator('.pmi-dependency-list li').count() == 3, right
     assert page.locator('.characteristic-parameter-table tbody tr').count() >= 5, right
-    assert page.locator('.annotation-dimension.is-selected').count() == 1
+    assert page.locator('.annotation-dimension-pmi.is-selected').count() == 1
     if os.environ.get('NX_PMI_PREVIEW'):
         page.screenshot(path=os.environ['NX_PMI_PREVIEW'])
     page.locator('#inspector-tab-information').click()
     assert page.locator('#inspector-tab-information').get_attribute('aria-selected') == 'true'
-    assert page.locator('.annotation-dimension').get_attribute('visibility') == 'hidden'
+    assert page.locator('.annotation-dimension-pmi').get_attribute('visibility') == 'hidden'
     assert page.locator('#show-pmi-toggle').count() == 0
     assert page.locator('#show-characteristics-toggle').count() == 0
     assert not errors, errors

@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from pmi_export import characteristic_records
+from inspector_gateway import read_inspector_records
 
 
 def find_characteristics_part(source):
@@ -77,7 +78,7 @@ def _opened_part(opened):
     return opened, None
 
 
-def load_characteristics_part(session, part_path, annotations):
+def load_characteristics_part(session, part_path, annotations, design_part=None):
     """Extract Inspector records without modifying or saving native NX data.
 
     Called after the PRT's STL and PMI data have already been produced. NX Open
@@ -103,7 +104,13 @@ def load_characteristics_part(session, part_path, annotations):
         part, status = _opened_part(opened)
         if part is None:
             raise RuntimeError('NX did not return the Characteristics part.')
-        entries, warnings = characteristic_records(part, annotations.get('pmi', []))
+        entries, warnings = read_inspector_records(
+            session, design_part, part, annotations.get('pmi', []))
+        if not entries:
+            previous, previous_warnings = characteristic_records(part, annotations.get('pmi', []))
+            entries = previous
+            if entries:
+                warnings = previous_warnings
         if entries:
             current = list(annotations.get('characteristics') or [])
             existing = {str(item.get('details', {}).get('UUID') or item.get('name') or '').casefold()
@@ -127,7 +134,7 @@ def load_characteristics_part(session, part_path, annotations):
             annotations.setdefault('warnings', []).append(
                 'The associated .chr file was found, but NX did not expose its '
                 'Inspector records through the available read-only accessors. '
-                'Run dev/nx_inspector_api_probe.py with the .chr path.')
+                'Read-only Inspector results: ' + ' | '.join(warnings)[:300])
     except Exception as error:
         annotations.setdefault('warnings', []).append(
             'NX could not read the associated Characteristics part "{}": {}. '

@@ -25,13 +25,13 @@ assert.deepEqual(Array.from(data.overall.size), [12,30,5]);
 assert.equal(data.byMesh.get('a').triangles, 1);
 
 class Element {
-  constructor() { this.children = []; this.textContent = ''; this.listeners = {}; this.attrs = {}; this.classes = new Set(); this.classList = {contains: n=>this.classes.has(n), toggle:(n, val)=>{ if(val)this.classes.add(n);else this.classes.delete(n); }}; }
+  constructor(tagName = '') { this.tagName = tagName; this.children = []; this.textContent = ''; this.listeners = {}; this.attrs = {}; this.classes = new Set(); this.classList = {contains: n=>this.classes.has(n), toggle:(n, val)=>{ if(val)this.classes.add(n);else this.classes.delete(n); }}; }
   append(...items) { this.children.push(...items); }
   replaceChildren(...items) { this.children = [...items]; }
   setAttribute(name, value) { this.attrs[name] = value; }
   addEventListener(name, listener) { this.listeners[name] = listener; }
 }
-context.document = { createElement: () => new Element() };
+context.document = { createElement: (tagName) => new Element(tagName) };
 function visibleText(element) { return [element.textContent, ...element.children.map(visibleText)].join(' '); }
 const panel = new Element(), toggle = new Element(), content = new Element();
 const inspector = new PartInspector({ panel, toggle, content });
@@ -60,3 +60,26 @@ assert.equal(panel.classList.contains('is-collapsed'),true);
 toggle.listeners.click();
 assert.equal(panel.classList.contains('is-collapsed'),false);
 console.log('Inspector: geometry, file metadata, selection, fallback and collapse checks passed.');
+
+// Keep the source file information after the engineering records in the Characteristics tab.
+const characteristic = {id:'chr_1',type:'characteristic',name:'PC1',details:{Designator:'PC1',NominalValue:'55.0'}};
+const otherCharacteristic = {id:'chr_2',type:'characteristic',name:'PC2',details:{Designator:'PC2',NominalValue:'12.0'}};
+const chrInfo = {...info,annotations:{characteristics:[characteristic,otherCharacteristic],
+  characteristicsFile:{name:'Bolt M12x55_chr.chr',status:'loaded'}}};
+inspector.show(chrInfo,[meshA,meshB]);
+inspector.select(characteristic);
+function inspectorHeadings() {
+  return content.children.map(child => child.children.find(element => element.tagName === 'h3')?.textContent).filter(Boolean);
+}
+assert.deepEqual(inspectorHeadings(), [
+  'Characteristic Navigator (2)', 'Characteristic Instances', 'Characteristic',
+  'Characteristic Instance Details', 'Characteristics Source',
+]);
+inspector.selected = null;
+inspector.render();
+assert.equal(inspectorHeadings().at(-1), 'Characteristics Source');
+inspector.show({...info,annotations:{characteristics:[],characteristicsFile:{name:'Bolt M12x55_chr.chr',
+  status:'unavailable',observedDesignators:[{designator:'PC1',uuid:'sample'}]}}},[meshA,meshB]);
+inspector.activeTab = 'characteristics';
+inspector.render();
+assert.equal(inspectorHeadings().at(-1), 'Characteristics Source');

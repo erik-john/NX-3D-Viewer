@@ -285,7 +285,7 @@ def export(input_path, output_path, manifest_path=None, stage_path=None):
             record_stage(stage_path, 'captured {} NX analytical cylindrical faces'.format(count))
         annotations = extract_annotations(part, uf) if input_path.lower().endswith('.prt') else {'pmi': [], 'characteristics': [], 'warnings': []}
         if input_path.lower().endswith('.prt'):
-            annotations = load_characteristics_part(session, input_path, annotations)
+            annotations = load_characteristics_part(session, input_path, annotations, design_part=part)
         if annotations['pmi']:
             associated_mesh_ids = {}
             for node_id, body in leaves:

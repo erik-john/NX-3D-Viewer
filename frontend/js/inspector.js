@@ -492,9 +492,11 @@ export class PartInspector {
   renderCharacteristics() {
     const items = this.info.annotations?.characteristics || [];
     const source = this.info.annotations?.characteristicsFile;
-    if (source?.name) section(this.content, 'Characteristics Source', [
-      ['File', source.name, true], ['NX extraction', source.status],
-    ]);
+    const renderSource = () => {
+      if (source?.name) section(this.content, 'Characteristics Source', [
+        ['File', source.name, true], ['NX extraction', source.status],
+      ]);
+    };
     if (!items.length && source?.name) {
       const hints = Array.isArray(source.observedDesignators) ? source.observedDesignators : [];
       if (hints.length) section(this.content, 'Identifiers detected in CHR (unverified)',
@@ -502,12 +504,14 @@ export class PartInspector {
         'These identifiers were observed in the native binary file. They are not decoded NX Characteristic instances and cannot be used as engineering parameter records.');
       section(this.content, 'Characteristic extraction unavailable', [],
         'The companion CHR file was found, but NX did not return readable Inspector instances. No parameter values or PMI links have been inferred. Run the read-only NX Inspector API diagnostic to identify the supported NX 2506 interface.');
+      renderSource();
       return;
     }
     this.renderAnnotationList(items, 'characteristic');
     const selected = items.find(entry => entry.id === this.selected?.id) || (items.length === 1 ? items[0] : null);
     if (!selected) {
       section(this.content, 'Characteristic Instance Details', [], 'Choose a Characteristic record above to inspect its saved parameters.');
+      renderSource();
       return;
     }
     const instances = document.createElement('section');
@@ -519,8 +523,11 @@ export class PartInspector {
     this.content.append(instances);
     section(this.content, 'Characteristic', [
       ['Designator', selected.name, true],
-      ['Linked PMI', selected.pmiId || 'Not reported', true],
+      [selected.associationSource?.includes('inferred') ? 'Linked PMI (inferred)' : 'Linked PMI',
+        selected.pmiId || 'Not reported', true],
+      ['Association source', selected.associationSource || null, true],
     ]);
     characteristicTable(this.content, selected.details || {});
+    renderSource();
   }
 }
