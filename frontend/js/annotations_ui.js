@@ -46,6 +46,37 @@ function arrow(node, tip, other) {
   node.setAttribute('points', `${tip.join(',')} ${base[0] - uy * 3.3},${base[1] + ux * 3.3} ${base[0] + uy * 3.3},${base[1] - ux * 3.3}`);
 }
 
+// A component is a logical meshId, possibly split into several STL buffers.
+// Never infer a particular component for an ambiguous multi-body annotation.
+// With one logical body (or the whole model retained at a common offset),
+// no component association needs to be guessed to preserve the presentation.
+export function sectionAnnotationRetained(item, source, geometry, retained) {
+  const byId = new Map();
+  for (const part of geometry) {
+    if (!byId.has(part.meshId)) byId.set(part.meshId, []);
+    byId.get(part.meshId).push(part);
+  }
+  if (!byId.size) return false;
+  const refs = [...new Set([...(Array.isArray(source?.meshIds) ? source.meshIds : []),
+    source?.meshId, item?.meshId].filter(Boolean))];
+  const isRetained = id => byId.get(id)?.some(p => p.visible && retained.has(p));
+  const sameOffset = ids => {
+    const parts = ids.flatMap(id => byId.get(id) || []);
+    const offset = parts[0]?.offset;
+    return !!offset && parts.every(p => p.offset.every((v,i) => Math.abs(v-offset[i]) < 1e-7));
+  };
+  const all = [...byId.keys()];
+  // Known missing or hidden references must not be ignored, except for the
+  // combined-mesh fallback (root), which has no individual body IDs.
+  const combined = all.length === 1 && all[0] === 'root';
+  if (!combined && refs.some(id => !isRetained(id))) return false;
+  if (all.length === 1) return isRetained(all[0]) && sameOffset(all);
+  // Explicit native references, or legacy viewer mesh associations, are used
+  // when available. Explicitly incomplete NX associations are not trusted.
+  if (refs.length && source?.associationVerified !== false) return sameOffset(refs);
+  return all.every(isRetained) && sameOffset(all);
+}
+
 export class AnnotationDisplay {
   constructor(viewer, layer, onSelect) {
     this.viewer = viewer;
@@ -135,6 +166,89 @@ export class AnnotationDisplay {
     const local = nxToViewer(value);
     const mesh = this.viewer.geometry.find(entry => entry.meshId === item.meshId);
     return {mesh, xyz: local && mesh ? annAdd(local, mesh.offset) : local};
+  }
+  hasDisplayedAnnotations() {
+    return this.elements.some(e => this.visibility[e.key] && !e.label.hidden) ||
+      this.linework.some(e => this.visibility[e.key] && e.group.getAttribute('visibility') === 'visible');
+  }
+  // Freeze the displayed presentation before export changes mesh visibility.
+  // NX presentation graphics may extend across the cut plane; they are not
+  // model geometry and must not be clipped or require dimension endpoints.
+  captureSectionOverlay(retained, rect) {
+    this.update();
+    const candidates = new Map();
+    const get = e => {
+      const id = `${e.key}:${e.item.id}`;
+      if (!candidates.has(id)) candidates.set(id, {key:e.key, item:e.item, lines:[], arrows:[]});
+      return candidates.get(id);
+    };
+    const number = (node, key) => {
+      const value = node.getAttribute(key);
+      return value === null || value === '' ? NaN : Number(value);
+    };
+    for (const e of this.linework) {
+      if (!this.visibility[e.key] || e.group.getAttribute('visibility') !== 'visible') continue;
+      const record = get(e);
+      for (const node of e.lines) {
+        if (node.getAttribute('visibility') === 'hidden') continue;
+        const line = ['x1','y1','x2','y2'].map(key => number(node,key));
+        if (line.every(Number.isFinite)) record.lines.push(line);
+      }
+      for (const node of e.arrows) {
+        if (node.getAttribute('visibility') === 'hidden') continue;
+        const raw = node.getAttribute('points')?.trim();
+        const points = raw ? raw.split(/[\s,]+/).map(Number) : [];
+        if (points.length === 6 && points.every(Number.isFinite)) record.arrows.push(points);
+      }
+    }
+    for (const e of this.elements) {
+      if (!this.visibility[e.key] || e.label.hidden) continue;
+      const x = parseFloat(e.label.style.left), y = parseFloat(e.label.style.top);
+      if (Number.isFinite(x) && Number.isFinite(y)) get(e).label = {x,y,text:e.label.textContent};
+    }
+    const overlay = {width:rect.width, height:rect.height, displayed:0, omitted:0, records:[]};
+    for (const record of candidates.values()) {
+      if (!record.label && !record.lines.length && !record.arrows.length) continue;
+      overlay.displayed++;
+      const source = record.key === 'characteristics' ?
+        this.data.pmi.find(p => p.id === record.item.pmiId) : record.item;
+      if (sectionAnnotationRetained(record.item, source, this.viewer.geometry, retained)) overlay.records.push(record);
+      else overlay.omitted++;
+    }
+    this.sectionOmitted = overlay.omitted;
+    this.sectionIncluded = overlay.records.length;
+    return overlay;
+  }
+  paintSection(ctx, width, height, overlay) {
+    if (!overlay?.records.length) return;
+    ctx.save();
+    try {
+      ctx.scale(width / overlay.width, height / overlay.height);
+      ctx.strokeStyle = ctx.fillStyle = '#253947'; ctx.lineWidth = 1.45;
+      for (const e of overlay.records) {
+        for (const [x1,y1,x2,y2] of e.lines) {
+          ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        }
+        for (const [x1,y1,x2,y2,x3,y3] of e.arrows) {
+          ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+      for (const e of overlay.records) {
+        if (!e.label) continue;
+        const {x,y,text} = e.label;
+        const chr = e.key === 'characteristics';
+        ctx.font = `700 ${chr?12:15}px Arial, sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        const baseline = y - (chr?45:11);
+        if (chr) {
+          const w = ctx.measureText(text).width + 14;
+          ctx.fillStyle = '#e6f7f2'; ctx.fillRect(x-w/2,baseline-17,w,21);
+          ctx.strokeStyle = '#0c8d72'; ctx.strokeRect(x-w/2,baseline-17,w,21);
+        }
+        ctx.fillStyle = chr?'#055d62':'#263b48'; ctx.fillText(text,x,baseline);
+      }
+    } finally {ctx.restore();}
   }
   update() {
     const rect = this.viewer.canvas.getBoundingClientRect();

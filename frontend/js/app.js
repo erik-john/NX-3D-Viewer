@@ -680,7 +680,7 @@ function setup() {
     }
     button.disabled = true;
     try {
-      const snapshot = viewer.captureSectionImage();
+      const snapshot = viewer.captureSectionImage(annotations);
       const image = composeSectionImage(snapshot, {filename: openedModelName,
         section: {...viewer.section}, logo: document.querySelector('.brand-logo')});
       const blob = await new Promise((resolve, reject) => image.toBlob(result =>
@@ -706,6 +706,8 @@ function setup() {
       }
       $('section-status').textContent = handlePromise ? `Saved ${chosenFilename}` :
         `PNG downloaded: ${filename} · Browser download settings control the save location.`;
+      if (annotations.sectionIncluded) $('section-status').textContent += ` · ${annotations.sectionIncluded} annotation(s) included.`;
+      if (annotations.sectionOmitted) $('section-status').textContent += ` · ${annotations.sectionOmitted} annotation(s) omitted (hidden, ambiguous or inconsistent component references).`;
     } catch (error) {
       if (error.name !== 'AbortError') $('section-status').textContent = `Image export failed: ${error.message}`;
     } finally {

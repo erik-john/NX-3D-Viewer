@@ -1010,7 +1010,7 @@ export class Viewer {
 
   // Read a clean, actual WebGL section frame into an independent 2D canvas.
   // No asynchronous work runs before the viewer state is fully restored.
-  captureSectionImage() {
+  captureSectionImage(annotations = null) {
     const plane = this.getSectionPlane();
     if (!plane) throw new Error('Activate Section / Cut Face before saving an image.');
     if (!this.stencilAvailable) throw new Error('This browser does not support filled cut faces.');
@@ -1021,18 +1021,22 @@ export class Viewer {
     const previousFill = this.section.showCap;
     const previousWireframe = this.wireframe;
     const affected = new Set(cut.map(item => item.part));
+    const bounds = this.canvas.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) throw new Error('The 3D viewport has no drawable area.');
+    const overlay = annotations?.captureSectionOverlay(affected, bounds);
     let imageCanvas;
     try {
       for (const item of original) {
         item.part.visible = affected.has(item.part);
         item.part.opacity = 1;
       }
-      for (const item of cut) item.part.offset = item.offset;
+      if (!overlay?.displayed) {
+        for (const item of cut) item.part.offset = item.offset;
+      }
       this.section.showCap = true;
       this.wireframe = false;
       this.sectionExportActive = true;
       const gl = this.gl;
-      const bounds = this.canvas.getBoundingClientRect();
       const aspect = bounds.width / bounds.height;
       const maxSize = Math.min(3072, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 2048);
       const nativeWidth = Math.round(bounds.width * Math.min(window.devicePixelRatio || 1, 2));
@@ -1057,6 +1061,7 @@ export class Viewer {
         image.data.set(pixels.subarray(src, src + stride), y * stride);
       }
       context.putImageData(image, 0, 0);
+      annotations?.paintSection(context, width, height, overlay);
     } finally {
       this.sectionExportActive = false;
       this.section.showCap = previousFill;
