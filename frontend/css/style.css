@@ -1519,3 +1519,31 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
   .app-header .header-measure-button { padding-inline: 4px !important; }
   .app-header .header-measure-button svg { width: 14px; height: 14px; }
 }
+
+/* The compact section editor floats over the viewport; no new header width. */
+.section-panel { position:absolute; z-index:8; top:80px; left:22px; width:284px;
+  box-sizing:border-box; padding:13px 14px; border:1px solid #8dbfb5; border-radius:12px;
+  background:#fdfefeef; box-shadow:0 12px 30px #2347552e; color:#294958;
+  backdrop-filter:blur(10px); }
+.section-panel[hidden] { display:none; }
+.section-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+.section-heading strong { font-size:13px; }
+.section-heading button { background:transparent; border:1px solid #cfdee2; border-radius:6px;
+  width:24px; height:24px; font-size:19px; line-height:1; color:#537583; cursor:pointer; }
+.section-axes { display:flex; gap:7px; }
+.section-axes button { flex:1; border:1px solid #ccdade; border-radius:6px; background:#f7fafb;
+  height:30px; color:#426071; font-size:12px; font-weight:750; cursor:pointer; }
+.section-axes button[aria-pressed="true"] { background:#daf2eb; color:#05756a; border-color:#4da99c; }
+.section-depth-label { display:flex; justify-content:space-between; margin:11px 0 5px;
+  font-size:11px; font-weight:700; }
+#section-depth-value { color:#047870; font-variant-numeric:tabular-nums; }
+#section-depth { width:100%; accent-color:#118b80; cursor:pointer; }
+.section-bottom-row { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:9px; }
+.section-bottom-row > button { height:28px; padding:0 9px; border:1px solid #c5d8db;
+  border-radius:6px; background:#f3f8f8; color:#365d66; cursor:pointer; font-size:11px; }
+.section-bottom-row > button[aria-pressed="true"] { border-color:#3f9e90; color:#04796d; background:#e1f4ee; }
+.section-bottom-row label { display:flex; align-items:center; gap:5px; font-size:11px; white-space:nowrap; }
+.section-bottom-row input { accent-color:#088a7c; }
+.section-status { border-top:1px solid #e2eceb; margin-top:11px; padding-top:8px;
+  font-size:11px; line-height:1.4; color:#59707c; }
+@media (max-width:740px) { .section-panel { top:66px; left:12px; width:min(284px, calc(100% - 85px)); } }

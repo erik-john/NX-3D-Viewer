@@ -38,6 +38,31 @@ function setup() {
   let componentColorEnabled = false;
   let componentColors = { available: false, colors: new Map() };
   const canExplode = () => explodeGroups.length >= 2;
+  let sectionEnabled = false;
+  let sectionAxis = 'X';
+  let sectionReversed = false;
+  let sectionFill = true;
+
+  function refreshSection() {
+    viewer.setSection({ enabled: sectionEnabled, axis: sectionAxis,
+      percent: Number($('section-depth').value), reversed: sectionReversed,
+      showCap: sectionFill });
+    const state = sectionEnabled ? viewer.sectionState() : { active: false, caps: 0, open: 0 };
+    $('section-menu-button').classList.toggle('active', sectionEnabled);
+    $('section-menu-button').setAttribute('aria-pressed', String(sectionEnabled));
+    $('section-panel').hidden = !sectionEnabled;
+    $('section-depth-value').textContent = `${$('section-depth').value}%`;
+    for (const button of document.querySelectorAll('[data-section-axis]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.sectionAxis === sectionAxis));
+    }
+    $('section-flip').setAttribute('aria-pressed', String(sectionReversed));
+    $('section-cap').checked = sectionFill;
+    $('section-status').textContent = !state.active ? 'Section inactive' : !state.stencil && sectionFill
+      ? 'Cut active · solid caps unavailable (stencil support required)'
+      : `${state.caps} closed cut face(s) · ${state.open} open mesh(es)` +
+        (state.open ? ' (open meshes are not filled)' : '');
+  }
+
 
   function updateComponentColorMode() {
     const active = componentColors.available && componentColorEnabled;
@@ -65,6 +90,7 @@ function setup() {
   }
   function applyVisibility(map) {
     for (const [id, visible] of map) viewer.setMeshVisible(id, visible);
+    if (sectionEnabled) refreshSection();
     tree.setVisibilityFromMeshes(map);
     updateMoveActions();
   }
@@ -166,6 +192,7 @@ function setup() {
       for (const meshId of group.meshIds) offsets.set(meshId, manual.slice());
     }
     viewer.setManualOffsets(offsets);
+    if (sectionEnabled) refreshSection();
     updateMoveActions();
   }
   function beginMoveSnapshot() {
@@ -237,6 +264,7 @@ function setup() {
   }
   function applyExplosion() {
     viewer.setExplodeOffsets(calculateExplodeOffsets(explodeGroups, explodeBounds, explodeLevel, selectedOverrides));
+    if (sectionEnabled) refreshSection();
     viewer.fit();
     updateExplodeControls();
     updateMoveActions();
@@ -261,6 +289,7 @@ function setup() {
     container: $('model-tree'), summary: $('tree-summary'), note: $('tree-note'),
     onVisibility: (meshId, visible) => {
       viewer.setMeshVisible(meshId, visible);
+      if (sectionEnabled) refreshSection();
       // A manual visibility change takes ownership of the current visibility state.
       // Do not later overwrite it with a stale pre-isolation snapshot.
       if (isolated) isolated = null;
@@ -361,6 +390,9 @@ function setup() {
   }
 
   function clearScene() {
+    sectionEnabled = false;
+    $('section-menu-button').disabled = true;
+    refreshSection();
     isolated = null;
     viewer.setScene([]);
     setMeasureMode(false);
@@ -456,6 +488,9 @@ function setup() {
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
       const { meshes, perBody } = await loadGeometry(info);
       viewer.setScene(meshes);
+      $('section-menu-button').disabled = !viewer.geometry.length;
+      sectionEnabled = false;
+      refreshSection();
       measurement.setModelUnits(info.nx?.units);
       updateMeasureButton();
       const geometryStructure = info.tree || { id: 'root', name: info.name, type: 'part', children: [] };
@@ -552,7 +587,22 @@ function setup() {
   }
   $('fit-button').addEventListener('click', () => viewer.fit());
   $('fit-menu-button').addEventListener('click', () => viewer.fit());
-  $('measure-planes-toggle').addEventListener('click', () => setMeasureMode(!measureMode));
+  $('measure-planes-toggle').addEventListener('click', () => {
+    if (sectionEnabled) { sectionEnabled = false; refreshSection(); }
+    setMeasureMode(!measureMode);
+  });
+  $('section-menu-button').addEventListener('click', () => {
+    sectionEnabled = !sectionEnabled;
+    if (sectionEnabled && measureMode) setMeasureMode(false);
+    refreshSection();
+  });
+  $('section-close').addEventListener('click', () => { sectionEnabled = false; refreshSection(); });
+  for (const button of document.querySelectorAll('[data-section-axis]')) {
+    button.addEventListener('click', () => { sectionAxis = button.dataset.sectionAxis; refreshSection(); });
+  }
+  $('section-depth').addEventListener('input', refreshSection);
+  $('section-flip').addEventListener('click', () => { sectionReversed = !sectionReversed; refreshSection(); });
+  $('section-cap').addEventListener('change', () => { sectionFill = $('section-cap').checked; refreshSection(); });
   for (const button of [$('component-color-toggle'), $('component-color-menu-button')]) {
     button.addEventListener('click', () => {
       if (!componentColors.available) return;
