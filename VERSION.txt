@@ -1,3 +1,22 @@
+MS45 — Step 1: LAN Access
+
+Status: LAN access, client-side viewing without NX, single-launcher startup and automatic IPv4 selection verified by the user. Workspace-only toolbar update implemented; user verification of the revised UI pending.
+- Run.bat starts in LAN mode by automatically detecting a connected private IPv4 address (TCP 8888). No manual IP configuration required on a typical single-adapter LAN.
+- Direct development startup (py -3 backend/server.py) remains localhost-only. Run.bat --local selects localhost explicitly; --lan SERVER_IPV4 overrides automatic selection.
+- Windows detection prioritizes connected physical Ethernet/Wi-Fi adapters over virtual adapters, including on isolated LANs without a default gateway. If no physical address is available, connected private virtual/other adapters remain eligible. OS route selection resolves multiple eligible addresses when possible without sending traffic or requiring Internet access. Remaining ambiguity or unavailable addresses produce an error; no public or wildcard bind. User-reported multiple-adapter startup failure addressed and Windows retest confirmed by the user.
+- One-time firewall setup: from an elevated PowerShell, run .\Run.bat --firewall. Creates a persistent TCP 8888 inbound rule for Private/Domain profiles and LocalSubnet only; reuses matching rules and does not overwrite conflicting rules. Firewall setup remains separate from normal startup.
+- Server maintenance: stop the server with Ctrl+C, wait for active requests to finish, deploy updated source, and run Run.bat again. If CMD asks whether to terminate the batch job, confirm with Y after shutdown.
+- Removed the previous Restart.bat, automatic restart coordination, and saved runtime IP settings logic in favor of a single launcher. No restart settings or lock files are created by this version. Old runtime coordination files from earlier versions are not used or automatically deleted.
+- Restrict Host headers to the bound address (local aliases in local mode); validate mutation origins, including LAN browser writes.
+- Removed the OPEN NX FILES toolbar button and direct file-picker UI in local and LAN modes. Workspace is the sole UI for file upload and opening; existing companion-file workflows and model-open concurrency guard are preserved. Legacy local-only /api/open remains available for compatibility and is blocked in LAN mode.
+- Trusted LAN only: shared Workspace, no authentication or TLS yet. Restrict firewall access to trusted clients; no public exposure.
+- NX conversion remains on the server and requires NX 2506; no NX installation required on browser clients.
+- Preserve the verified MS44 visualization and section export features. README updated at user request with verified server startup, firewall setup, local development, maintenance and Workspace usage. Future PLM permissions are not implemented.
+
+- Documentation: simplified README run commands and moved detailed server operation, deployment and troubleshooting to the existing User Manual; corrected outdated MS40 references. Documentation-only update; application code unchanged.
+
+Previous milestone:
+
 MS44 — Section View and Image Export
 
 Status: Completed. Section view and PNG export with PMI and

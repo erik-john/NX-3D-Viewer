@@ -1,5 +1,10 @@
-"""Serve the local NX 3D Viewer on port 8888."""
+"""Serve NX 3D Viewer locally or on a selected private LAN address."""
 
+import argparse
+import os
+import socket
+import subprocess
+import ipaddress
 import json
 import zipfile
 from urllib.parse import parse_qs
@@ -22,6 +27,105 @@ HOST = "127.0.0.1"
 PORT = 8888
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 EXPORT_LOCK = threading.Lock()
+LAN_NETWORKS = tuple(ipaddress.IPv4Network(network) for network in (
+    '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'))
+
+
+def lan_address(value):
+    try:
+        address = ipaddress.IPv4Address(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("Specify the server's private IPv4 address.") from None
+    if not any(address in network for network in LAN_NETWORKS):
+        raise argparse.ArgumentTypeError('LAN mode requires a private IPv4 address (10.x, 172.16-31.x, or 192.168.x).')
+    return str(address)
+
+
+def lan_target(value):
+    return 'auto' if value.lower() == 'auto' else lan_address(value)
+
+
+def private_addresses(values):
+    addresses = set()
+    for value in values:
+        try:
+            addresses.add(lan_address(value))
+        except (argparse.ArgumentTypeError, TypeError):
+            continue
+    return addresses
+
+
+def route_ipv4():
+    # UDP connect only asks the OS to select a route/source address. No data is
+    # sent and no Internet service is contacted. The target is a TEST-NET IP.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(('192.0.2.1', 9))
+            return probe.getsockname()[0]
+    except OSError:
+        return None
+
+
+def connected_ipv4_addresses():
+    """Return (all connected private addresses, physical adapter addresses)."""
+    if os.name == 'nt':
+        # Prefer real Ethernet/Wi-Fi interfaces over host-only virtual adapters.
+        # Keep virtual interfaces as a fallback for VM/isolated deployments.
+        script = (
+            "$ErrorActionPreference='Stop'; "
+            "$connected=@(Get-NetIPInterface -AddressFamily IPv4 | "
+            "Where-Object { $_.ConnectionState -eq 'Connected' } | "
+            "Select-Object -ExpandProperty InterfaceIndex); "
+            "$physical=@(); try { $physical=@(Get-NetAdapter -Physical | "
+            "Where-Object { $_.Status -eq 'Up' } | "
+            "Select-Object -ExpandProperty ifIndex) } catch { }; "
+            "Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred | "
+            "Where-Object { ($_.InterfaceIndex -in $connected) -and "
+            "(-not $_.SkipAsSource) } | ForEach-Object { "
+            "if ($_.InterfaceIndex -in $physical) { "
+            "Write-Output ('physical|' + $_.IPAddress) } else { "
+            "Write-Output ('other|' + $_.IPAddress) } }"
+        )
+        try:
+            result = subprocess.run(
+                ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', script],
+                capture_output=True, text=True, timeout=20, check=True,
+                errors='replace')
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError('Cannot enumerate Windows IPv4 adapters. Use --lan SERVER_IPV4 or --local.') from error
+        all_values, physical_values = [], []
+        for line in result.stdout.splitlines():
+            kind, _, address = line.strip().partition('|')
+            if kind in ('physical', 'other'):
+                all_values.append(address)
+                if kind == 'physical':
+                    physical_values.append(address)
+        return private_addresses(all_values), private_addresses(physical_values)
+    # Non-Windows development fallback; Windows is the supported NX host.
+    try:
+        return private_addresses(info[4][0] for info in
+                                 socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)), set()
+    except OSError:
+        return set(), set()
+
+
+def detect_lan_ipv4():
+    candidates, physical = connected_ipv4_addresses()
+    # Prefer a connected physical adapter even if a VPN or virtual adapter
+    # owns the default route. This also works on LANs without a gateway.
+    eligible = (physical & candidates) or candidates
+    if len(eligible) == 1:
+        return next(iter(eligible))
+    preferred = route_ipv4()
+    if preferred in eligible:
+        return preferred
+    if not candidates:
+        if os.name != 'nt' and preferred in private_addresses([preferred]):
+            return preferred
+        raise RuntimeError('No connected private IPv4 address found. Connect to the LAN or use --local.')
+    options = ', '.join(sorted(eligible, key=ipaddress.IPv4Address))
+    raise RuntimeError(f'Multiple eligible private IPv4 addresses found ({options}). '
+                       'Specify the intended adapter with --lan SERVER_IPV4.')
 
 
 class ViewerHandler(SimpleHTTPRequestHandler):
@@ -43,10 +147,17 @@ class ViewerHandler(SimpleHTTPRequestHandler):
     def send_error_json(self, code, message):
         self.send_json(code, {"ok": False, "error": message})
 
+    def is_lan_mode(self):
+        return self.server.server_address[0] != HOST
+
     def valid_mutation_origin(self):
-        origin = self.headers.get("Origin")
-        if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}",
-                                     f"http://localhost:{self.server.server_port}"):
+        origins = self.headers.get_all('Origin', [])
+        if len(origins) > 1:
+            return False
+        if origins and origins[0] != 'http://' + self.headers.get('Host', ''):
+            return False
+        # LAN browser writes must identify this exact origin. Preserve local API clients.
+        if self.is_lan_mode() and not origins:
             return False
         return self.headers.get('Sec-Fetch-Site', 'same-origin') in ('same-origin', 'none')
 
@@ -71,8 +182,20 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         return self.send_error_json(500, 'Workspace operation failed: ' + str(error))
 
     def valid_request_host(self):
-        host = self.headers.get("Host", "")
-        return host in (f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}")
+        hosts = self.headers.get_all('Host', [])
+        if len(hosts) != 1:
+            return False
+        port = self.server.server_port
+        address = self.server.server_address[0]
+        if not self.is_lan_mode():
+            return hosts[0] in (f'127.0.0.1:{port}', f'localhost:{port}')
+        # Never trust arbitrary hostnames or a wildcard bind for LAN access.
+        return any(ipaddress.IPv4Address(address) in network for network in LAN_NETWORKS) and hosts[0] == f'{address}:{port}'
+
+    def do_HEAD(self):
+        if not self.valid_request_host():
+            return self.send_error(403, 'Viewer host is not allowed.')
+        return super().do_HEAD()
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
@@ -85,7 +208,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if not self.valid_request_host():
-            return self.send_error_json(403, "Local viewer requests only.")
+            return self.send_error_json(403, "Viewer host or request origin is not allowed.")
         path = urlsplit(self.path).path
         if path == "/api/health":
             try:
@@ -205,12 +328,14 @@ class ViewerHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if not self.valid_request_host():
-            return self.send_error_json(403, "Local viewer requests only.")
+            return self.send_error_json(403, "Viewer host or request origin is not allowed.")
         if not self.valid_mutation_origin():
             return self.send_error_json(403, "Workspace requests must originate from this viewer.")
         parsed = urlsplit(self.path)
         path = parsed.path
         if path == '/api/open':
+            if self.is_lan_mode():
+                return self.send_error_json(403, 'Use Workspace to upload and open CAD files in LAN mode.')
             if not EXPORT_LOCK.acquire(blocking=False):
                 return self.send_error_json(409, 'Another NX file is being opened.')
             try:
@@ -271,7 +396,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
 
     def do_DELETE(self):
         if not self.valid_request_host() or not self.valid_mutation_origin():
-            return self.send_error_json(403, 'Local viewer requests only.')
+            return self.send_error_json(403, 'Viewer host or request origin is not allowed.')
         parsed = urlsplit(self.path)
         if parsed.path != '/api/workspace':
             return self.send_error_json(404, 'Unknown endpoint.')
@@ -290,22 +415,44 @@ class ViewerHandler(SimpleHTTPRequestHandler):
             return self.workspace_error(error)
 
 
-def main():
+def serve_viewer(bind_host):
     with tempfile.TemporaryDirectory(prefix="NX_3D_Viewer_") as temporary:
         ViewerHandler.export_directory = Path(temporary)
         ViewerHandler.assets = {}
         try:
-            with ThreadingHTTPServer((HOST, PORT), ViewerHandler) as server:
-                print("NX 3D Viewer: http://127.0.0.1:8888/")
+            with ThreadingHTTPServer((bind_host, PORT), ViewerHandler) as server:
+                # Finish active uploads/conversions before removing temporary assets.
+                server.daemon_threads = False
+                print(f"NX 3D Viewer: http://{bind_host}:{PORT}/", flush=True)
+                if bind_host != HOST:
+                    print('LAN mode: use Workspace to upload/open files. All reachable clients share it.', flush=True)
+                    print('No login or TLS: restrict TCP 8888 to trusted clients using the firewall.', flush=True)
                 try:
                     server.serve_forever(poll_interval=0.2)
                 except KeyboardInterrupt:
-                    print("\nStopping NX 3D Viewer")
+                    print("\nStopping NX 3D Viewer. Waiting for active requests to finish...", flush=True)
         except OSError as error:
-            raise RuntimeError("Port 8888 is already in use. Close the other viewer process.") from error
+            raise RuntimeError(f"Cannot listen on {bind_host}:{PORT}. Check the IP address and port: {error}") from error
         finally:
             ViewerHandler.export_directory = None
             ViewerHandler.assets = {}
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Start NX 3D Viewer (local by default).')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--lan', nargs='?', const='auto', type=lan_target, metavar='SERVER_IPV4',
+                      help='Automatically detect a private IPv4 address, or bind to the supplied address.')
+    mode.add_argument('--local', action='store_true', help='Bind only to localhost.')
+    args = parser.parse_args()
+    bind_host = args.lan or HOST
+    if bind_host == 'auto':
+        try:
+            bind_host = detect_lan_ipv4()
+        except RuntimeError as error:
+            parser.error(str(error))
+        print(f'Automatically selected LAN IPv4: {bind_host}', flush=True)
+    serve_viewer(bind_host)
 
 
 if __name__ == "__main__":
