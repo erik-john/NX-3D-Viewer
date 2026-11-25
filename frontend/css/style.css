@@ -260,12 +260,6 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 
 
 
-.open-nx-button { min-width: 154px; border-color: #087f78; background: #087e76; color: #ffffff; }
-
-.open-nx-button:hover { border-color: #036b64; background: #076b65; color: #fff; }
-
-.open-nx-button:disabled { opacity: 0.55; cursor: progress; }
-
 /* File-opening feedback */
 
 .empty-state, .loading-overlay {
@@ -801,6 +795,8 @@ button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px 
 .workspace-header-button { min-width: 156px; border-color: #a7c8c5; color: #176a64; background: #f4fbf9; }
 
 .workspace-header-button:hover { border-color: #4ca49b; background: #e5f6f1; }
+
+.workspace-header-button:disabled { opacity: 0.55; cursor: progress; }
 
 .file-workspace {
 

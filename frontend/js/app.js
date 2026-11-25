@@ -499,27 +499,22 @@ function setup() {
     return { meshes: pieces.flat(), perBody: true };
   }
 
-  async function openNXPart(workspacePath = null) {
-    const button = $('open-nx-button');
-    if (button.disabled) return;
+  async function openNXPart(workspacePath) {
+    const button = $('workspace-button');
+    if (!workspacePath || button.disabled) return;
     button.disabled = true;
     $('import-message').hidden = true;
     clearScene();
     $('empty-state').hidden = true;
-    showLoading('Opening CAD file', workspacePath ? `Preparing uploads/${workspacePath}` : 'Select a .prt or .jt file on this computer; NX will prepare the geometry.');
-    $('status-message').textContent = workspacePath ? `Opening uploads/${workspacePath}…` : 'Choose an NX part or JT file on this computer…';
+    showLoading('Opening CAD file', `Preparing uploads/${workspacePath}`);
+    $('status-message').textContent = `Opening uploads/${workspacePath}…`;
     try {
-      const result = await fetch(workspacePath ? '/api/workspace/open' : '/api/open', {
+      const result = await fetch('/api/workspace/open', {
         method: 'POST', cache: 'no-store',
-        ...(workspacePath ? {headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({path: workspacePath})} : {}),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({path: workspacePath}),
       });
       const info = await result.json();
-      if (info.cancelled) {
-        $('empty-state').hidden = false;
-        $('status-message').textContent = 'File selection cancelled · No model loaded';
-        return;
-      }
       if (!result.ok || !info.ok) throw new Error(info.error || 'NX could not open this file.');
       showLoading('Loading NX geometry', `Preparing the geometry for ${info.name}…`);
       $('status-message').textContent = `Loading geometry from ${info.name}…`;
@@ -615,12 +610,6 @@ function setup() {
   window.addEventListener('resize', closeHeaderMenus);
   document.querySelectorAll('#component-menu button, #viewer-menu button, #reset-transparency-all')
     .forEach(button => button.addEventListener('click', closeHeaderMenus));
-  // In LAN mode, file selection must happen in the browser, not on the server desktop.
-  const localViewer = ['127.0.0.1', 'localhost'].includes(window.location.hostname);
-  $('open-nx-button').addEventListener('click', () => {
-    if (localViewer) openNXPart();
-    else $('workspace-button').click();
-  });
   $('header-explode').addEventListener('click', () => {
     const exploded = explodeLevel > 0 || [...selectedOverrides.values()].some(value => value > 0);
     if (exploded) collapseAll();
