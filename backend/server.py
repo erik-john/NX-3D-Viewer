@@ -1,5 +1,7 @@
-"""Serve the local NX 3D Viewer on port 8888."""
+"""Serve NX 3D Viewer locally or on an explicitly selected LAN address."""
 
+import argparse
+import ipaddress
 import json
 import zipfile
 from urllib.parse import parse_qs
@@ -22,6 +24,18 @@ HOST = "127.0.0.1"
 PORT = 8888
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 EXPORT_LOCK = threading.Lock()
+LAN_NETWORKS = tuple(ipaddress.IPv4Network(network) for network in (
+    '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'))
+
+
+def lan_address(value):
+    try:
+        address = ipaddress.IPv4Address(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("Specify the server's private IPv4 address.") from None
+    if not any(address in network for network in LAN_NETWORKS):
+        raise argparse.ArgumentTypeError('LAN mode requires a private IPv4 address (10.x, 172.16-31.x, or 192.168.x).')
+    return str(address)
 
 
 class ViewerHandler(SimpleHTTPRequestHandler):
@@ -43,10 +57,17 @@ class ViewerHandler(SimpleHTTPRequestHandler):
     def send_error_json(self, code, message):
         self.send_json(code, {"ok": False, "error": message})
 
+    def is_lan_mode(self):
+        return self.server.server_address[0] != HOST
+
     def valid_mutation_origin(self):
-        origin = self.headers.get("Origin")
-        if origin and origin not in (f"http://127.0.0.1:{self.server.server_port}",
-                                     f"http://localhost:{self.server.server_port}"):
+        origins = self.headers.get_all('Origin', [])
+        if len(origins) > 1:
+            return False
+        if origins and origins[0] != 'http://' + self.headers.get('Host', ''):
+            return False
+        # LAN browser writes must identify this exact origin. Preserve local API clients.
+        if self.is_lan_mode() and not origins:
             return False
         return self.headers.get('Sec-Fetch-Site', 'same-origin') in ('same-origin', 'none')
 
@@ -71,8 +92,20 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         return self.send_error_json(500, 'Workspace operation failed: ' + str(error))
 
     def valid_request_host(self):
-        host = self.headers.get("Host", "")
-        return host in (f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}")
+        hosts = self.headers.get_all('Host', [])
+        if len(hosts) != 1:
+            return False
+        port = self.server.server_port
+        address = self.server.server_address[0]
+        if not self.is_lan_mode():
+            return hosts[0] in (f'127.0.0.1:{port}', f'localhost:{port}')
+        # Never trust arbitrary hostnames or a wildcard bind for LAN access.
+        return any(ipaddress.IPv4Address(address) in network for network in LAN_NETWORKS) and hosts[0] == f'{address}:{port}'
+
+    def do_HEAD(self):
+        if not self.valid_request_host():
+            return self.send_error(403, 'Viewer host is not allowed.')
+        return super().do_HEAD()
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
@@ -85,7 +118,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if not self.valid_request_host():
-            return self.send_error_json(403, "Local viewer requests only.")
+            return self.send_error_json(403, "Viewer host or request origin is not allowed.")
         path = urlsplit(self.path).path
         if path == "/api/health":
             try:
@@ -205,12 +238,14 @@ class ViewerHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if not self.valid_request_host():
-            return self.send_error_json(403, "Local viewer requests only.")
+            return self.send_error_json(403, "Viewer host or request origin is not allowed.")
         if not self.valid_mutation_origin():
             return self.send_error_json(403, "Workspace requests must originate from this viewer.")
         parsed = urlsplit(self.path)
         path = parsed.path
         if path == '/api/open':
+            if self.is_lan_mode():
+                return self.send_error_json(403, 'Use Workspace to upload and open CAD files in LAN mode.')
             if not EXPORT_LOCK.acquire(blocking=False):
                 return self.send_error_json(409, 'Another NX file is being opened.')
             try:
@@ -271,7 +306,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
 
     def do_DELETE(self):
         if not self.valid_request_host() or not self.valid_mutation_origin():
-            return self.send_error_json(403, 'Local viewer requests only.')
+            return self.send_error_json(403, 'Viewer host or request origin is not allowed.')
         parsed = urlsplit(self.path)
         if parsed.path != '/api/workspace':
             return self.send_error_json(404, 'Unknown endpoint.')
@@ -291,18 +326,26 @@ class ViewerHandler(SimpleHTTPRequestHandler):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Start NX 3D Viewer (local by default).')
+    parser.add_argument('--lan', type=lan_address, metavar='SERVER_IPV4',
+                        help='Bind to this private IPv4 address for trusted LAN clients.')
+    args = parser.parse_args()
+    bind_host = args.lan or HOST
     with tempfile.TemporaryDirectory(prefix="NX_3D_Viewer_") as temporary:
         ViewerHandler.export_directory = Path(temporary)
         ViewerHandler.assets = {}
         try:
-            with ThreadingHTTPServer((HOST, PORT), ViewerHandler) as server:
-                print("NX 3D Viewer: http://127.0.0.1:8888/")
+            with ThreadingHTTPServer((bind_host, PORT), ViewerHandler) as server:
+                print(f"NX 3D Viewer: http://{bind_host}:{PORT}/", flush=True)
+                if args.lan:
+                    print('LAN mode: use Workspace to upload/open files. All reachable clients share it.', flush=True)
+                    print('No login or TLS: restrict TCP 8888 to trusted clients using the firewall.', flush=True)
                 try:
                     server.serve_forever(poll_interval=0.2)
                 except KeyboardInterrupt:
                     print("\nStopping NX 3D Viewer")
         except OSError as error:
-            raise RuntimeError("Port 8888 is already in use. Close the other viewer process.") from error
+            raise RuntimeError(f"Cannot listen on {bind_host}:{PORT}. Check the IP address and port: {error}") from error
         finally:
             ViewerHandler.export_directory = None
             ViewerHandler.assets = {}

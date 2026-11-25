@@ -615,7 +615,12 @@ function setup() {
   window.addEventListener('resize', closeHeaderMenus);
   document.querySelectorAll('#component-menu button, #viewer-menu button, #reset-transparency-all')
     .forEach(button => button.addEventListener('click', closeHeaderMenus));
-  $('open-nx-button').addEventListener('click', () => openNXPart());
+  // In LAN mode, file selection must happen in the browser, not on the server desktop.
+  const localViewer = ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+  $('open-nx-button').addEventListener('click', () => {
+    if (localViewer) openNXPart();
+    else $('workspace-button').click();
+  });
   $('header-explode').addEventListener('click', () => {
     const exploded = explodeLevel > 0 || [...selectedOverrides.values()].some(value => value > 0);
     if (exploded) collapseAll();
