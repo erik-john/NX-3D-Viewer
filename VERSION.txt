@@ -13,6 +13,8 @@ Status: LAN access, client-side viewing without NX, single-launcher startup and 
 - NX conversion remains on the server and requires NX 2506; no NX installation required on browser clients.
 - Preserve the verified MS44 visualization and section export features. README updated at user request with verified server startup, firewall setup, local development, maintenance and Workspace usage. Future PLM permissions are not implemented.
 
+- Documentation: simplified README run commands and moved detailed server operation, deployment and troubleshooting to the existing User Manual; corrected outdated MS40 references. Documentation-only update; application code unchanged.
+
 Previous milestone:
 
 MS44 — Section View and Image Export
